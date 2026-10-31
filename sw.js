@@ -1,7 +1,6 @@
-const CACHE='kgs-v3';
+const CACHE='kgs-v4';
 const FILES=[
  "./",
- "README.md",
  "assets/audio/music_battle.m4a",
  "assets/audio/music_boss.m4a",
  "assets/audio/music_calm.m4a",
@@ -29,6 +28,8 @@ const FILES=[
  "assets/sprites/flutes.png",
  "assets/sprites/flutes_big.png",
  "assets/sprites/frogs.png",
+ "assets/sprites/map_collision.png",
+ "assets/sprites/map_spring.jpg",
  "assets/sprites/portrait.png",
  "assets/sprites/pose.png",
  "css/style.css",
@@ -54,4 +55,15 @@ const FILES=[
 ];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n!==CACHE).map(n=>caches.delete(n)))).then(()=>self.clients.claim()));});
-self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});
+// Network first so edits and updates show up right away; the cache is only the offline fallback.
+// Full (200) responses to plain URLs refresh the cached copy as we go.
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET') return;
+  const url=new URL(e.request.url);
+  e.respondWith(fetch(e.request).then(r=>{
+    if(r.status===200&&url.origin===location.origin&&!url.search){
+      const copy=r.clone(); caches.open(CACHE).then(c=>c.put(e.request,copy));
+    }
+    return r;
+  }).catch(()=>caches.match(e.request,{ignoreSearch:true})));
+});
