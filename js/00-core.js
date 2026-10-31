@@ -72,8 +72,9 @@ IMG_ANIM.onload=()=>{animReady=true;assetsReady++;};
 IMG_ANIM.onerror=()=>{loadErr.push('anim');};
 IMG_ANIM.src=ASSET_ANIM;
 const AM=ANIM_META;
-/* Every direction finishes a stride in the same wall time, whatever its frame
-   count — northeast carries ~2x the frames because it moves ~2x per frame. */
+/* Every walk row is 12 frames = four steps, starting on the left foot (walkT
+   resets on stop). 940ms puts a step every 235ms: ~25px steps at ~108px/s,
+   so the feet keep pace with the ground. Idle rows are 8 frames. */
 const WALK_CYCLE=940, IDLE_CYCLE=1600;
 /* game dir 0 N,1 NE,2 E,3 SE,4 S,5 SW,6 W,7 NW  ->  sheet + horizontal flip.
    SW, W and NW are mirrors of SE, E and NE. */

@@ -29,7 +29,7 @@ const ASSET_MUS={
  "battle": "assets/audio/music_battle.m4a",
  "boss": "assets/audio/music_boss.m4a"
 };
-const ANIM_META={"cw": 85, "ch": 176, "dirs": ["up", "northeast", "east", "southeast", "down"], "rows": [{"dir": "up", "anim": "idle", "n": 8}, {"dir": "up", "anim": "walk", "n": 12}, {"dir": "northeast", "anim": "idle", "n": 18}, {"dir": "northeast", "anim": "walk", "n": 22}, {"dir": "east", "anim": "idle", "n": 8}, {"dir": "east", "anim": "walk", "n": 18}, {"dir": "southeast", "anim": "idle", "n": 8}, {"dir": "southeast", "anim": "walk", "n": 15}, {"dir": "down", "anim": "idle", "n": 8}, {"dir": "down", "anim": "walk", "n": 12}]};
+const ANIM_META={"cw": 85, "ch": 176, "dirs": ["up", "northeast", "east", "southeast", "down"], "rows": [{"dir": "up", "anim": "idle", "n": 8}, {"dir": "up", "anim": "walk", "n": 12}, {"dir": "northeast", "anim": "idle", "n": 8}, {"dir": "northeast", "anim": "walk", "n": 12}, {"dir": "east", "anim": "idle", "n": 8}, {"dir": "east", "anim": "walk", "n": 12}, {"dir": "southeast", "anim": "idle", "n": 8}, {"dir": "southeast", "anim": "walk", "n": 12}, {"dir": "down", "anim": "idle", "n": 8}, {"dir": "down", "anim": "walk", "n": 12}]};
 const BATL_META={"cw": 190, "ch": 196, "rows": [{"name": "kick", "n": 14}, {"name": "kick2", "n": 14}, {"name": "flute", "n": 14}, {"name": "victory", "n": 14}]};
 const POSE_META={"cw": 130, "ch": 196};
 const FLUTE_META={"cw": 62, "ch": 25, "order": ["recorder", "silver", "dizi"]};
