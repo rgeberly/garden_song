@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1a2a1e">
+<title>Kaitlyn's Garden Song</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<script src="js/assets.js"></script>
+<script src="js/data/phrases.js"></script>
+<script src="js/data/stem.js"></script>
+<script src="js/00-core.js"></script>
+<script src="js/01-content.js"></script>
+<script src="js/02-world.js"></script>
+<script src="js/03-audio.js"></script>
+<script src="js/04-state.js"></script>
+<script src="js/05-input.js"></script>
+<script src="js/06-overworld.js"></script>
+<script src="js/07-hud.js"></script>
+<script src="js/08-menu-seed.js"></script>
+<script src="js/09-menu-shop.js"></script>
+<script src="js/10-menu-pause.js"></script>
+<script src="js/11-rhythm.js"></script>
+<script src="js/12-battle.js"></script>
+<script src="js/13-main.js"></script>
+<script>
+if('serviceWorker' in navigator)
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
