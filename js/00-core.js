@@ -72,10 +72,10 @@ IMG_ANIM.onload=()=>{animReady=true;assetsReady++;};
 IMG_ANIM.onerror=()=>{loadErr.push('anim');};
 IMG_ANIM.src=ASSET_ANIM;
 const AM=ANIM_META;
-/* Every walk row is 12 frames = four steps, starting on the left foot (walkT
-   resets on stop). 940ms puts a step every 235ms: ~25px steps at ~108px/s,
-   so the feet keep pace with the ground. Idle rows are 8 frames. */
-const WALK_CYCLE=940, IDLE_CYCLE=1600;
+/* Every walk row is 24 frames = four steps of 6 frames, starting on the left
+   foot (walkT resets on stop). 1400ms puts a relaxed step every 350ms: ~25px
+   steps at WALK_SPEED, so the feet keep pace with the ground. Idle rows are 8 frames. */
+const WALK_CYCLE=1400, IDLE_CYCLE=1600, WALK_SPEED=0.072;   // px per ms
 /* game dir 0 N,1 NE,2 E,3 SE,4 S,5 SW,6 W,7 NW  ->  sheet + horizontal flip.
    SW, W and NW are mirrors of SE, E and NE. */
 const DIRMAP=[['up',0],['northeast',0],['east',0],['southeast',0],

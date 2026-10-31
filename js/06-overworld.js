@@ -76,12 +76,14 @@ function updateWorld(dt){
   const mm=Math.hypot(dx,dy);
   if(mm>0.15){
     dx/=mm; dy/=mm;
-    const sp=0.108*(G.gear.boots?1.35:1)*(G.coffeeT>0?1.5:1)*(G.swim?0.62:1)*dt;
+    const mul=(G.gear.boots?1.35:1)*(G.coffeeT>0?1.5:1)*(G.swim?0.62:1);
+    const sp=WALK_SPEED*mul*dt;
     const nx=P.x+dx*sp, ny=P.y+dy*sp;
     if(!solidAt(nx,P.y+9)) P.x=nx;
     if(!solidAt(P.x,ny+9)) P.y=ny;
     P.dir=dirFromVec(dx,dy);
-    P.walkT+=dt; P.moving=true; P.animT=P.walkT;
+    // steps quicken with boots/coffee (and slow in water) so her feet don't slide
+    P.walkT+=dt*mul; P.moving=true; P.animT=P.walkT;
   } else {
     P.moving=false; P.walkT=0;
     P.idleT=(P.idleT||0)+dt; P.animT=P.idleT;
