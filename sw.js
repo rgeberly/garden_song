@@ -1,4 +1,4 @@
-const CACHE='kgs-v5';
+const CACHE='kgs-v6';
 const FILES=[
  "./",
  "assets/audio/music_battle.m4a",
@@ -13,11 +13,6 @@ const FILES=[
  "assets/audio/sfx_idle_up.mp3",
  "assets/audio/sfx_kick.mp3",
  "assets/audio/sfx_victory.mp3",
- "assets/audio/sfx_walk_down.mp3",
- "assets/audio/sfx_walk_east.mp3",
- "assets/audio/sfx_walk_northeast.mp3",
- "assets/audio/sfx_walk_southeast.mp3",
- "assets/audio/sfx_walk_up.mp3",
  "assets/audio/stem_backing.mp3",
  "assets/audio/stem_flute.mp3",
  "assets/icons/icon-192.png",

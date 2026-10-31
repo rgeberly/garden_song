@@ -89,8 +89,9 @@ function updateWorld(dt){
     P.idleT=(P.idleT||0)+dt; P.animT=P.idleT;
   }
   if(sfxOn){
+    // idle has its breathing loop; walking is silent (no footstep loop)
     const want=P.moving?'walk':'idle';
-    if(want!==sfxAnim){ sfxAnim=want; setSfx(want+'_'+DIRMAP[P.dir&7][0]); }
+    if(want!==sfxAnim){ sfxAnim=want; setSfx(P.moving?null:'idle_'+DIRMAP[P.dir&7][0]); }
   }
   P.x=clamp(P.x,21,WORLD_W-21); P.y=clamp(P.y,24,WORLD_H-30);
   const wasSwim=G.swim;

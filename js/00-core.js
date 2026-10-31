@@ -153,7 +153,8 @@ function drawKaitlyn(c,cx,footY,dir,frameT,swim,moving){
   const n=ROWN[row]||1;
   const per=(moving?WALK_CYCLE:IDLE_CYCLE)/n;
   const i=Math.floor(frameT/per)%n;
-  drawDev(c,IMG_ANIM,i*AM.cw,row*AM.ch,AM.cw,AM.ch,cx,footY,1,3,flip);
+  // cell row AM.foot is her ground point; the rows below leave room for the back boot
+  drawDev(c,IMG_ANIM,i*AM.cw,row*AM.ch,AM.cw,AM.ch,cx,footY,1,AM.ch-AM.foot,flip);
 }
 /* pose 0 = battle stance, pose 1 = defeated */
 function drawPose(c,i,cx,footY){

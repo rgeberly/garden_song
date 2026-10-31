@@ -10,15 +10,10 @@ const ASSET_FROG="assets/sprites/frogs.png";
 const ASSET_FLBIG="assets/sprites/flutes_big.png";
 const ASSET_SFX={
  "idle_up": "assets/audio/sfx_idle_up.mp3",
- "walk_up": "assets/audio/sfx_walk_up.mp3",
  "idle_northeast": "assets/audio/sfx_idle_northeast.mp3",
- "walk_northeast": "assets/audio/sfx_walk_northeast.mp3",
  "idle_east": "assets/audio/sfx_idle_east.mp3",
- "walk_east": "assets/audio/sfx_walk_east.mp3",
  "idle_southeast": "assets/audio/sfx_idle_southeast.mp3",
- "walk_southeast": "assets/audio/sfx_walk_southeast.mp3",
  "idle_down": "assets/audio/sfx_idle_down.mp3",
- "walk_down": "assets/audio/sfx_walk_down.mp3",
  "kick": "assets/audio/sfx_kick.mp3",
  "flute": "assets/audio/sfx_flute.mp3",
  "victory": "assets/audio/sfx_victory.mp3"
@@ -29,7 +24,7 @@ const ASSET_MUS={
  "battle": "assets/audio/music_battle.m4a",
  "boss": "assets/audio/music_boss.m4a"
 };
-const ANIM_META={"cw": 85, "ch": 176, "dirs": ["up", "northeast", "east", "southeast", "down"], "rows": [{"dir": "up", "anim": "idle", "n": 8}, {"dir": "up", "anim": "walk", "n": 24}, {"dir": "northeast", "anim": "idle", "n": 8}, {"dir": "northeast", "anim": "walk", "n": 24}, {"dir": "east", "anim": "idle", "n": 8}, {"dir": "east", "anim": "walk", "n": 24}, {"dir": "southeast", "anim": "idle", "n": 8}, {"dir": "southeast", "anim": "walk", "n": 24}, {"dir": "down", "anim": "idle", "n": 8}, {"dir": "down", "anim": "walk", "n": 24}]};
+const ANIM_META={"cw": 85, "ch": 192, "foot": 173, "dirs": ["up", "northeast", "east", "southeast", "down"], "rows": [{"dir": "up", "anim": "idle", "n": 8}, {"dir": "up", "anim": "walk", "n": 24}, {"dir": "northeast", "anim": "idle", "n": 8}, {"dir": "northeast", "anim": "walk", "n": 24}, {"dir": "east", "anim": "idle", "n": 8}, {"dir": "east", "anim": "walk", "n": 24}, {"dir": "southeast", "anim": "idle", "n": 8}, {"dir": "southeast", "anim": "walk", "n": 24}, {"dir": "down", "anim": "idle", "n": 8}, {"dir": "down", "anim": "walk", "n": 24}]};
 const BATL_META={"cw": 190, "ch": 196, "rows": [{"name": "kick", "n": 14}, {"name": "kick2", "n": 14}, {"name": "flute", "n": 14}, {"name": "victory", "n": 14}]};
 const POSE_META={"cw": 130, "ch": 196};
 const FLUTE_META={"cw": 62, "ch": 25, "order": ["recorder", "silver", "dizi"]};
