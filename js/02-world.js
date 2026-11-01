@@ -38,18 +38,26 @@ RAISED_Y.forEach((gy,ri)=>RAISED_X.forEach(gx=>{
   x:F(c[0]),y:F(c[1]),tree:true,raised:false,bed:2+i,
   sp:null,stage:0,growth:0,health:100,lock:null}));
 
-/* growth needed per stage: crops take a few days of songs to fill their bar */
-const STAGE_COST=330, MAX_GROWTH=STAGE_COST*3;
+/* Growth a plant needs to fill its bar (SPECIES grow, less in its best season); the
+   bar's thirds are its stages. */
+const BEST_SEASON=0.7, SONG_GROWTH=130;      /* about what a good song gives, for estimates */
+const growNeed=(sp,s)=>Math.round(SPECIES[sp].grow*(SPECIES[sp].best===(s||season())?BEST_SEASON:1));
+const plantNeed=p=>growNeed(p.sp);
 /* Set a plant's growth and work out its stage. A full bar ripens (stage 3, ready to
-   harvest) only from the day after it filled; until then it stays at stage 2. */
+   harvest) only from the day after it filled; until then it stays at stage 2. A full
+   plant stays full when the season (and so what it needs) changes. */
 function setGrowth(p,g){
-  p.growth=clamp(g,0,MAX_GROWTH);
-  if(p.growth>=MAX_GROWTH){ if(!p.fullDay) p.fullDay=G.day; } else p.fullDay=0;
-  p.stage=p.growth>=MAX_GROWTH&&G.day>p.fullDay?3:Math.min(2,Math.floor(p.growth/STAGE_COST));
+  const need=plantNeed(p), full=g>=need||(p.fullDay&&g>=p.growth);
+  p.growth=full?need:clamp(g,0,need);
+  if(full){ if(!p.fullDay) p.fullDay=G.day; } else p.fullDay=0;
+  p.stage=full&&G.day>p.fullDay?3:Math.min(2,Math.floor(p.growth/(need/3)));
 }
 /* a new morning: bars that filled yesterday are ripe now */
 function ripenPlants(){ plots.forEach(p=>{ if(p.sp) setGrowth(p,p.growth); }); }
 const active=p=>!p.lock||G.yard[p.lock];
+/* which part of the garden a plot is in: the ground plots, the raised beds, or the trees
+   (the Harvest Basket and Seed Apron work across one part at a time) */
+const plotArea=p=>p.tree?'trees':p.raised?'raised':'ground';
 
 /* ambient wildlife */
 const WILD=[];
@@ -92,6 +100,15 @@ function drawWild(c,w,cam){
 function plantHeight(p){
   const a=CROP_ART[p.stage===0?'sprout':CROP_STAGE[p.stage]+' '+SPECIES[p.sp].name.toLowerCase()];
   return a?a.ay*CROP_STAGE_SCALE[p.stage]/SC:14;
+}
+/* a soft golden glow that breathes behind a plant that has had its song today */
+function drawSungGlow(c,p,x,y){
+  const h=Math.max(14,plantHeight(p)), cy=y-h*0.45, r=h*0.62+8, a=0.32+Math.sin(G.t/520+p.x)*0.1;
+  const g=c.createRadialGradient(x,cy,1,x,cy,r);
+  g.addColorStop(0,'rgba(255,236,150,'+a+')'); g.addColorStop(0.6,'rgba(255,214,110,'+a*0.45+')');
+  g.addColorStop(1,'rgba(255,214,110,0)');
+  c.save(); c.globalCompositeOperation='lighter'; c.fillStyle=g;
+  c.beginPath(); c.ellipse(x,cy,r*0.85,r,0,0,7); c.fill(); c.restore();
 }
 function drawSungNote(c,p,x,y){
   const F=typeof FX_ART!=='undefined'&&FX_ART['music note'];

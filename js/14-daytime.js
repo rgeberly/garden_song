@@ -7,6 +7,7 @@
 const WAKE_AT=6*60, EARLY_BED=22*60, MIDNIGHT=24*60;
 const MS_PER_MINUTE=500, DAYS_PER_SEASON=10, SEASONS=['spring','summer','fall','winter'];
 const SEASON_NAME={spring:'Spring',summer:'Summer',fall:'Fall',winter:'Winter'};
+const isNight=()=>G.clock>=19.5*60;
 const seasonOf=day=>SEASONS[Math.floor((day-1)/DAYS_PER_SEASON)%SEASONS.length];
 const season=()=>seasonOf(G.day);
 
@@ -27,7 +28,11 @@ function currentMap(){
 /* ---------- the clock ---------- */
 function tickClock(dt){
   if(G.indoors) return;
-  G.clock+=dt/MS_PER_MINUTE;
+  passTime(dt/MS_PER_MINUTE);
+}
+/* move the clock on (game minutes); at midnight she falls asleep */
+function passTime(min){
+  G.clock+=min;
   if(G.clock>=MIDNIGHT){ G.clock=MIDNIGHT; goToSleep(true); }
 }
 function clockText(){
@@ -191,11 +196,20 @@ function doorstep(){
 function wakeUp(){
   const before=season();
   G.day++; G.clock=WAKE_AT; ripenPlants();
-  G.indoors=true; G.player.x=HOUSE.wake.x; G.player.y=HOUSE.wake.y; G.player.dir=4;   /* up beside the bed */
+  /* a night's sleep: everyone rested, and the pests have wandered off */
+  G.party.forEach(id=>{ const M=member(id); M.hp=M.maxhp; M.mp=memberMaxMp(id); });
+  G.pests=[];
+  /* friends hurt in battle are back on their feet after HURT_DAYS, and rejoin if there's room */
+  const back=[];
+  for(const id in G.allies){ const A=G.allies[id];
+    if(A.hurtUntil&&A.hurtUntil<=G.day){ A.hurtUntil=0; A.hp=A.maxhp; A.mp=memberMaxMp(id);
+      if(G.party.length<PARTY_MAX&&!G.party.includes(id)) G.party.push(id); back.push(PARTY_INFO[id].name); } }
+  G.area='garden'; G.indoors=true; G.player.x=HOUSE.wake.x; G.player.y=HOUSE.wake.y; G.player.dir=4;   /* up beside the bed */
   G.player.moving=false; G.player.walkT=0; G.swim=false;
   preloadSeasonMaps();
   sleep.say=season()!==before?SEASON_NAME[season()]+" is here!":"Good morning! Day "+G.day+".";
   if(sleep.early){ G.coffeeT=120000; sleep.say+="  Early to bed: free coffee!"; }
+  if(back.length) sleep.say+="  "+back.join(" and ")+" is feeling better!";
 }
 const SLEEP_FADE=900, SLEEP_NIGHT=1700, YAWN_WAIT=4200;
 function updateSleep(dt){

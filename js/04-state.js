@@ -3,7 +3,7 @@
    ================================================================ */
 const G={
   scene:'title',
-  player:{x:338,y:396,dir:4,animT:0,walkT:0,idleT:0,moving:false,hp:30,maxhp:30,mp:12,lv:1,xp:0,next:40},
+  player:{x:338,y:396,dir:4,animT:0,walkT:0,idleT:0,moving:false,hp:30,maxhp:30,mp:12,lv:1,xp:0,next:60},
   coins:60, gardenLv:1, gardenXp:0, gardenNext:60, harvests:0,
   seeds:{strawberry:3,tomato:2,sunflower:2},
   unlocked:['strawberry','tomato','sunflower'],
@@ -16,8 +16,9 @@ const G={
   clock:6*60, day:1, indoors:false,      /* game minutes since midnight; see 14-daytime.js */
   party:['kaitlyn'], allies:{},          /* who fights (up to 3); allies' own stats */
   story:{},                              /* how far each story has got; see 16-story.js */
+  daily:{},                              /* once-a-day things: the day each was last done */
+  area:'garden', goods:{},              /* where she is (17-places.js); things gathered and caught */
 };
-const maxMp=()=>14+G.player.lv*2+(G.gear.cloth?8:0);
 const fluteMul=()=>G.gear.dizi?1.35:(G.gear.silver?1.15:1);
 const moveList=()=>MOVES.filter(mv=>mv.lv<=G.player.lv);
 const fieldList=()=>FIELD.filter(f=>f.lv<=G.player.lv);
@@ -30,41 +31,73 @@ function harmony(){
 }
 function say(t){ G.msg=t; G.msgT=2900; }
 /* ---------- party ----------
-   Kaitlyn's stats are G.player; anyone who joins her keeps theirs in G.allies.
-   skills: what the second battle command is called for them; attack: their free hit. */
-const PARTY_MAX=3;
+   Kaitlyn's stats live in G.player; friends who join keep theirs in G.allies (all of
+   them, out or not), and G.party is who is out with her: Kaitlyn first, up to
+   PARTY_MAX. Stats come from the level: base at Lv.1 plus grow for each level after.
+   Strength powers plain attacks, Agility decides turn order, Defense softens hits,
+   Intelligence powers songs and skills, Luck brings seeds and bonus coins.
+   skills: what the second battle command is called for them; attack/pow: their free hit. */
+const PARTY_MAX=3, HURT_DAYS=2;
+const STATS=['hp','mp','str','agi','def','int','luk'];
+const STAT_NAME={hp:"HP",mp:"MP",str:"Strength",agi:"Agility",def:"Defense",int:"Intelligence",luk:"Luck"};
 const PARTY_INFO={
-  kaitlyn:{name:"Kaitlyn", skills:"Songs",  attack:"Quick Kick", role:"Gardener · plays the golden flute"},
-  bling:  {name:"Bling",   skills:"Skills", attack:"Bite", role:"Ring-necked snake · a quick biter", hp:24, mp:8, pow:0.6},
+  kaitlyn:{name:"Kaitlyn", skills:"Songs",  attack:"Quick Kick", pow:0.55, role:"Gardener · plays the golden flute",
+           base:{hp:30,mp:16,str:6,agi:6,def:4,int:7,luk:5}, grow:{hp:6,mp:2,str:2,agi:1.4,def:1.3,int:2,luk:1}},
+  bling:  {name:"Bling",   skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite",
+           base:{hp:24,mp:8,str:3,agi:9,def:3,int:5,luk:7}, grow:{hp:4,mp:1.5,str:1,agi:2,def:1,int:1.5,luk:1.5}},
 };
 const member=id=>id==='kaitlyn'?G.player:G.allies[id];
-const memberMaxMp=id=>id==='kaitlyn'?maxMp():G.allies[id].maxmp;
+function statOf(id,k,lv){ const I=PARTY_INFO[id]; lv=lv||member(id).lv;
+  return Math.floor(I.base[k]+I.grow[k]*(lv-1)+1e-9); }
+const maxMp=()=>statOf('kaitlyn','mp')+(G.gear.cloth?8:0);
+const memberMaxMp=id=>id==='kaitlyn'?maxMp():statOf(id,'mp');
+/* hurt in battle: home recovering, can't go out until HURT_DAYS later */
+const isHurt=id=>id!=='kaitlyn'&&!!G.allies[id]&&G.allies[id].hurtUntil>G.day;
 function joinParty(id){
-  if(G.party.includes(id)||G.party.length>=PARTY_MAX) return;
   const I=PARTY_INFO[id];
-  if(!G.allies[id]) G.allies[id]={lv:1,hp:I.hp,maxhp:I.hp,mp:I.mp,maxmp:I.mp};
-  G.party.push(id);
+  if(!G.allies[id]) G.allies[id]={lv:1,xp:0,next:xpNeed(1),hp:I.base.hp,maxhp:I.base.hp,mp:I.base.mp,hurtUntil:0};
+  if(!G.party.includes(id)&&G.party.length<PARTY_MAX) G.party.push(id);
 }
-function addXp(n){
-  G.player.xp+=n;
-  while(G.player.xp>=G.player.next){
-    G.player.xp-=G.player.next; G.player.lv++;
-    G.player.next=Math.floor(G.player.next*1.45);
-    G.player.maxhp+=6; G.player.hp=G.player.maxhp; G.player.mp=maxMp();
-    const newMove=MOVES.find(mv=>mv.lv===G.player.lv);
-    const newField=FIELD.find(f=>f.lv===G.player.lv);
-    if(newMove) say("Lv."+G.player.lv+"!  Learned "+newMove.name+"!");
-    else if(newField) say("Lv."+G.player.lv+"!  Learned "+newField.name+" (field song)!");
-    else say("Kaitlyn reached Lv."+G.player.lv+"!");
+/* send a friend out with Kaitlyn, or back home (returns false if they can't go) */
+function toggleParty(id){
+  if(id==='kaitlyn') return false;
+  if(G.party.includes(id)){ G.party=G.party.filter(x=>x!==id); return true; }
+  if(isHurt(id)||G.party.length>=PARTY_MAX) return false;
+  G.party.push(id); return true;
+}
+/* EXP needed to go from level lv to the next */
+const xpNeed=lv=>Math.round(60*Math.pow(1.45,lv-1));
+/* what a member learns on reaching a level (names) */
+function learnedAt(id,lv){
+  return skillBook(id).filter(s=>s.lv===lv).map(s=>s.name);
+}
+/* every skill a member has or will have, in order: {name,lv,mp,desc,field?} */
+function skillBook(id){
+  if(id==='kaitlyn') return MOVES.filter(mv=>mv.id!=='kick').map(mv=>({...mv,desc:moveDesc(mv)}))
+    .concat(FIELD.map(f=>({...f,field:true,desc:"Field song: "+f.desc})))
+    .sort((a,z)=>a.lv-z.lv);
+  return (ALLY_SKILLS[id]||[]);
+}
+/* Level-ups wait on G.lvUps for the level-up screen (shown when back in the garden). */
+const LV_UPS=[];
+function addXpTo(id,n){
+  const M=member(id);
+  M.xp+=n;
+  while(M.xp>=M.next){
+    M.xp-=M.next; const from=M.lv; M.lv++; M.next=xpNeed(M.lv);
+    const gains={}; STATS.forEach(k=>{ const d=statOf(id,k,M.lv)-statOf(id,k,from); if(d) gains[k]=d; });
+    M.maxhp=statOf(id,'hp');           /* HP and MP are not refilled: that's for sleep, frogs and the pool */
+    LV_UPS.push({id,from,lv:M.lv,gains,learned:learnedAt(id,M.lv)});
     if(AC){flute(14,AC.currentTime,.3,.7);flute(18,AC.currentTime+.12,.4,.7);flute(21,AC.currentTime+.24,.6,.7);}
   }
 }
+const addXp=n=>addXpTo('kaitlyn',n);
 function addGardenXp(n){
   G.gardenXp+=n;
   while(G.gardenXp>=G.gardenNext){
     G.gardenXp-=G.gardenNext; G.gardenLv++;
     G.gardenNext=Math.floor(G.gardenNext*1.5);
-    const nx=SPECIES_ORDER.find(s=>!G.unlocked.includes(s));
+    const nx=UNLOCK_ORDER.find(s=>!G.unlocked.includes(s));
     if(nx){ G.unlocked.push(nx); G.seeds[nx]=(G.seeds[nx]||0)+1;
       say("Garden Lv."+G.gardenLv+"! "+SPECIES[nx].name+" now in the shop."); }
     else say("Garden reached Lv."+G.gardenLv+"!");
@@ -75,23 +108,28 @@ function saveObj(){
   return {v:7,p:[G.player.lv,G.player.xp,G.player.next,G.player.hp,G.player.maxhp,G.player.mp,
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
-    s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0],
-    pa:G.party,al:G.allies,st:G.story,
-    pl:plots.map(p=>[p.dead?-2:p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
+    s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
+    pa:G.party,al:G.allies,st:G.story,dl:G.daily,
+    /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
+    pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
 }
 function exportCode(){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(saveObj())))); }catch(e){ return ''; } }
 function applySave(o){
   if(!o||o.v!==7) return false;
   const P=G.player;
-  [P.lv,P.xp,P.next,P.hp,P.maxhp,P.mp,P.x,P.y]=o.p;
+  [P.lv,P.xp,P.next,P.hp,P.maxhp,P.mp,P.x,P.y]=o.p; P.next=xpNeed(P.lv);
   G.coins=o.c; [G.gardenLv,G.gardenXp,G.gardenNext,G.harvests]=o.g;
-  G.seeds=o.s||{}; G.unlocked=o.u||['strawberry']; G.gear=o.ge||{}; G.yard=o.y||{}; G.crops=o.cr||{};
+  G.seeds=o.s||{}; G.unlocked=[...new Set([...(o.u||[]),...unlockedFor(o.g?o.g[0]:1)])]; G.gear=o.ge||{}; G.yard=o.y||{}; G.crops=o.cr||{};
   G.flute=o.fl||'recorder';
   G.allies=o.al||{}; G.party=(o.pa||['kaitlyn']).filter(id=>id==='kaitlyn'||G.allies[id]);
-  G.story=o.st||{};
-  if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; preloadSeasonMaps(); }
+  for(const id in G.allies){ const A=G.allies[id];          /* older saves had no EXP for friends */
+    if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; A.maxhp=statOf(id,'hp'); }
+  P.maxhp=statOf('kaitlyn','hp');
+  G.story=o.st||{}; G.daily=o.dl||{};
+  if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
+  G.goods=o.gd||{};
   (o.pl||[]).forEach((v,i)=>{ const p=plots[i]; if(!p)return;
-    p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; p.sungDay=v[4]||0; p.fullDay=v[5]||0; });
+    p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2||v[0]<=-10; p.deadSp=v[0]<=-10?SPECIES_ORDER[-10-v[0]]:null; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; p.sungDay=v[4]||0; p.fullDay=v[5]||0; });
   buildWorld(); return true;
 }
 function importCode(s){ try{ return applySave(JSON.parse(decodeURIComponent(escape(atob(s.trim()))))); }catch(e){ return false; } }

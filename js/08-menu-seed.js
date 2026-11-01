@@ -21,7 +21,7 @@ function menuChoose(i){
     Object.assign(p,{sp,stage:0,growth:0,health:100,sungDay:0,fullDay:0}); n++; return true; };
   plant(menu.plot);
   if(G.gear.apron){
-    plots.forEach(p=>{ if(p!==menu.plot&&active(p)&&!p.sp&&p.bed===menu.plot.bed&&plotAccepts(p,sp)) plant(p); });
+    plots.forEach(p=>{ if(p!==menu.plot&&active(p)&&!p.sp&&!p.dead&&plotArea(p)===plotArea(menu.plot)&&plotAccepts(p,sp)) plant(p); });
   }
   G.scene='world';
   say((n>1?("Planted "+n+" "+SPECIES[sp].name+"s. "):("Planted "+SPECIES[sp].name+". "))
@@ -51,7 +51,7 @@ function drawMenu(){
   blit();
   T(menu.plot.tree?"Plant a sapling":(menu.plot.raised?"Raised bed  ·  +30% growth":"Plant a seed"),
     180,117,30,'#3a2a1a','center',true);
-  T(G.gear.apron?"Seed Apron fills the whole bed":"value shown per harvest",180,133,20,'#7a6a4a','center');
+  T(G.gear.apron?"Seed Apron fills this part of the garden":"value shown per harvest",180,133,20,'#7a6a4a','center');
   menu.items.forEach((s,i)=>{ const S=SPECIES[s], y=SEED_TOP+i*SEED_ROW, x=39+ROW_PAD+18;
     T(S.name,x,y+16,26,'#3a2a1a',null,i===menu.idx);
     T(S.notes+"-note song",x,y+29,18,'#6a5a3a');

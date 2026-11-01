@@ -67,15 +67,20 @@ function onTouch(x,y,id,hy){
   if(G.scene==='sleep'){ sleepTap(); return; }
   if(G.scene==='ask'){ askTouch(x,y); return; }
   if(G.scene==='story'){ storyTap(); return; }
+  if(G.scene==='levelup'){ levelUpTap(); return; }
+  if(G.scene==='tshop'){ tshopTouch(x,y); return; }
+  if(G.scene==='fishing'){ fishTouch(x,y,id); return; }
   if(G.scene==='world'&&x>SYS.x&&x<SYS.x+SYS.w&&hy>SYS.y&&hy<SYS.y+SYS.h) openSys();
 }
 function onTouchMove(x,y,id,hy){
   if(padId===id) setPad(x,hy);
   if(G.scene==='rhythm') rhythmMove(x,y,id);
+  if(G.scene==='fishing') fishMove(x,y,id);
 }
 function onTouchEnd(id){
   if(padId===id){ padId=null; padVec={x:0,y:0}; }
   btnHeld=false; btnBHeld=false;
+  if(G.scene==='fishing') fishUp(id);
   if(G.scene==='rhythm') rhythmRelease(id);
 }
 function setPad(x,y){ const dx=x-PAD.cx,dy=y-PAD.cy,mm=Math.hypot(dx,dy)||1;
@@ -92,4 +97,7 @@ function onPress(k){
   else if(G.scene==='sleep'&&(isOk(k)||k==='e')) sleepTap();
   else if(G.scene==='ask') askKey(k);
   else if(G.scene==='story'&&(isOk(k)||k==='e')) storyTap();
+  else if(G.scene==='levelup'&&isOk(k)) levelUpTap();
+  else if(G.scene==='tshop') tshopKey(k);
+  else if(G.scene==='fishing') fishKey(k);
 }

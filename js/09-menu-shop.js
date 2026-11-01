@@ -10,13 +10,14 @@ let shop={tab:0,idx:0,page:0,confirm:null};
 /* opens on Sell when she is carrying a harvest */
 function openShop(){
   shopArtImg();
-  shop={tab:cropList().length?3:0,idx:0,page:0,confirm:null}; G.scene='shop';
+  shop={tab:cropList().length||goodsList().length?3:0,idx:0,page:0,confirm:null}; G.scene='shop';
 }
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
-  if(shop.tab===0) return G.unlocked.map(s=>{ const S=SPECIES[s];
+  if(shop.tab===0) return UNLOCK_ORDER.filter(s=>G.unlocked.includes(s)).map(s=>{ const S=SPECIES[s];
     return {type:'seed',id:s,name:S.name+" seed",cost:S.cost,
-      desc:"Grows with a "+S.notes+"-note song. Its crop sells for "+sellPrice(s)+"c.",
+      desc:"Needs "+S.grow+" growth (about "+Math.ceil(S.grow/SONG_GROWTH)+" songs), "+growNeed(s,S.best)+
+        " in "+SEASON_NAME[S.best]+". "+S.notes+"-note songs. Sells for "+sellPrice(s)+"c.",
       note:"you have x"+(G.seeds[s]||0)}; });
   if(shop.tab===1) return [{type:'coffee',id:'coffee',name:"Coffee",cost:30,
       desc:"Walk 50% faster for 2 minutes."}]
@@ -26,13 +27,16 @@ function shopItems(){
   const l=cropList().map(sp=>{ const S=SPECIES[sp], n=G.crops[sp];
     return {type:'crop',id:sp,sell:true,name:S.name,cost:sellPrice(sp),art:{crop:sp},
       desc:"Sells for "+sellPrice(sp)+"c each. Or eat it: "+eatText(sp)+".",
-      note:"you have x"+n,btn:"Sell 1  ·  "+sellPrice(sp)+"c"}; });
-  if(l.length){ const n=l.reduce((a,it)=>a+G.crops[it.id],0), total=sellAllTotal();
+      note:"you have x"+n,btn:"Sell 1  ·  "+sellPrice(sp)+"c"}; })
+    /* forage and fish (GOODS) sell here too */
+    .concat(goodsList().map(k=>({type:'good',id:k,sell:true,name:GOODS[k].name,cost:goodsPrice(k),art:{good:k},
+      desc:"Sells for "+goodsPrice(k)+"c each."+(GOODS[k].eat?" Or eat it.":""),note:"you have x"+G.goods[k],btn:"Sell 1  ·  "+goodsPrice(k)+"c"})));
+  if(l.length){ const n=cropList().reduce((a,sp)=>a+G.crops[sp],0)+goodsList().reduce((a,k)=>a+G.goods[k],0), total=sellAllTotal();
     l.push({type:'sellall',sell:true,name:"Sell all",cost:total,art:{shop:'harvest basket'},
-      desc:"Sell all "+n+" crops you are carrying.",btn:"Sell all  ·  "+total+"c"}); }
+      desc:"Sell all "+n+" things you are carrying.",btn:"Sell all  ·  "+total+"c"}); }
   return l;
 }
-const sellAllTotal=()=>cropList().reduce((a,sp)=>a+sellPrice(sp)*G.crops[sp],0);
+const sellAllTotal=()=>cropList().reduce((a,sp)=>a+sellPrice(sp)*G.crops[sp],0)+goodsList().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
 function sellCrop(sp,n){
   const k=Math.min(n,G.crops[sp]||0); if(!k) return 0;
   G.crops[sp]-=k; if(G.crops[sp]<=0) delete G.crops[sp];
@@ -40,7 +44,8 @@ function sellCrop(sp,n){
 }
 function sellAll(){
   let got=0, n=0; cropList().forEach(sp=>{ n+=G.crops[sp]; got+=sellCrop(sp,G.crops[sp]); });
-  say("Sold "+n+" crops for "+got+"c!"); coinChime(); autoSave();
+  goodsList().forEach(k=>{ const v=goodsPrice(k)*G.goods[k]; n+=G.goods[k]; got+=v; G.coins+=v; delete G.goods[k]; });
+  say("Sold "+n+" things for "+got+"c!"); coinChime(); autoSave();
 }
 function coinChime(){ if(AC){ flute(14,AC.currentTime,.18,.5); flute(19,AC.currentTime+.08,.3,.5); } }
 /* keep the highlight on a real row after the list shrinks */
@@ -52,6 +57,8 @@ const pageCount=()=>Math.max(1,Math.ceil(shopItems().length/PER_PAGE));
 function pageItems(){ return shopItems().slice(shop.page*PER_PAGE,(shop.page+1)*PER_PAGE); }
 function askBuy(i){
   const it=pageItems()[i]; if(!it) return;
+  if(it.type==='good'){ G.goods[it.id]--; if(G.goods[it.id]<=0) delete G.goods[it.id]; G.coins+=it.cost;
+    say("Sold a "+it.name+" for "+it.cost+"c."); coinChime(); shopClampIdx(); autoSave(); return; }
   if(it.type==='crop'){ sellCrop(it.id,1); say("Sold a "+it.name+" for "+it.cost+"c.");
     coinChime(); shopClampIdx(); autoSave(); return; }
   if(it.type==='sellall'){ shop.confirm=it; shop.cIdx=0; return; }
@@ -125,6 +132,7 @@ function wrapLines(text,size,w){
    own picture when selling, otherwise the shop picture named after it */
 function drawShopArt(it,cx,y,bw,bh){
   if(it.art&&it.art.crop){ drawCropIcon(b,it.art.crop,cx,y+bh/2,Math.min(bw,bh)); return; }
+  if(it.art&&it.art.good){ drawGoodIcon(b,it.art.good,cx,y+bh/2,Math.min(bw,bh)); return; }
   if(drawShopPic((it.art&&it.art.shop)||it.name.toLowerCase(),cx,y+bh/2,bw,bh)) return;
   /* no picture: a seed-coloured packet or a plain crate */
   if(it.type==='seed'){ const S=SPECIES[it.id];
@@ -180,7 +188,7 @@ function drawShop(){
   T(G.coins+"c",228,134,38,'#a06a1a','center',true);
   TABS.forEach((t,i)=>T(t,21+i*TAB_STEP+TAB_W/2,181,24,'#3a2a1a','center',i===shop.tab));
   items.forEach((it,i)=>{ const y=L.y+i*L.step, afford=can(it);
-    T(it.name+(it.type==='crop'?" x"+G.crops[it.id]:""),L.x+ROW_PAD+1,y+17,22,afford?'#3a2a1a':'#8a7a68',null,i===shop.idx||it.type==='sellall');
+    T(it.name+(it.type==='crop'?" x"+G.crops[it.id]:it.type==='good'?" x"+G.goods[it.id]:""),L.x+ROW_PAD+1,y+17,22,afford?'#3a2a1a':'#8a7a68',null,i===shop.idx||it.type==='sellall');
     T((it.sell?"+":"")+it.cost+"c",L.x+L.w-6,y+17,21,it.sell?'#5a7a3a':afford?'#a06a1a':'#b09a86','right',true); });
   if(!items.length) T(shop.tab===3?"Nothing to sell yet.":"Sold out — you have it all!",104,230,20,'#7a6a4a','center');
   if(!items.length&&shop.tab===3) T("Harvest crops to sell them here.",104,248,17,'#8a7a5a','center');

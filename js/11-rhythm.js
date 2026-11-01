@@ -81,6 +81,21 @@ function stemChart(count,seed){
   });
   return {notes,end:(ph.b-off)*1000+1500,offset:off,stem:true,beat:600,bpm:100};
 }
+/* Practice: the whole flute part, every phrase in a row over the backing track, on
+   lanes set by the whole song's range. */
+function fullStemChart(){
+  const P=STEM_PHRASES, lo=Math.min(...P.map(p=>p.lo)), hi=Math.max(...P.map(p=>p.hi)), span=Math.max(1,hi-lo);
+  const off=Math.max(0,P[0].a-2.2), laneOf=s2=>clamp(Math.round((s2-lo)/span*(LANES-1)),0,LANES-1);
+  const notes=[];
+  P.forEach(ph=>ph.n.forEach((n,i)=>{
+    const aStart=ph.a+n.t, aEnd=aStart+n.d, t=(aStart-off)*1000, lane=laneOf(n.s);
+    const nx=ph.n[Math.min(ph.n.length-1,i+1)];
+    notes.push(n.d>=0.42&&i<ph.n.length-1
+      ?{t,lane,semi:n.s,type:'hold',dur:n.d*1000,endLane:laneOf(nx.s),done:false,score:0,reqLane:lane,aStart,aEnd}
+      :{t,lane,semi:n.s,type:'tap',done:false,aStart,aEnd}); }));
+  notes.sort((a,z)=>a.t-z.t);
+  return {notes,end:(P[P.length-1].b-off)*1000+1500,offset:off,stem:true,beat:600,bpm:100};
+}
 function startStemPlayback(chart,leadMs){
   const t0=AC.currentTime+leadMs/1000;     /* song time 0 lands after the count-in */
   const bs=AC.createBufferSource(); bs.buffer=STEM.backing;
@@ -114,7 +129,8 @@ function startRhythm(plot,bc){
   const bpm=bc?112:96+G.gardenLv*2;
   const seed=(plot?plot.x*7+plot.y*13:917)+count*31;
   const useStem=STEM.ready&&typeof STEM_PHRASES!=='undefined'&&STEM_PHRASES.length;
-  const chart=useStem?stemChart(count,seed):makeChart(count,seed,bpm);
+  const chart=bc&&bc.practice?(useStem?fullStemChart():makeChart(64,seed,100))
+             :useStem?stemChart(count,seed):makeChart(count,seed,bpm);
   /* Count-in: "3, 2, 1, Go!" one beat each, ending just before the first note
      starts to fall, so there is time to get your fingers on H J K L. */
   const first=chart.notes.length?chart.notes[0].t:0;
@@ -167,6 +183,7 @@ function cancelRhythm(){
   stopStemPlayback();
   const bc=R_.battle;
   if(musicGain) musicGain.gain.value=0.34;
+  if(bc&&bc.practice){ R_=null; G.scene='world'; setMusic('calm'); say("You put the flute down. (Practice again any time today.)"); return; }
   R_=null;
   if(bc){                                   /* give the Music Points back */
     G.player.mp=Math.min(maxMp(),G.player.mp+(bc.mp||0));
@@ -264,7 +281,9 @@ function finishRhythm(){
   if(h>1.001) msg+=" · harmony x"+h.toFixed(2);
   if(spread) msg+=" · +"+share+" to "+spread+" more";
   R_=null; G.scene='world'; say(msg); autoSave();
+  passTime(SONG_MINUTES);
 }
+const SONG_MINUTES=10;              /* singing to a plant takes this long (game minutes) */
 function noteGlyph(c,x,y,col,a){
   c.globalAlpha=a; px(c,x+3,y,3,11,col); px(c,x,y+9,5,5,col); px(c,x+6,y-2,3,5,col); c.globalAlpha=1;
 }

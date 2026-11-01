@@ -16,8 +16,8 @@ function playStory(steps){
 function nextStep(){
   story.i++; story.t=0;
   const s=story.steps[story.i];
-  if(!s){ story=null; G.scene='world'; autoSave(); return; }
-  if(s.run){ s.run(); nextStep(); return; }
+  if(!s){ story=null; if(G.scene==='story') G.scene='world'; autoSave(); return; }   /* unless a step opened something */
+  if(s.run){ s.run(); if(G.scene!=='story'&&story.i>=story.steps.length-1){ story=null; return; } nextStep(); return; }
   if(s.pic!==undefined){ story.pic=s.pic; if(s.pic) sceneImg(s.pic); nextStep(); return; }
   if(s.fade){ story.from=story.fade; story.to=s.fade==='out'?1:0; }
   if(s.popup&&AC){ flute(9,AC.currentTime,.3,.6); flute(13,AC.currentTime+.12,.3,.6); flute(16,AC.currentTime+.24,.6,.6); }
@@ -61,7 +61,7 @@ function drawStory(){
 }
 /* the talk box along the bottom of the view: portrait, name, the line typing out */
 function drawTalk(s,bottom){
-  const x=10, h=112, y=bottom-h-12, w=LW-20, who=SPEAKER[s.say];
+  const x=10, h=112, y=bottom-h-12, w=LW-20, who=s.who?{name:s.who.name,col:'#5a4a8a'}:SPEAKER[s.say];
   wipeBuf();
   panel(x,y,w,h);
   px(b,x+9,y+9,86,h-18,'#e2d3ae');
@@ -69,6 +69,7 @@ function drawTalk(s,bottom){
   if(im){ const ph=h-22, pw=ph*im.naturalWidth/im.naturalHeight;
     b.save(); b.beginPath(); b.rect(x+9,y+9,86,h-18); b.clip(); b.imageSmoothingEnabled=true;
     b.drawImage(im,x+9+(86-pw)/2,y+11,pw,ph); b.restore(); }
+  else if(s.who){ b.save(); b.translate(x+52,y+h-8); b.scale(2.6,2.6); drawPerson(b,{...s.who,x:0,y:0}); b.restore(); }
   blit();
   T(who.name,x+108,y+26,22,who.col,'left',true);
   const n=typed(s);
@@ -89,6 +90,12 @@ function drawPopup(text,who){
   wrapLines(text,24,w-28).forEach((ln,i)=>T(ln,LW/2,ty+i*18,24,'#3a2a1a','center',true));
   if(story.t>450&&Math.floor(G.t/500)%2===0) T(IS_TOUCH?"tap or press A":"press J",LW/2,y+h-6,16,'#8a7a5a','center');
 }
+/* going from one place to another: footsteps over a fade to black and back (~2 s) */
+const TRAVEL_MS=1000;
+function travel(arrive){
+  playStory([{run:()=>playOne('walk_down',0.55)},{fade:'out',ms:TRAVEL_MS},{run:arrive},
+             {fade:'in',ms:TRAVEL_MS},{run:()=>stopOne('walk_down')}]);
+}
 function place(x,y,dir){ const P=G.player; P.x=x; P.y=y; P.dir=dir; P.moving=false; P.walkT=0; G.swim=false; }
 
 /* ---------------- Bling ----------------
@@ -97,8 +104,8 @@ function place(x,y,dir){ const P=G.player; P.x=x; P.y=y; P.dir=dir; P.moving=fal
    north-west corner of the garden, comes back, and joins the party. After that she
    sleeps at the foot of the bed from 8 PM. G.story.bling: 'recover' | 'released' |
    'joined' (unset before), G.story.blingDay: the day she was taken in. */
-const BLING_DAY=5, BLING_SLEEPS=20*60, BLING_W=40;
-const BLING_HURT={x:590,y:165}, BLING_FREE={x:185,y:190};      /* garden px */
+const BLING_DAY=5, BLING_SLEEPS=20*60, BLING_W=20;
+const BLING_HURT={x:622,y:198}, BLING_FREE={x:185,y:190};      /* garden px */
 const BLING_RUG={x:250,y:398}, BLING_BED={x:196,y:322};         /* house painting px */
 /* where she wanders after being let go (not saved: she starts at BLING_FREE) */
 const BL={x:BLING_FREE.x,y:BLING_FREE.y,tx:0,ty:0,wait:1200,flip:false,moving:false};
@@ -111,7 +118,12 @@ function blingHere(){
   if(s==='recover'){ const d=recoverDay();
     return {x:BLING_RUG.x,y:BLING_RUG.y,inside:true,mood:d<=1?'sad':d===2?'unsure':'happy'}; }
   if(s==='released') return {x:BL.x,y:BL.y,inside:false,mood:'happy',flip:BL.flip,moving:BL.moving};
-  if(s==='joined'&&G.clock>=BLING_SLEEPS) return {x:BLING_BED.x,y:BLING_BED.y,inside:true,mood:'sleep'};
+  if(s==='joined'){
+    /* hurt in battle she rests on the rug; left at home she waits there; at night she sleeps */
+    if(isHurt('bling')) return {x:BLING_RUG.x,y:BLING_RUG.y,inside:true,mood:'sad'};
+    if(G.clock>=BLING_SLEEPS) return {x:BLING_BED.x,y:BLING_BED.y,inside:true,mood:'sleep'};
+    if(!G.party.includes('bling')) return {x:BLING_RUG.x,y:BLING_RUG.y,inside:true,mood:'happy'};
+  }
   return null;
 }
 function nearBling(f=1){
@@ -128,6 +140,8 @@ function talkBling(){
     else if(d===2) playStory([{say:'bling',text:"Ssss...?"}]);
     else playStory(blingLetGo()); }
   else if(s==='released') playStory(blingJoins());
+  else if(s==='joined') playStory([{say:'bling',text:isHurt('bling')?"Ssss... (She's still sore. Back in "+(G.allies.bling.hurtUntil-G.day)+" day"+(G.allies.bling.hurtUntil-G.day===1?"":"s")+".)"
+                                                                    :"Ssss! (Add Bling to your party from the menu.)"}]);
 }
 const blingMeets=()=>[
   {say:'kaitlyn',text:"Oh no! This poor snake looks hurt..."},

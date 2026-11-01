@@ -55,7 +55,13 @@ SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'see
 # Party members in battle, sized on their first ready frame, in sheet px (the game draws
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
 # Bling by her length.
-PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 140)}
+PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70)}
+# Enemies (enemies/<Name>.png|jpg): their key in the game and height in battle (device px).
+# Pixel art smaller than that is enlarged with hard edges.
+ENEMIES = {'dung beetle': ('beetle', 190), 'paper wasp': ('wasp', 220), 'garden rat': ('rat', 250),
+           'saddleback': ('saddleback', 190), 'seagull': ('seagull', 230), 'hermit crab': ('crab', 240),
+           'spiteful crow': ('crow', 260), 'shy ghost': ('ghost', 250), 'raccoon': ('raccoon', 230),
+           'tricky woo': ('woo', 250), 'vengeful ghost': ('vghost', 300), 'hoa president': ('hoa', 360)}
 PORTRAIT_H = 312        # Kaitlyn's portrait.png height, in px
 STANCE_HOLE = 400       # white showing through a coil of a battle stance is background too
 SCENE_W = 1080          # story pictures fill the 360-wide screen at 3 device px each
@@ -106,6 +112,34 @@ def remove_white(a, hole=0):
         for i in range(1, n):
             if st[i, 4] < big * 0.002: res[lab == i, 3] = 0
     return np.clip(res, 0, 255).astype(np.uint8)
+
+
+def remove_edge_colour(a, tol=14):
+    """Clear a plain background of any colour (black, grey...) that touches the edge:
+    pixels within tol of the edge's typical colour, connected to the edge. White
+    backgrounds go through remove_white, which keeps soft shadows."""
+    if (a[..., 3] < 250).mean() > 0.02:
+        return a
+    c = a[..., :3].astype(np.float32)
+    edge = np.concatenate([c[0], c[-1], c[:, 0], c[:, -1]])
+    bgc = np.median(edge, axis=0)
+    if bgc.min() > 225:
+        return remove_white(a)
+    near = (np.abs(c - bgc).max(axis=2) < tol).astype(np.uint8)
+    n, lab = cv2.connectedComponents(near, connectivity=4)
+    ids = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+    bg = np.isin(lab, ids[ids > 0])
+    out = a.copy(); out[..., 3] = np.where(bg, 0, 255).astype(np.uint8)
+    # a 1px soft edge
+    soft = cv2.erode((~bg).astype(np.uint8), np.ones((3, 3), np.uint8))
+    out[..., 3] = np.where((~bg) & (soft == 0), 160, out[..., 3])
+    solid = (out[..., 3] > 0).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(solid, connectivity=8)
+    if n > 2:
+        big = st[1:, 4].max()
+        for i in range(1, n):
+            if st[i, 4] < big * 0.002: out[lab == i, 3] = 0
+    return out
 
 
 def trim(a, pad=2):
@@ -263,6 +297,26 @@ def main():
             if 'stance' in d: d['stance']['r'] = ppos[n + ' stance']
             if 'attack' in d: d['attack']['f'] = [ppos['%s attack %d' % (n, i)] for i in range(d['attack'].pop('n'))]
 
+    # enemies: background cleared, trimmed and sized for battle, standing on their bottom
+    eframes, emeta = [], {}
+    for f in sorted(glob.glob(os.path.join(SRC, 'enemies', '*.*'))):
+        name = os.path.splitext(os.path.basename(f))[0].strip().lower()
+        if name not in ENEMIES: continue
+        key, h = ENEMIES[name]
+        im = trim(remove_edge_colour(load(f)), 0)
+        s = h / im.shape[0]
+        if s > 1:   # small pixel art: hard-edged enlargement
+            im = cv2.resize(im, (round(im.shape[1] * s), round(im.shape[0] * s)), interpolation=cv2.INTER_NEAREST)
+        else:
+            im = shrink(im, s)
+        ax, ay = foot(im)
+        eframes.append((key, im)); emeta[key] = {'ax': ax, 'ay': ay}
+    if eframes:
+        esheet, epos = pack(eframes)
+        cv2.imwrite(os.path.join(OUT, 'enemies.webp'), esheet, [cv2.IMWRITE_WEBP_QUALITY, 95])
+        for k in emeta: emeta[k]['r'] = epos[k]
+        print('enemies.webp', esheet.shape[1], 'x', esheet.shape[0], '-', ', '.join(sorted(emeta)))
+
     # story pictures: flattened onto black and saved as JPEG at screen width
     os.makedirs(os.path.join(ROOT, 'assets', 'scenes'), exist_ok=True)
     for f in sorted(glob.glob(os.path.join(SRC, 'scenes', '*.png'))):
@@ -281,6 +335,7 @@ def main():
         fh.write('const CREATURE_ART=' + json.dumps({n: v for n, v in cmeta.items() if kind[n] == 'creature'}, separators=(',', ':')) + ';\n')
         fh.write('const FX_ART=' + json.dumps({n: v for n, v in cmeta.items() if kind[n] == 'fx'}, separators=(',', ':')) + ';\n')
         fh.write('const PARTY_ART=' + json.dumps(pmeta, separators=(',', ':')) + ';\n')
+        fh.write('const ENEMY_ART=' + json.dumps(emeta, separators=(',', ':')) + ';\n')
     print('crops.png', sheet.shape[1], 'x', sheet.shape[0], '-', len(crops), 'pictures:', ', '.join(sorted(meta)))
     print('shop_items.png', ssheet.shape[1], 'x', ssheet.shape[0], '-', len(shop), 'pictures')
     print('creatures.png', ', '.join('%s %d frames' % (n, len(v)) for n, v in cmeta.items()))

@@ -37,7 +37,7 @@ fit();
    screen in every scene but the rhythm game, where they would be in the way. The deck
    is the HUD's lower part (y 357..480 of its layout) wherever it is drawn. */
 const DECK_H=LH-357;
-const deckShown=()=>IS_TOUCH&&G.scene!=='rhythm';
+const deckShown=()=>IS_TOUCH&&G.scene!=='rhythm'&&G.scene!=='fishing';
 /* the garden scenes use the whole screen (their HUD holds the deck) */
 const fullScene=()=>G.scene==='world'||G.scene==='sleep'||G.scene==='ask'||G.scene==='story';
 /* how far down a centred scene's 360x480 layout sits: in the middle of the screen, or
@@ -169,6 +169,7 @@ function playOne(key,vol){
     const p=a.play(); if(p&&p.catch) p.catch(()=>{});
   }catch(e){}
 }
+function stopOne(key){ const a=ONESHOT[key]; if(a){ try{a.pause();}catch(e){} } }
 function stopSfx(){ const a=SFX[sfxKey]; if(a){ try{a.pause();}catch(e){} } sfxKey=null; sfxAnim=null; }
 function dirFromVec(dx,dy){
   const a=Math.atan2(dy,dx);
@@ -225,17 +226,21 @@ function drawPose(c,i,cx,footY){
   if(assetsReady<5) return;
   drawDev(c,IMG_POSE,i*POSE_META.cw,0,POSE_META.cw,POSE_META.ch,cx,footY,2,3);
 }
-function drawBattleRow(c,name,idx,cx,footY){
+function drawBattleRow(c,name,idx,cx,footY,zoom){
   if(assetsReady<3) return;
   const row=BROW[name], n=BRN[row]||1;
   const i=clamp(idx,0,n-1);
   drawDev(c,IMG_BATL,i*BATL_META.cw,row*BATL_META.ch,
-    BATL_META.cw,BATL_META.ch,cx,footY,2,3);
+    BATL_META.cw,BATL_META.ch,cx,footY,zoom||2,3);
 }
-function drawEnemyArt(c,species,cx,footY,zoom){
-  const i=ENC.order.indexOf(species);
-  if(i<0||assetsReady<2) return false;
-  drawDev(c,IMG_EN,i*ENC.cw,0,ENC.cw,ENC.ch,cx,footY,zoom||1,0);
+/* a pest from enemies.webp (made at its battle size), standing on cx,footY; s scales it
+   (1 in battle, smaller on the garden map) */
+function drawEnemyArt(c,species,cx,footY,s){
+  const a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[species];
+  if(!a||!IMG_EN.complete||!IMG_EN.naturalWidth) return false;
+  const [sx,sy,w,h]=a.r, k=(s||1)/SC;
+  c.save(); c.translate(cx,footY); c.scale(k,k); c.imageSmoothingEnabled=true;
+  c.drawImage(IMG_EN,sx,sy,w,h,-a.ax,-a.ay,w,h); c.restore();
   return true;
 }
 /* the whole portrait image at its own size (times s), top-left at x,y */

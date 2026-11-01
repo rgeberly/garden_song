@@ -18,14 +18,17 @@ const nearestPest=()=>G.pests.find(p=>Math.hypot(p.x-G.player.x,p.y-G.player.y)<
 const nearStall=(f=1)=>Math.hypot(STALL.x-G.player.x,STALL.y+6-G.player.y)<44*f;
 const nearDoor=(f=1)=>Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y)<46*f;
 function interact(){
+  if(G.cast) return;                       /* mid-song */
+  if(G.area!=='garden'){ placeInteract(); return; }
   if(G.indoors){ houseInteract(); return; }
   if(nearBling()){ talkBling(); return; }
   if(nearStall()){ openShop(); return; }
-  if(nearDoor()){ enterHouse(); return; }
-  if(G.swim){ G.player.mp=maxMp(); say("Music Points fully restored!"); return; }
+  if(nearDoor()){ travel(enterHouse); return; }
+  const way=nearGardenExit(); if(way){ goTo(way.to); return; }
+  if(G.swim){ G.party.forEach(id=>member(id).mp=memberMaxMp(id)); say("Music Points fully restored!"); return; }
   const frog=nearestFrog();
   if(frog){
-    if(G.frogT<=0){ G.player.hp=G.player.maxhp; G.frogT=G.gear.charm?12000:25000;
+    if(G.frogT<=0){ G.party.forEach(id=>member(id).hp=member(id).maxhp); G.frogT=G.gear.charm?12000:25000;
       say("A frog croaks a healing chord. HP full!");
       if(AC){flute(2,AC.currentTime,.7,.6);flute(9,AC.currentTime+.05,.8,.5);} }
     else say("The frog blinks sleepily.");
@@ -33,10 +36,10 @@ function interact(){
   }
   const plot=nearestPlot();
   if(!plot){ say("Nothing here. Find a garden bed."); return; }
-  if(plot.dead){ plot.dead=false; say("Cleared away the ruined plant."); blip(260,0.08,0.12,'triangle'); return; }
+  if(plot.dead){ plot.dead=false; plot.deadSp=null; say("Cleared away the ruined plant."); blip(260,0.08,0.12,'triangle'); return; }
   if(!plot.sp){ openSeedMenu(plot); return; }
   if(plot.stage>=3){ harvest(plot); return; }
-  if(plot.growth>=MAX_GROWTH){ say("Fully grown! It will be ripe for harvest tomorrow."); return; }
+  if(plot.growth>=plantNeed(plot)){ say("Fully grown! It will be ripe for harvest tomorrow."); return; }
   /* one song per plant per day keeps the days moving */
   if(plot.sungDay===G.day){ say("This plant already had its song today. Come back tomorrow!"); return; }
   startRhythm(plot);
@@ -54,7 +57,7 @@ function harvestOne(plot){
 function harvest(plot){
   let xp=0,n=0; const name=SPECIES[plot.sp].name;
   if(G.gear.basket){
-    plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage>=3){ xp+=harvestOne(p); n++; } });
+    plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage>=3&&plotArea(p)===plotArea(plot)){ xp+=harvestOne(p); n++; } });
   } else { xp=harvestOne(plot); n=1; }
   G.player.mp=Math.min(maxMp(),G.player.mp+2*n);
   say((n>1?"Harvested "+n+" crops!":"Harvested a "+name+"!")+"  +"+xp+" xp");
@@ -67,7 +70,8 @@ function spawnPest(){
      there is always a way to earn a few coins */
   const planted=plots.filter(p=>active(p)&&p.sp);
   if(!planted.length&&Math.random()>WANDER_SPAWN) return;
-  let pool=Object.keys(PESTS).filter(k=>!PESTS[k].boss&&PESTS[k].min<=G.gardenLv);
+  /* ghosts only come out after dark */
+  let pool=Object.keys(PESTS).filter(k=>!PESTS[k].boss&&PESTS[k].min<=G.gardenLv&&(!PESTS[k].night||isNight()));
   let sp=pool[ri(0,pool.length-1)];
   if(G.gardenLv>=5&&Math.random()<0.07) sp='hoa';
 
@@ -119,7 +123,9 @@ function walk(dt,speed,blocked){
 function updateWorld(dt){
   tickClock(dt);
   if(G.scene!=='world') return;          /* midnight sent her to bed */
+  if(G.area!=='garden'){ updatePlace(dt); return; }
   if(G.indoors){ updateHouse(dt); return; }
+  if(updateCast(dt)) return;               /* she stands and plays a field song */
   const P=G.player;
   walk(dt,WALK_SPEED,(x,y)=>solidAt(x,y+9));
   P.x=clamp(P.x,21,WORLD_W-21); P.y=clamp(P.y,24,WORLD_H-30);
@@ -127,7 +133,8 @@ function updateWorld(dt){
   G.swim=season()!=='winter'&&inPool(P.x,P.y+9);   /* frozen in winter: she walks on the ice */
   if(G.swim&&!wasSwim){ say("Ahh. Music Points restoring..."); blip(500,0.12,0.15,'sine'); }
   if(G.swim){ G.mpTick+=dt; if(G.mpTick>380){ G.mpTick=0;
-    if(P.mp<maxMp()){ P.mp++; if(P.mp===maxMp()) say("Music Points full!"); } } }
+    G.party.forEach(id=>{ const M=member(id); if(M.mp<memberMaxMp(id)) M.mp++; });
+    if(P.mp===maxMp()&&!G.party.some(id=>member(id).mp<memberMaxMp(id))) { if(!G.mpFullSaid) say("Music Points full!"); G.mpFullSaid=true; } else G.mpFullSaid=false; } }
   for(const k of ['coffeeT','snackT','calmT','lureT']) if(G[k]>0) G[k]=Math.max(0,G[k]-dt);
   /* lantern and lemongrass keep pests away, muscadine draws them in */
   const pestMul=(G.yard.lantern?1.4:1)*(G.calmT>0?2:1)*(G.lureT>0?0.5:1);
@@ -151,7 +158,7 @@ function updateWorld(dt){
         p.target.health=Math.max(0,p.target.health-bite);
         setGrowth(p.target,p.target.growth-bite*1.5);
         if(p.target.health<=0){ say("A plant was ruined! Clear it away to replant.");
-          Object.assign(p.target,{sp:null,stage:0,growth:0,health:100,dead:true,sungDay:0,fullDay:0}); } } }
+          Object.assign(p.target,{deadSp:p.target.sp,sp:null,stage:0,growth:0,health:100,dead:true,sungDay:0,fullDay:0}); } } }
   }
   if(G.frogT>0) G.frogT-=dt;
   if(G.msgT>0) G.msgT-=dt;
@@ -171,6 +178,7 @@ function camera(){ const vh=VIEW_H/WORLD_ZOOM;
 /* where a world point lands in the garden view, in logical screen px */
 const toView=(wx,wy,cam)=>[(wx-cam.x)*WORLD_ZOOM,(wy-cam.y)*WORLD_ZOOM];
 function drawWorld(){
+  if(G.area!=='garden'){ drawPlace(); return; }
   if(G.indoors){ drawHouse(); return; }
   const cam=camera();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
@@ -187,8 +195,9 @@ function drawWorld(){
     ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
       if(!p.tree) drawSoil(b,x,y);
       if(p.dead) drawRuined(b,x,y,p.tree);
-      else if(p.sp){ drawPlant(b,x,y,p.sp,p.stage,p.tree);
-        drawMeter(b,x,y+(p.tree?26:14),p.growth/MAX_GROWTH,p.stage>=3);
+      else if(p.sp){ if(p.sungDay===G.day) drawSungGlow(b,p,x,y);
+        drawPlant(b,x,y,p.sp,p.stage,p.tree);
+        drawMeter(b,x,y+(p.tree?26:14),p.growth/plantNeed(p),p.stage>=3);
         if(p.sungDay===G.day) drawSungNote(b,p,x,y); } }}); });
   Object.keys(DECOR_SPOT).forEach(id=>{ if(!G.yard[id])return;
     const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>drawDecor(b,id,x-cam.x,y-cam.y,G.t)}); });
@@ -213,7 +222,9 @@ function drawWorld(){
     b.save(); b.translate(sx,sy); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); b.translate(-sx,-sy);
     b.imageSmoothingEnabled=false;
     if(!G.swim) drawKaitlynShadow(b,sx,sy,G.player.dir,G.player.animT||0,G.player.moving);
-    if(G.swim){
+    if(G.cast){                            /* playing a field song: her battle flute animation */
+      const n=BRN[BROW.flute]||1; drawBattleRow(b,'flute',Math.floor(G.cast.t/90)%n,sx,sy,1);
+    } else if(G.swim){
       b.save(); b.beginPath(); b.rect(sx-200,sy-1000,400,979); b.clip();
       drawKaitlyn(b,sx,sy,G.player.dir,G.player.animT||0,true,G.player.moving); b.restore();
       for(let i=-18;i<=18;i+=4) px(b,sx+i,sy-21+((i%3)?0:2),3,2,'#8fd8ee');
@@ -221,6 +232,7 @@ function drawWorld(){
     b.restore();
   }});
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
+  if(G.cast) drawCastFx(cam);
   /* shadows drift across the ground in world space, so they stay put
      relative to the garden while the camera moves */
   const day=daylight();
@@ -254,9 +266,10 @@ function drawWorld(){
   if(nearBling(R)) label=blingLabel();
   else if(nearStall(R)) label="Shop";
   else if(nearDoor(R)) label="Go inside";
+  else if(nearGardenExit(R)) label=nearGardenExit(R).label;
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
-  else if(p) label=p.dead?"Clear":!p.sp?"Plant":p.stage>=3?"Harvest":p.growth>=MAX_GROWTH?"Ripe tomorrow":p.sungDay===G.day?"Sung today":"Play song";
+  else if(p) label=p.dead?"Clear":!p.sp?"Plant":p.stage>=3?"Harvest":p.growth>=plantNeed(p)?"Ripe tomorrow":p.sungDay===G.day?"Sung today":"Play song";
   if(label&&G.scene==='world'){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74); }
   drawHUD();
 }

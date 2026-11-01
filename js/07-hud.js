@@ -148,6 +148,7 @@ function shopArtImg(){
 const PORTRAIT_IMG={};
 function portraitImg(id){
   if(id==='kaitlyn') return IMG_PT.complete&&IMG_PT.naturalWidth?IMG_PT:null;
+  if(!ASSET_PORTRAITS[id]) return null;
   if(!PORTRAIT_IMG[id]){ PORTRAIT_IMG[id]=new Image(); PORTRAIT_IMG[id].src=ASSET_PORTRAITS[id]; }
   const im=PORTRAIT_IMG[id]; return im.complete&&im.naturalWidth?im:null;
 }
