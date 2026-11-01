@@ -3,7 +3,8 @@ game-ready sprite sheets.
 
     python tools/build_art.py [source folder]      (needs: pip install numpy opencv-python)
 
-The source folder (default: assets/sprites) holds
+The source folder (default: the kaitlyns-garden-song-art folder next to the game,
+where the full-size originals live) holds
     crops/Sprout.png, crops/Baby <crop>.png, crops/Mature <crop>.png
     Soil.png, MarketStand.png
     shop items/<exact shop item name>.png
@@ -17,7 +18,7 @@ with their positions written to js/data/art.js.
 import cv2, numpy as np, os, sys, glob, json
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'assets', 'sprites')
+SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(ROOT), 'kaitlyns-garden-song-art')
 OUT = os.path.join(ROOT, 'assets', 'sprites')
 
 # On-screen size, in device px (3 per game px), of a full 1024px source picture.
