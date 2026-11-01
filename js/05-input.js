@@ -12,13 +12,13 @@ const isUp=k=>k==='arrowup'||k==='w', isDown=k=>k==='arrowdown'||k==='s';
 const isLeft=k=>k==='arrowleft'||k==='a', isRight=k=>k==='arrowright'||k==='d';
 addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
-  initAudio(); if(!keys[k]) onPress(k); keys[k]=true; });
+  G.lastInput='key'; initAudio(); if(!keys[k]) onPress(k); keys[k]=true; });
 addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); keys[k]=false;
   if(G.scene==='rhythm'&&k in KEYLANE) laneUp(KEYLANE[k]); });
 const touches={};
 function cpos(e){ const r=cv.getBoundingClientRect();
   return {x:(e.clientX-r.left)/r.width*LW,y:(e.clientY-r.top)/r.height*LH}; }
-cv.addEventListener('pointerdown',e=>{ e.preventDefault(); initAudio();
+cv.addEventListener('pointerdown',e=>{ e.preventDefault(); initAudio(); G.lastInput='touch';
   if(AC&&AC.state==='suspended')AC.resume();
   const p=cpos(e); touches[e.pointerId]=p; onTouch(p.x,p.y,e.pointerId);
   try{cv.setPointerCapture(e.pointerId);}catch(_){} });

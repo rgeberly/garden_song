@@ -149,21 +149,18 @@ function drawWorld(){
   }
   const ents=[];
   plots.forEach(p=>{ if(!active(p))return;
-    if(p.sp) ents.push({y:p.y,f:()=>{ drawPlant(b,p.x-cam.x,p.y-cam.y,p.sp,p.stage,p.tree);
-      drawMeter(b,p.x-cam.x,p.y-cam.y+(p.tree?26:14),p.growth/MAX_GROWTH,p.stage>=3); }});
-    else ents.push({y:p.y,f:()=>{
-      const x=p.x-cam.x,y=p.y-cam.y;
-      b.globalAlpha=.55;
-      px(b,x-7,y-4,14,9,'#3a2716'); px(b,x-5,y-2,10,5,'#7a5330');
-      b.globalAlpha=1;
-      px(b,x-5,y-2,10,1,'#9c6c44'); }}); });
+    ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
+      if(!p.tree) drawSoil(b,x,y);
+      if(p.sp){ drawPlant(b,x,y,p.sp,p.stage,p.tree);
+        drawMeter(b,x,y+(p.tree?26:14),p.growth/MAX_GROWTH,p.stage>=3); } }}); });
   Object.keys(DECOR_SPOT).forEach(id=>{ if(!G.yard[id])return;
     const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>drawDecor(b,id,x-cam.x,y-cam.y,G.t)}); });
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k)}));
   G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t)}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
-  /* the stall now lives under the painted shed, so only its goods are drawn */
-  ents.push({y:STALL.y,f:()=>{
+  /* the market stand stands over the painted table; drawn goods until its picture loads */
+  ents.push({y:STAND_AT.y,f:()=>{
+    if(drawCropArt(b,'stand',STAND_AT.x-cam.x,STAND_AT.y-cam.y)) return;
     const x=STALL.x-cam.x,y=STALL.y-cam.y;
     px(b,x-16,y-10,32,10,'#6b4a2a'); px(b,x-16,y-10,32,2,'#8f6a3c');
     px(b,x-12,y-16,7,7,'#e8433f'); px(b,x-3,y-16,7,7,'#f0c44a'); px(b,x+6,y-16,7,7,'#5a70c4');
@@ -212,12 +209,30 @@ function drawWorld(){
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
   else if(p) label=!p.sp?"Plant":(p.stage>=3?"Harvest":"Play song");
-  if(label&&Math.floor(G.t/400)%2===0){
-    const cx=Math.round(G.player.x-cam.x), cy=Math.round(G.player.y-72-cam.y);
-    const w=TW(label,26)+16;
-    m.fillStyle='#2b1c12'; m.fillRect((cx-w/2-2)*SC,(cy-2)*SC,(w+4)*SC,20*SC);
-    m.fillStyle='#f7f0dc'; m.fillRect((cx-w/2)*SC,cy*SC,w*SC,16*SC);
-    T(label,cx,cy+13,26,'#3a2a1a','center');
-  }
+  if(label) drawPrompt(label,G.player.x-cam.x,G.player.y-62-cam.y);
   drawHUD();
+}
+/* What A/J will do here: a cream speech bubble over her head with a gold key badge
+   (J after keyboard use, A after touch) that floats gently instead of blinking.
+   cx, by are the bubble's centre and the tip of its pointer, in logical px. */
+function drawPrompt(label,cx,by){
+  const key=G.lastInput==='touch'?'A':'J';
+  const tw=TW(label,24,true), r=7, h=19, w=tw+r*2+14;
+  const x=Math.round(cx-w/2), y=Math.round(by-h-5+Math.sin(G.t/520)*1.2);
+  m.save(); m.scale(SC,SC);
+  m.fillStyle='rgba(20,12,4,.28)';                 /* soft shadow */
+  m.beginPath(); m.roundRect(x+1,y+2,w,h,8); m.fill();
+  m.fillStyle='#5a3d22';                            /* border, with the pointer */
+  m.beginPath(); m.roundRect(x-1.2,y-1.2,w+2.4,h+2.4,9); m.fill();
+  m.beginPath(); m.moveTo(cx-5,y+h); m.lineTo(cx,y+h+6); m.lineTo(cx+5,y+h); m.fill();
+  m.fillStyle='#fbf3dc';
+  m.beginPath(); m.roundRect(x,y,w,h,8); m.fill();
+  m.beginPath(); m.moveTo(cx-3.6,y+h-0.5); m.lineTo(cx,y+h+4); m.lineTo(cx+3.6,y+h-0.5); m.fill();
+  m.fillStyle='#fff9ea'; m.fillRect(x+4,y+1.5,w-8,2);   /* top highlight */
+  const kx=x+r+3, ky=y+h/2;                         /* key badge */
+  m.fillStyle='#8a5a1e'; m.beginPath(); m.arc(kx,ky,r,0,7); m.fill();
+  m.fillStyle='#f0c45a'; m.beginPath(); m.arc(kx,ky-0.4,r-1.4,0,7); m.fill();
+  m.restore();
+  T(key,kx,ky+3.3,20,'#4a2e10','center',true);
+  T(label,x+r*2+8,y+h/2+3.6,24,'#3a2a1a','left',true);
 }

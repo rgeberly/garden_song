@@ -128,9 +128,35 @@ function plantArt(sp,stage,tree){
   }
   return plantCache[key]={cv:cvv,ox:cx,oy:cy};
 }
+/* ---------------- painted crops, soil and stand (assets/sprites/crops.png) ----------------
+   Stage 0 is the shared sprout, 1 a smaller baby, 2 the baby, 3 mature. Crops without
+   pictures yet fall back to the drawn ones above. */
+const IMG_CROPS=new Image(); IMG_CROPS.src=ASSET_CROPS;
+const CROP_STAGE=['sprout','baby','baby','mature'], CROP_STAGE_SCALE=[1,0.8,1,1];
+const cropsReady=()=>IMG_CROPS.complete&&IMG_CROPS.naturalWidth>0;
+/* draw a crops.png picture standing on logical point x,y at scale s */
+function drawCropArt(c,key,x,y,s){
+  const a=CROP_ART[key]; if(!a||!cropsReady()) return false;
+  const [sx,sy,w,h]=a.r, k=s||1;
+  c.save(); c.scale(1/SC,1/SC); c.imageSmoothingEnabled=k!==1;
+  c.drawImage(IMG_CROPS,sx,sy,w,h,Math.round(x*SC-a.ax*k),Math.round(y*SC-a.ay*k),Math.round(w*k),Math.round(h*k));
+  c.restore(); return true;
+}
 function drawPlant(c,x,y,sp,stage,tree){
+  if(!tree){
+    const key=stage===0?'sprout':CROP_STAGE[stage]+' '+SPECIES[sp].name.toLowerCase();
+    if(drawCropArt(c,key,x,y,CROP_STAGE_SCALE[stage])) return;
+  }
   const a=plantArt(sp,stage,tree);
   c.drawImage(a.cv,Math.round(x-a.ox),Math.round(y-a.oy));
+}
+/* a mound of soil for a garden spot (the plant stands in its middle) */
+function drawSoil(c,x,y){
+  if(drawCropArt(c,'soil',x,y+4,0.85)) return;
+  c.globalAlpha=.55;
+  px(c,x-7,y-4,14,9,'#3a2716'); px(c,x-5,y-2,10,5,'#7a5330');
+  c.globalAlpha=1;
+  px(c,x-5,y-2,10,1,'#9c6c44');
 }
 function drawMeter(c,cx,cy,pct,ready){
   const w=26;

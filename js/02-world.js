@@ -8,7 +8,8 @@
 const F=n=>Math.round(n*WORLD_W);
 
 const POOL={x:F(.216),y:F(.789),w:F(.539),h:F(.141)};
-const STALL={x:F(.145),y:F(.505)};                 /* under the open shed */
+const STALL={x:F(.145),y:F(.505)};                 /* where you shop from */
+const STAND_AT={x:F(.121),y:F(.531)};              /* foot of the market stand picture, covering the painted table */
 const HOUSE_DOOR={x:F(.735),y:F(.245)};
 const DECOR_SPOT={fountain:[F(.46),F(.40)],lantern:[F(.155),F(.60)],
                   arch:[F(.88),F(.62)],bath:[F(.50),F(.29)]};

@@ -48,7 +48,8 @@ IMG_MAPCOL.onload=()=>{
 [[IMG_PT,ASSET_PT],[IMG_EN,ASSET_EN],[IMG_BATL,ASSET_BATL],
  [IMG_POSE,ASSET_POSE],[IMG_FL,ASSET_FL],[IMG_FROG,ASSET_FROG],
  [IMG_FLBIG,ASSET_FLBIG],[IMG_MAP,ASSET_MAP],[IMG_MAPCOL,ASSET_MAPCOL]].forEach(([im,src])=>{
-  im.onload=()=>assetsReady++;
+  const own=im.onload;                    /* keep a handler set above (the collision mask's) */
+  im.onload=()=>{ if(own) own(); assetsReady++; };
   im.onerror=()=>loadErr.push(src);
   im.src=src;
 });

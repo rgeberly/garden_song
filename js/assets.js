@@ -8,6 +8,8 @@ const ASSET_FL="assets/sprites/flutes.png";
 const ASSET_EN="assets/sprites/enemies.png";
 const ASSET_FROG="assets/sprites/frogs.png";
 const ASSET_FLBIG="assets/sprites/flutes_big.png";
+const ASSET_CROPS="assets/sprites/crops.png";        /* built by tools/build_art.py */
+const ASSET_SHOPART="assets/sprites/shop_items.png";
 const ASSET_SFX={
  "idle_up": "assets/audio/sfx_idle_up.mp3",
  "idle_northeast": "assets/audio/sfx_idle_northeast.mp3",

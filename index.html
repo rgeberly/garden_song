@@ -15,6 +15,7 @@
 <script src="js/assets.js"></script>
 <script src="js/data/phrases.js"></script>
 <script src="js/data/stem.js"></script>
+<script src="js/data/art.js"></script>
 <script src="js/00-core.js"></script>
 <script src="js/01-content.js"></script>
 <script src="js/02-world.js"></script>
@@ -31,8 +32,13 @@
 <script src="js/13-main.js"></script>
 <script src="js/14-daytime.js"></script>
 <script>
-if('serviceWorker' in navigator)
-  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+/* Offline support for the published game. On this computer (python serve.py) it is
+   left off, and any old one removed, so every edit loads fresh and nothing is cached. */
+if('serviceWorker' in navigator){
+  if(/^(localhost|127(\.\d+){3}|\[::1\])$/.test(location.hostname))
+    navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
+  else addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
 </script>
 </body>
 </html>
