@@ -20,7 +20,7 @@ function pageItems(){ return shopItems().slice(shop.page*PER_PAGE,(shop.page+1)*
 function askBuy(i){
   const it=pageItems()[i]; if(!it) return;
   if(G.coins<it.cost){ say("Not enough coins."); blip(150,0.08,0.2); return; }
-  shop.confirm=it;
+  shop.confirm=it; shop.cIdx=0;
 }
 function doBuy(){
   const it=shop.confirm; shop.confirm=null;
@@ -37,16 +37,21 @@ function doBuy(){
   shop.page=Math.min(shop.page,pageCount()-1); shop.idx=0; autoSave();
 }
 function shopKey(k){
-  if(shop.confirm){ if(k===' '||k==='enter') doBuy(); if(k==='escape') shop.confirm=null; return; }
+  if(shop.confirm){
+    if(isLeft(k)||isRight(k)||isUp(k)||isDown(k)) shop.cIdx=1-shop.cIdx;
+    if(isOk(k)){ if(shop.cIdx===0) doBuy(); else shop.confirm=null; }
+    if(isBack(k)) shop.confirm=null;
+    return;
+  }
   const n=pageItems().length||1;
-  if(k==='arrowup'||k==='w') shop.idx=(shop.idx+n-1)%n;
-  if(k==='arrowdown'||k==='s') shop.idx=(shop.idx+1)%n;
-  if(k==='arrowleft'||k==='a'){ shop.tab=(shop.tab+2)%3; shop.idx=0; shop.page=0; }
-  if(k==='arrowright'||k==='d'){ shop.tab=(shop.tab+1)%3; shop.idx=0; shop.page=0; }
+  if(isUp(k)) shop.idx=(shop.idx+n-1)%n;
+  if(isDown(k)) shop.idx=(shop.idx+1)%n;
+  if(isLeft(k)){ shop.tab=(shop.tab+2)%3; shop.idx=0; shop.page=0; }
+  if(isRight(k)){ shop.tab=(shop.tab+1)%3; shop.idx=0; shop.page=0; }
   if(k==='q') shop.page=(shop.page+pageCount()-1)%pageCount();
   if(k==='e') shop.page=(shop.page+1)%pageCount();
-  if(k===' '||k==='enter') askBuy(shop.idx);
-  if(k==='escape') G.scene='world';
+  if(isOk(k)) askBuy(shop.idx);
+  if(isBack(k)){ G.scene='world'; autoSave(); }
 }
 function shopTouch(x,y){
   if(shop.confirm){
@@ -68,20 +73,22 @@ function drawShop(){
   drawWorldStatic(); dim();
   panel(12,30,336,432);
   portrait(b,24,42,1);
-  for(let i=0;i<3;i++) px(b,21+i*106,162,104,27,i===shop.tab?'#d9c9a0':'#c9b894');
+  for(let i=0;i<3;i++) tabPill(21+i*106,162,104,27,i===shop.tab);
   const items=pageItems();
   items.forEach((it,i)=>{ const y=198+i*26;
-    px(b,21,y,318,25,i===shop.idx?'#d9c9a0':'#e8dcc0');
+    menuRow(21,y,318,25,i===shop.idx,G.coins<it.cost);
+    const sx=21+ROW_PAD;
     if(it.type==='seed'){ const S=SPECIES[it.id];
-      px(b,28,y+8,10,10,S.fruit); px(b,28,y+8,5,5,S.dk); }
-    else px(b,28,y+8,10,10,'#8a6a2e'); });
+      px(b,sx,y+8,10,10,S.fruit); px(b,sx,y+8,5,5,S.dk); }
+    else px(b,sx,y+8,10,10,'#8a6a2e'); });
   if(pageCount()>1){ px(b,21,414,69,26,'#c9b894'); px(b,270,414,69,26,'#c9b894'); }
   if(shop.confirm){
     px(b,0,0,LW,LH,'#0d1410');
     panel(30,180,300,180);
     px(b,39,189,282,51,'#e2d3ae');
-    px(b,51,306,117,42,'#2b1c12'); px(b,54,309,111,36,'#9fc48a');
-    px(b,192,306,117,42,'#2b1c12'); px(b,195,309,111,36,'#d8a89a');
+    [[51,'#9fc48a'],[192,'#d8a89a']].forEach(([bx,col],i)=>{ const sel=shop.cIdx===i;
+      px(b,bx,306,117,42,sel?'#a8781e':'#2b1c12'); px(b,bx+3,309,111,36,col);
+      if(sel){ px(b,bx+3,309,111,3,'#fff3c0'); fluteCursor(bx+33,327); } });
   }
   m.drawImage(buf,0,0);
   if(shop.confirm){
@@ -90,8 +97,9 @@ function drawShop(){
     if(shop.confirm.desc) T(shop.confirm.desc,180,278,20,'#7a6a4a','center');
     T("Cost "+shop.confirm.cost+"c",180,296,22,'#a06a1a','center',true);
     T("you have "+G.coins+"c",180,296+16,18,'#7a6a4a','center');
-    T("Buy",109,333,30,'#1f3d20','center',true);
-    T("Cancel",250,333,30,'#5a2a20','center',true);
+    T("Buy",118,333,30,'#1f3d20','center',true);
+    T("Cancel",259,333,30,'#5a2a20','center',true);
+    keyHint("A/D choose  ·  J confirm  ·  H back",180,375);
     return;
   }
   T("Garden Stall",228,78,34,'#3a2a1a','center',true);
@@ -99,13 +107,13 @@ function drawShop(){
   T(G.coins+"c",228,134,38,'#a06a1a','center',true);
   TABS.forEach((t,i)=>T(t,73+i*106,181,24,'#3a2a1a','center',i===shop.tab));
   items.forEach((it,i)=>{ const y=198+i*26;
-    T(it.name,45,y+17,24,'#3a2a1a');
-    if(it.desc) T(it.desc,182,y+17,18,'#7a6a4a');
+    T(it.name,21+ROW_PAD+16,y+17,24,'#3a2a1a',null,i===shop.idx);
+    if(it.desc) T(it.desc,192,y+17,18,'#7a6a4a');
     T(it.cost+"c",334,y+17,22,G.coins>=it.cost?'#a06a1a':'#b09a86','right'); });
   if(pageCount()>1){
-    T("< prev",55,432,22,'#3a2a1a','center',true);
-    T("next >",304,432,22,'#3a2a1a','center',true);
+    T("< prev  Q",55,432,22,'#3a2a1a','center',true);
+    T("E  next >",304,432,22,'#3a2a1a','center',true);
     T("page "+(shop.page+1)+" / "+pageCount(),180,432,22,'#7a6a4a','center');
   }
-  T("tap here to leave",180,456,20,'#8a7a5a','center');
+  keyHint("W/S choose  ·  A/D tabs  ·  J buy  ·  H leave  (or tap here)",180,456);
 }

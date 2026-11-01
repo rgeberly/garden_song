@@ -2,8 +2,14 @@
    INPUT
    ================================================================ */
 const keys={};
-const KEYLANE={'d':0,'f':1,'j':2,'k':3,'1':0,'2':1,'3':2,'4':3,
+/* rhythm lanes: H J K L (number keys and arrows also work) */
+const KEYLANE={'h':0,'j':1,'k':2,'l':3,'1':0,'2':1,'3':2,'4':3,
   'arrowleft':0,'arrowdown':1,'arrowup':2,'arrowright':3};
+/* outside the rhythm game: J / Space / Enter accept, H / Esc cancel, WASD or arrows move */
+const isOk=k=>k===' '||k==='enter'||k==='j';
+const isBack=k=>k==='escape'||k==='h';
+const isUp=k=>k==='arrowup'||k==='w', isDown=k=>k==='arrowdown'||k==='s';
+const isLeft=k=>k==='arrowleft'||k==='a', isRight=k=>k==='arrowright'||k==='d';
 addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
   initAudio(); if(!keys[k]) onPress(k); keys[k]=true; });
@@ -49,13 +55,13 @@ function onTouchEnd(id){
 function setPad(x,y){ const dx=x-PAD.cx,dy=y-PAD.cy,mm=Math.hypot(dx,dy)||1;
   padVec = mm>7?{x:dx/mm,y:dy/mm}:{x:0,y:0}; }
 function onPress(k){
-  if(G.scene==='title'&&(k===' '||k==='enter')) startGame();
-  else if(G.scene==='world'&&(k===' '||k==='enter'||k==='e')) interact();
+  if(G.scene==='title'&&isOk(k)) startGame();
+  else if(G.scene==='world'&&(isOk(k)||k==='e')) interact();
   else if(G.scene==='world'&&k==='m') openSys();
   else if(G.scene==='menu') menuKey(k);
   else if(G.scene==='shop') shopKey(k);
-  else if(G.scene==='sys'&&k==='escape') G.scene='world';
+  else if(G.scene==='sys') sysKey(k);
   else if(G.scene==='battle') battleKey(k);
   else if(G.scene==='rhythm') rhythmKey(k);
-  else if(G.scene==='sleep'&&(k===' '||k==='enter'||k==='e')) sleepTap();
+  else if(G.scene==='sleep'&&(isOk(k)||k==='e')) sleepTap();
 }

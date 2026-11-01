@@ -40,6 +40,41 @@ function drawHUD(){
   T("A",BTN.cx,BTN.cy+9,34,'#2b1c12','center',true);
 }
 function panel(x,y,w,h){ px(b,x,y,w,h,'#2b1c12'); px(b,x+3,y+3,w-6,h-6,'#f3ead2'); }
+/* The menu cursor is the flute you have equipped (its big art), laid at a slight
+   tilt with a warm glow and bobbing beside the highlighted row; tipX is where its
+   foot ends, y the row's middle. FLUTE_PTR holds each flute's centre, the angle of
+   its mouthpiece-to-foot line (degrees) and its length, in flutes_big.png cells. */
+const FLUTE_PTR=[[102.4,71.1,76.5,152],[98.6,79.4,134.2,204],[94.2,78.0,121.0,159]];
+const PTR_LEN=30, PTR_TILT=-14*Math.PI/180;
+function fluteCursor(tipX,y){
+  if(!IMG_FLBIG.complete||!IMG_FLBIG.naturalWidth) return;
+  const fi=Math.max(0,FLUTE_META.order.indexOf(G.flute||'recorder'));
+  const [cx,cy,ang,len]=FLUTE_PTR[fi], bob=Math.sin(G.t/170)*1.6;
+  const mx=tipX+bob-Math.cos(PTR_TILT)*PTR_LEN/2, my=y-Math.sin(PTR_TILT)*PTR_LEN/2;
+  b.save();
+  const g=b.createRadialGradient(mx,my,0,mx,my,PTR_LEN*0.6);
+  g.addColorStop(0,'rgba(255,214,110,.6)'); g.addColorStop(1,'rgba(255,214,110,0)');
+  b.fillStyle=g; b.beginPath(); b.ellipse(mx,my,PTR_LEN*0.6,PTR_LEN*0.3,PTR_TILT,0,7); b.fill();
+  b.translate(mx,my); b.rotate(PTR_TILT-ang*Math.PI/180);
+  const s=PTR_LEN/len; b.scale(s,s); b.imageSmoothingEnabled=true;
+  b.shadowColor='rgba(70,45,10,.75)'; b.shadowBlur=2;     /* keeps the silver flute visible on cream */
+  b.drawImage(IMG_FLBIG,fi*FLBIG_META.cw,0,FLBIG_META.cw,FLBIG_META.ch,-cx,-cy,FLBIG_META.cw,FLBIG_META.ch);
+  b.restore();
+}
+/* a list row; the highlighted one gets a gold frame and the flute cursor in its
+   first ROW_PAD px, where row content starts */
+const ROW_PAD=34;
+function menuRow(x,y,w,h,sel,off){
+  if(sel){ px(b,x-1,y-1,w+2,h+2,'#a8781e'); px(b,x+1,y+1,w-2,h-2,'#fbf0c4'); fluteCursor(x+30,y+h/2); }
+  else { px(b,x,y,w,h,off?'#d8cfbb':'#e8dcc0'); px(b,x,y,w,2,'#c3b48c'); }
+}
+/* a tab along the top of a menu; the open one is gold and stands a little taller */
+function tabPill(x,y,w,h,sel){
+  if(sel){ px(b,x,y,w,h,'#a8781e'); px(b,x+2,y+2,w-4,h-2,'#f0cf6a'); px(b,x+2,y+2,w-4,3,'#fff0b0'); }
+  else { px(b,x,y+3,w,h-3,'#c9b894'); px(b,x,y+3,w,2,'#b8a67e'); }
+}
+/* small key reminder along the bottom of a menu */
+function keyHint(txt,x,y){ T(txt,x,y,16,'#8a7a5a','center'); }
 function dim(){ b.globalAlpha=.76; px(b,0,0,LW,LH,'#0d1410'); b.globalAlpha=1; }
 function drawWorldStatic(){
   const cam=camera();

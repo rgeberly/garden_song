@@ -18,11 +18,15 @@ function battleKey(k){
   if(!B)return;
   if(B.over){ endBattle(); return; }
   if(B.turn!=='player')return;
-  const ms=moveList();
-  if(k==='arrowup'||k==='w') B.idx=(B.idx+ms.length-1)%ms.length;
-  if(k==='arrowdown'||k==='s') B.idx=(B.idx+1)%ms.length;
-  if(k===' '||k==='enter') useMove(ms[B.idx]);
-  if(k==='escape') tryFlee();
+  /* B.idx runs over the moves, and one past the last move is Flee */
+  const ms=moveList(), flee=ms.length;
+  if(isUp(k)) B.idx=B.idx===flee?ms.length-1:(B.idx+ms.length-1)%ms.length;
+  if(isDown(k)) B.idx=B.idx===flee?0:(B.idx+1)%ms.length;
+  if(isRight(k)) B.idx=flee;
+  if(isLeft(k)&&B.idx===flee) B.idx=0;
+  if(isOk(k)){ if(B.idx===flee) tryFlee(); else useMove(ms[B.idx]); }
+  /* cancel points at Flee first, so a stray press doesn't run away */
+  if(isBack(k)){ if(B.idx===flee) tryFlee(); else B.idx=flee; }
 }
 function battleTouch(x,y){
   if(!B)return;
@@ -205,9 +209,11 @@ function drawBattle(dt){
   bar(144,221,120,9,G.player.mp,maxMp(),'#4aa8e0','#20415a');
   px(b,12,237,336,39,'#2b1c12'); px(b,15,240,330,33,'#f3ead2');
   const ms=moveList(), top=282, rowH=25;
-  if(!B.over) ms.forEach((mv,i)=>{ const y=top+i*rowH, ok=G.player.mp>=mv.mp;
-    px(b,15,y,225,23,i===B.idx?'#d9c9a0':(ok?'#e8dcc0':'#cfc4ae')); px(b,15,y,225,2,'#c3b48c'); });
-  if(!B.over) px(b,249,top,90,23,'#c9a08a');
+  const pick=B.turn==='player';
+  if(!B.over) ms.forEach((mv,i)=>menuRow(15,top+i*rowH,225,23,pick&&i===B.idx,G.player.mp<mv.mp));
+  if(!B.over){ const sel=pick&&B.idx===ms.length;
+    if(sel){ px(b,248,top-1,92,25,'#a8781e'); px(b,250,top+1,88,21,'#e8b8a0'); fluteCursor(282,top+11); }
+    else px(b,249,top,90,23,'#c9a08a'); }
   if(B.over) panel(36,294,288,99);
   m.drawImage(buf,0,0);
   T(B.name+(B.boss?"  ★BOSS":""),18,40,28,'#f0e6d2',null,true);
@@ -232,8 +238,8 @@ function drawBattle(dt){
     T("tap to continue",180,366,22,'#7a6a4a','center'); return;
   }
   ms.forEach((mv,i)=>{ const y=top+i*rowH, ok=G.player.mp>=mv.mp;
-    T(mv.name,25,y+16,24,ok?'#3a2a1a':'#8a7a68');
+    T(mv.name,15+ROW_PAD+2,y+16,24,ok?'#3a2a1a':'#8a7a68',null,pick&&i===B.idx);
     T(mv.mp?mv.mp+" MP":"free",232,y+16,20,mv.mp?(ok?'#2a6a9a':'#a09080'):'#5a7a3a','right'); });
-  T("Flee",294,top+16,24,'#3a2a1a','center');
+  T("Flee",B.idx===ms.length&&pick?308:294,top+16,24,'#3a2a1a','center',B.idx===ms.length&&pick);
   if(B.turn!=='player') T("...",180,440,26,'#f0e6d2','center');
 }

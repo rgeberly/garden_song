@@ -20,7 +20,7 @@ function drawTitle(){
   T("play the golden flute · grow the garden",180,134,22,'#cfe0c4','center');
   T("Load a save code",180,399,26,'#e8dcc0','center',true);
   if(Math.floor(G.t/500)%2===0) T("TAP ANYWHERE TO BEGIN",180,444,28,'#f7f0dc','center',true);
-  T("move: stick / WASD    act: A / space",180,464,20,'#8fae86','center');
+  T("move: stick / WASD    act: A / J / space    back: H / esc",180,464,20,'#8fae86','center');
 }
 let last=performance.now();
 function loop(now){

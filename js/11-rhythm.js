@@ -81,8 +81,8 @@ function stemChart(count,seed){
   });
   return {notes,end:(ph.b-off)*1000+1500,offset:off,stem:true,beat:600,bpm:100};
 }
-function startStemPlayback(chart){
-  const t0=AC.currentTime+0.14;
+function startStemPlayback(chart,leadMs){
+  const t0=AC.currentTime+leadMs/1000;     /* song time 0 lands after the count-in */
   const bs=AC.createBufferSource(); bs.buffer=STEM.backing;
   const bg=AC.createGain(); bg.gain.value=0.8;
   bs.connect(bg); bg.connect(master);
@@ -115,13 +115,26 @@ function startRhythm(plot,bc){
   const seed=(plot?plot.x*7+plot.y*13:917)+count*31;
   const useStem=STEM.ready&&typeof STEM_PHRASES!=='undefined'&&STEM_PHRASES.length;
   const chart=useStem?stemChart(count,seed):makeChart(count,seed,bpm);
+  /* Count-in: "3, 2, 1, Go!" one beat each, ending just before the first note
+     starts to fall, so there is time to get your fingers on H J K L. */
+  const first=chart.notes.length?chart.notes[0].t:0;
+  const beat=clamp(chart.beat||600,450,750);
+  const goEnd=first-FALL-250, countStart=goEnd-COUNT_BEATS*beat;
+  const lead=Math.max(700,-countStart);     /* ms before song time 0 */
   R_={plot,battle:bc||null,chart,mpSpent:bc?bc.mp:0,play:null,
-    time:-700,perfect:0,good:0,miss:0,combo:0,maxcombo:0,
+    time:-lead,count:{start:countStart,beat,last:-1},
+    perfect:0,good:0,miss:0,combo:0,maxcombo:0,
     press:[0,0,0,0],flash:[0,0,0,0],pop:[],fx:[],done:false,shine:0,frogT:0};
   G.scene='rhythm'; initAudio();
   setMusic(null);
-  if(chart.stem&&AC) R_.play=startStemPlayback(chart);
-  else if(AC) scheduleAccomp(chart,AC.currentTime+0.7);
+  if(chart.stem&&AC) R_.play=startStemPlayback(chart,lead);
+  else if(AC) scheduleAccomp(chart,AC.currentTime+lead/1000);
+}
+const COUNT_BEATS=4, COUNT_WORDS=['3','2','1','Go!'];
+/* which count word is showing (-1 before the count, COUNT_BEATS once it is over) */
+function countBeat(){
+  const c=R_.count;
+  return R_.time<c.start?-1:Math.min(COUNT_BEATS,Math.floor((R_.time-c.start)/c.beat));
 }
 function spawnFx(lane,kind){
   R_.fx.push({x:LANE_X0+lane*LANE_W+LANE_W/2+rnd(-14,14),y:HITLINE-9,
@@ -145,7 +158,7 @@ function laneDown(lane){
       else if(AC) flute(best.semi,AC.currentTime,.5,.85);
     } else if(R_.chart.stem) fluteOn(best);
       else if(AC) flute(best.semi,AC.currentTime,Math.min(2.4,best.dur/1000),.7);
-  } else if(bd>400) blip(150,0.05,0.1);
+  } else if(bd>400&&countBeat()>=COUNT_BEATS) blip(150,0.05,0.1);   /* free practice during the count-in */
 }
 function laneUp(l){ if(R_) R_.press[l]=0; }
 const CANCEL={x:LW-64,y:52,w:58,h:26};
@@ -181,13 +194,17 @@ function rhythmRelease(id){
 }
 function rhythmKey(k){
   if(R_&&R_.done){finishRhythm();return;}
-  if(k==='escape'){ cancelRhythm(); return; }
+  if(k==='escape'){ cancelRhythm(); return; }   /* H is a lane here, so only Esc stops */
   if(k in KEYLANE) laneDown(KEYLANE[k]);
 }
 function updateRhythm(dt){
   if(!R_)return;
   if(R_.play&&AC) R_.time=(AC.currentTime-R_.play.t0)*1000;
   else R_.time+=dt;
+  /* a soft woodblock tick on each count, a brighter one on "Go!" */
+  const cb=countBeat();
+  if(cb>=0&&cb<COUNT_BEATS&&cb!==R_.count.last){ R_.count.last=cb;
+    blip(cb<COUNT_BEATS-1?880:1320,0.08,0.12,'sine'); }
   for(let i=0;i<LANES;i++) if(R_.flash[i]>0) R_.flash[i]-=dt;
   if(R_.shine>0) R_.shine-=dt;
   if(R_.frogT>0) R_.frogT-=dt;
@@ -412,6 +429,18 @@ function drawRhythm(){
     9,37,20,'#e8c34a');
   T(FLUTE_INFO[G.flute||'recorder'].name,LW-52,44,15,'#9fb2c6','center');
   if(!R_.done) T("✕  Stop",CANCEL.x+CANCEL.w/2,CANCEL.y+18,20,'#3a2a1a','center',true);
+  /* the count-in, and which key plays which lane until the first note arrives */
+  const cb=countBeat();
+  if(!R_.done&&cb<COUNT_BEATS){
+    "HJKL".split('').forEach((ch,i)=>T(ch,LANE_X0+i*LANE_W+LANE_W/2-2,HITLINE+34,26,'#f7f0dc','center',true));
+    if(cb<0) T("Get ready...",LW/2,210,34,'#f7f0dc','center',true);
+    else {
+      const f=(R_.time-R_.count.start)/R_.count.beat-cb;          /* 0..1 through this beat */
+      m.globalAlpha=clamp(1.25-f,0,1);
+      T(COUNT_WORDS[cb],LW/2,225,Math.round(96-f*26),cb===COUNT_BEATS-1?'#ffe08a':'#f7f0dc','center',true);
+      m.globalAlpha=1;
+    }
+  }
   if(R_.done){
     const acc=rhythmAcc();
     const rank=acc>0.93?'S':acc>0.8?'A':acc>0.62?'B':acc>0.4?'C':'D';

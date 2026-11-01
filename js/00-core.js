@@ -198,11 +198,11 @@ function drawEnemyArt(c,species,cx,footY,zoom){
   drawDev(c,IMG_EN,i*ENC.cw,0,ENC.cw,ENC.ch,cx,footY,zoom||1,0);
   return true;
 }
+/* the whole portrait image at its own size (times s), top-left at x,y */
 function portrait(c,x,y,s){
   if(assetsReady<2) return;
-  const z=s||1;
-  c.save(); c.scale(z/SC,z/SC);
-  c.drawImage(IMG_PT,0,0,ASSET_META.pw,ASSET_META.ph,
-    Math.round(x*SC/z),Math.round(y*SC/z),ASSET_META.pw,ASSET_META.ph);
+  const z=s||1, w=IMG_PT.naturalWidth, h=IMG_PT.naturalHeight;
+  c.save(); c.scale(z/SC,z/SC); c.imageSmoothingEnabled=z!==1;
+  c.drawImage(IMG_PT,0,0,w,h,Math.round(x*SC/z),Math.round(y*SC/z),w,h);
   c.restore();
 }
