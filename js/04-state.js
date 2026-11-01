@@ -74,7 +74,15 @@ function applySave(o){
   buildWorld(); return true;
 }
 function importCode(s){ try{ return applySave(JSON.parse(decodeURIComponent(escape(atob(s.trim()))))); }catch(e){ return false; } }
-function autoSave(){ try{ if(window.storage) window.storage.set('kgs7',exportCode()).catch(()=>{}); }catch(e){} }
-function autoLoad(){ try{ if(window.storage) window.storage.get('kgs7')
-  .then(r=>{ if(r&&r.value) importCode(r.value); }).catch(()=>{}); }catch(e){} }
+/* Saves go to Claude's artifact storage when the game runs as an artifact, and to
+   this browser's localStorage everywhere else (a website, or python serve.py). */
+function autoSave(){
+  try{ if(window.storage){ window.storage.set('kgs7',exportCode()).catch(()=>{}); return; } }catch(e){}
+  try{ localStorage.setItem('kgs7',exportCode()); }catch(e){}
+}
+function autoLoad(){
+  try{ if(window.storage){ window.storage.get('kgs7')
+    .then(r=>{ if(r&&r.value) importCode(r.value); }).catch(()=>{}); return; } }catch(e){}
+  try{ const s=localStorage.getItem('kgs7'); if(s) importCode(s); }catch(e){}
+}
 setInterval(()=>{ if(G.scene==='world') autoSave(); },15000);
