@@ -99,7 +99,7 @@ const SIL=document.createElement('canvas'); SIL.width=AM.cw; SIL.height=AM.ch;
 const SILG=SIL.getContext('2d');
 const SOFT=document.createElement('canvas'); SOFT.width=Math.ceil(AM.cw/3); SOFT.height=Math.ceil(AM.ch/3);
 const SOFTG=SOFT.getContext('2d');
-function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving){
+function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving,indoors){
   if(!animReady) return;
   const [r,g,bl]=SHADOW_RGB[season()], rgb=r+','+g+','+bl;
   const fx=cxL*SC, fy=footL*SC, s=sunAt(G.clock/60);
@@ -115,7 +115,7 @@ function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving){
      top-down view), width across it, turned so her left and right stay on the same
      sides (gy>=0 all day, so (gy,-gx) never mirrors her); sprite y is negative
      above the feet */
-  if(s.strength>0){
+  if(s.strength>0&&!indoors){           /* no sun indoors: just the patch under her */
     const f=kaitlynFrame(dir,frameT,moving);
     SILG.setTransform(1,0,0,1,0,0); SILG.globalCompositeOperation='source-over';
     SILG.clearRect(0,0,AM.cw,AM.ch);
@@ -183,7 +183,7 @@ function goToSleep(midnight){
   padVec={x:0,y:0}; padId=null; btnHeld=false;
   G.scene='sleep'; G.msgT=0;
 }
-/* somewhere she can stand, just below the front door */
+/* somewhere she can stand in the garden, just below the front door */
 function doorstep(){
   for(let dy=24;dy<90;dy+=3) if(!solidAt(HOUSE_DOOR.x,HOUSE_DOOR.y+dy+9)) return {x:HOUSE_DOOR.x,y:HOUSE_DOOR.y+dy};
   return {x:HOUSE_DOOR.x,y:HOUSE_DOOR.y+40};
@@ -191,7 +191,7 @@ function doorstep(){
 function wakeUp(){
   const before=season();
   G.day++; G.clock=WAKE_AT; ripenPlants();
-  const p=doorstep(); G.player.x=p.x; G.player.y=p.y; G.player.dir=4;
+  G.indoors=true; G.player.x=HOUSE.wake.x; G.player.y=HOUSE.wake.y; G.player.dir=4;   /* up beside the bed */
   G.player.moving=false; G.player.walkT=0; G.swim=false;
   preloadSeasonMaps();
   sleep.say=season()!==before?SEASON_NAME[season()]+" is here!":"Good morning! Day "+G.day+".";

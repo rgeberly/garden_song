@@ -41,6 +41,7 @@ const PESTS={
   rat    :{name:"Garden Rat",   hp:34, atk:5, xp:20, coin:8,  col:'#8a8072',dk:'#4a443c',hl:'#c4bcae',min:2},
   crab   :{name:"Hermit Crab",  hp:44, atk:5, xp:26, coin:10, col:'#c46a3a',dk:'#7d3a18',hl:'#e8a06a',min:3},
   raccoon:{name:"Raccoon",      hp:56, atk:8, xp:36, coin:14, col:'#8a8f96',dk:'#3f454c',hl:'#c4c9d0',min:4},
+  saddleback:{name:"Saddleback",hp:30, atk:7, xp:22, coin:9,  col:'#8fc43a',dk:'#5a3418',hl:'#d8f08a',min:2,verb:"stings"},
   hoa    :{name:"HOA President",hp:130,atk:12,xp:120,coin:60, col:'#c9b48a',dk:'#6b5c3a',hl:'#f7f3e0',min:5,boss:true},
 };
 const GEAR=[

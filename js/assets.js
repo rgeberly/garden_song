@@ -33,12 +33,13 @@ const POSE_META={"cw": 130, "ch": 196};
 const FLUTE_META={"cw": 62, "ch": 25, "order": ["recorder", "silver", "dizi"]};
 const FROG_META={"cw": 57, "ch": 68, "n": 4};
 const FLBIG_META={"cw": 210, "ch": 150};
-const ASSET_META={"ow": {"cw": 150, "ch": 208}, "bt": {"cw": 150, "ch": 196}, "pw": 244, "ph": 312, "en": {"cw": 165, "ch": 135, "order": ["beetle", "wasp", "rat", "crab", "raccoon"]}};
+const ASSET_META={"ow": {"cw": 150, "ch": 208}, "bt": {"cw": 150, "ch": 196}, "pw": 244, "ph": 312, "en": {"cw": 165, "ch": 135, "order": ["beetle", "wasp", "rat", "crab", "raccoon", "saddleback"]}};
 const ASSET_STEM_BACKING="assets/audio/stem_backing.mp3";
 const ASSET_STEM_FLUTE="assets/audio/stem_flute.mp3";
 const ASSET_MAPS={"spring":"assets/sprites/map_spring.jpg","summer":"assets/sprites/map_summer.jpg",
                   "fall":"assets/sprites/map_fall.jpg","winter":"assets/sprites/map_winter.jpg"};
 const ASSET_MAP=ASSET_MAPS.spring;
+const ASSET_HOUSE="assets/sprites/map_house.jpg";
 const ASSET_MAPCOL="assets/sprites/map_collision.png";
 const MAP_META={"world":720,"cells":360};
 const IMG_TOTAL=10;

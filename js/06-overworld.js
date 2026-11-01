@@ -18,9 +18,9 @@ const nearestPest=()=>G.pests.find(p=>Math.hypot(p.x-G.player.x,p.y-G.player.y)<
 const nearStall=(f=1)=>Math.hypot(STALL.x-G.player.x,STALL.y+6-G.player.y)<44*f;
 const nearDoor=(f=1)=>Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y)<46*f;
 function interact(){
+  if(G.indoors){ houseInteract(); return; }
   if(nearStall()){ openShop(); return; }
-  /* bedtime at the front door for now; later the bed inside the house */
-  if(nearDoor()){ askSleep(); return; }
+  if(nearDoor()){ enterHouse(); return; }
   if(G.swim){ G.player.mp=maxMp(); say("Music Points fully restored!"); return; }
   const frog=nearestFrog();
   if(frog){
@@ -84,9 +84,9 @@ function wanderSpot(){
   do{ x=ri(F(.15),F(.85)); y=ri(F(.28),F(.72)); } while(solidAt(x,y)&&guard++<30);
   return {x,y};
 }
-function updateWorld(dt){
-  tickClock(dt);
-  if(G.scene!=='world') return;          /* midnight sent her to bed */
+/* WASD / arrows / the pad move her at speed (px per ms) unless blocked(x,y) says no;
+   used in the garden and in the house */
+function walk(dt,speed,blocked){
   const P=G.player;
   let dx=0,dy=0;
   if(keys['arrowleft']||keys['a']) dx-=1;
@@ -98,10 +98,10 @@ function updateWorld(dt){
   if(mm>0.15){
     dx/=mm; dy/=mm;
     const mul=(G.gear.boots?1.35:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1)*(G.swim?0.62:1);
-    const sp=WALK_SPEED*mul*dt;
+    const sp=speed*mul*dt;
     const nx=P.x+dx*sp, ny=P.y+dy*sp;
-    if(!solidAt(nx,P.y+9)) P.x=nx;
-    if(!solidAt(P.x,ny+9)) P.y=ny;
+    if(!blocked(nx,P.y)) P.x=nx;
+    if(!blocked(P.x,ny)) P.y=ny;
     P.dir=dirFromVec(dx,dy);
     // steps quicken with boots/coffee (and slow in water) so her feet don't slide
     P.walkT+=dt*mul; P.moving=true; P.animT=P.walkT;
@@ -114,6 +114,13 @@ function updateWorld(dt){
     const want=P.moving?'walk':'idle';
     if(want!==sfxAnim){ sfxAnim=want; setSfx(P.moving?null:'idle_'+DIRMAP[P.dir&7][0]); }
   }
+}
+function updateWorld(dt){
+  tickClock(dt);
+  if(G.scene!=='world') return;          /* midnight sent her to bed */
+  if(G.indoors){ updateHouse(dt); return; }
+  const P=G.player;
+  walk(dt,WALK_SPEED,(x,y)=>solidAt(x,y+9));
   P.x=clamp(P.x,21,WORLD_W-21); P.y=clamp(P.y,24,WORLD_H-30);
   const wasSwim=G.swim;
   G.swim=season()!=='winter'&&inPool(P.x,P.y+9);   /* frozen in winter: she walks on the ice */
@@ -163,6 +170,7 @@ function camera(){ const vh=VIEW_H/WORLD_ZOOM;
 /* where a world point lands in the garden view, in logical screen px */
 const toView=(wx,wy,cam)=>[(wx-cam.x)*WORLD_ZOOM,(wy-cam.y)*WORLD_ZOOM];
 function drawWorld(){
+  if(G.indoors){ drawHouse(); return; }
   const cam=camera();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);           /* the zoomed-out garden */
@@ -238,7 +246,7 @@ function drawWorld(){
   const R=PROMPT_REACH, p=nearestPlot(R), f=nearestFrog(R);
   let label=null;
   if(nearStall(R)) label="Shop";
-  else if(nearDoor(R)) label="Sleep";
+  else if(nearDoor(R)) label="Go inside";
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
   else if(p) label=p.dead?"Clear":!p.sp?"Plant":p.stage>=3?"Harvest":p.growth>=MAX_GROWTH?"Ripe tomorrow":p.sungDay===G.day?"Sung today":"Play song";

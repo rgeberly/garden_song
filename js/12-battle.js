@@ -107,7 +107,7 @@ function enemyTurn(){
     if(!B||B.over)return;
     const P=PESTS[B.species];
     const dmg=Math.max(1,Math.round(P.atk*B.atkMul*rnd(0.7,1.3)));
-    G.player.hp-=dmg; B.log="The "+B.name+" strikes for "+dmg+"!";
+    G.player.hp-=dmg; B.log="The "+B.name+" "+(P.verb||"strikes")+" for "+dmg+"!";
     pop("-"+dmg,KX,KY-70,'#ff8a8a'); burst(KX,KY-46,'#ff9a8a',10); blip(180,0.09,0.2);
     if(G.player.hp<=0){ G.player.hp=0; B.over='lose'; B.log="Kaitlyn is worn out..."; return; }
     B.turn='player';
