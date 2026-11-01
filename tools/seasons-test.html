@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seasons Test</title>
+<style>
+  :root { --bg:#141c14; --panel:#1f2b20; --ink:#e4ecdc; --dim:#9fb39a; --accent:#f2c84b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.4 Verdana, sans-serif; padding:16px; }
+  h1 { font-size:18px; margin:0 0 4px; color:var(--accent); }
+  p.note { margin:0 0 12px; color:var(--dim); max-width:720px; }
+  .wrap { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  canvas { display:block; width:540px; max-width:100%; height:auto; border-radius:6px; background:#1b2418; touch-action:none; }
+  .controls { background:var(--panel); border-radius:8px; padding:12px; width:340px; max-width:100%; }
+  .controls label { display:block; margin:10px 0 4px; }
+  .controls label:first-child { margin-top:0; }
+  input[type=range] { width:100%; }
+  button { background:#2e3f2e; color:var(--ink); border:1px solid #4a604a; border-radius:6px; padding:6px 10px; margin:2px; cursor:pointer; font:inherit; }
+  button.on { background:var(--accent); color:#1a1a10; border-color:var(--accent); }
+  .pad { display:grid; grid-template-columns:repeat(3,44px); gap:4px; margin-top:4px; }
+  .pad button { margin:0; padding:8px 0; }
+  .stat { color:var(--dim); font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<h1>Seasons, shadow &amp; time of day test</h1>
+<p class="note">Walk with the arrow keys / WASD or the pad; she stops at anything the collision map blocks, like in the game. Pick a season, drag the time slider (or press Play day), and turn the sun's path to match the painted light.</p>
+
+<div class="wrap">
+  <canvas id="c" width="1080" height="900"></canvas>
+  <div class="controls">
+    <label>Season</label>
+    <div id="seasonopts">
+      <button data-v="spring" class="on">Spring</button><button data-v="summer">Summer</button>
+      <button data-v="fall">Fall</button><button data-v="winter">Winter</button>
+    </div>
+
+    <label for="hour">Time of day: <b id="hourv"></b></label>
+    <input id="hour" type="range" min="5" max="22" step="0.05" value="10">
+    <div id="playopts"><button data-v="play">Play day</button></div>
+
+    <label for="rot">Sun path rotation: <b id="rotv"></b></label>
+    <input id="rot" type="range" min="-180" max="180" step="5" value="0">
+
+    <label>Shadow</label>
+    <div id="shadowopts">
+      <button data-v="round">Round (current)</button>
+      <button data-v="sprite" class="on">From her sprite</button>
+      <button data-v="contact">Contact only</button>
+    </div>
+
+    <label>Colour tint</label>
+    <div id="tintopts"><button data-v="1" class="on">On</button><button data-v="0">Off</button></div>
+
+    <label>View</label>
+    <div id="zoomopts"><button data-v="1" class="on">Game size</button><button data-v="2">2× zoom</button></div>
+    <div id="colopts"><button data-v="col">Show collision</button></div>
+
+    <label>Walk</label>
+    <div class="pad" id="pad"></div>
+    <div class="stat" id="stat"></div>
+  </div>
+</div>
+
+<script src="../js/assets.js"></script>
+<script>
+/* Same world, camera and scale as the game: a 720x720 logical world, a 360x300
+   view, SC device px per logical px. Sprite cells are drawn 1:1 in device px with
+   cell row AM.foot on her ground point, which is 12px below her position. */
+const SC=3, LW=360, VIEW_H=300, WORLD_W=MAP_META.world, WORLD_H=MAP_META.world;
+const AM=ANIM_META, WALK_CYCLE=1400, IDLE_CYCLE=1600, WALK_SPEED=0.072;
+const DIRMAP=[['up',0],['northeast',0],['east',0],['southeast',0],['down',0],['southeast',1],['east',1],['northeast',1]];
+const ROWOF={}; AM.rows.forEach((r,i)=>ROWOF[r.anim+'_'+r.dir]=i);
+const ROWN=AM.rows.map(r=>r.n);
+const clamp=(v,a,z)=>v<a?a:v>z?z:v;
+
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const W=cv.width, H=cv.height;
+const sheet=new Image(); sheet.src='../'+ASSET_ANIM;
+const maps={};
+function mapImg(season){
+  if(!maps[season]){ maps[season]=new Image(); maps[season].src='../'+ASSET_MAPS[season]; }
+  return maps[season];
+}
+
+/* ---------- collision: the game's 1-bit mask, dark = blocked ---------- */
+let COL=null; const colView=document.createElement('canvas');
+const colImg=new Image();
+colImg.onload=()=>{
+  const C=MAP_META.cells, cc=document.createElement('canvas'); cc.width=cc.height=C;
+  const g=cc.getContext('2d'); g.drawImage(colImg,0,0,C,C);
+  const d=g.getImageData(0,0,C,C).data;
+  COL=new Uint8Array(C*C);
+  colView.width=colView.height=C; const vg=colView.getContext('2d'), vd=vg.createImageData(C,C);
+  for(let i=0,j=0;i<COL.length;i++,j+=4){
+    COL[i]=d[j]>128?0:1;
+    if(COL[i]){ vd.data[j]=255; vd.data[j+1]=40; vd.data[j+2]=40; vd.data[j+3]=110; }
+  }
+  vg.putImageData(vd,0,0);
+};
+colImg.src='../'+ASSET_MAPCOL;
+function solidAt(x,y){
+  if(x<8||y<8||x>WORLD_W-8||y>WORLD_H-8) return true;
+  if(!COL) return false;
+  const C=MAP_META.cells, cx=Math.floor(x/WORLD_W*C), cy=Math.floor(y/WORLD_H*C);
+  if(cx<0||cy<0||cx>=C||cy>=C) return true;
+  return COL[cy*C+cx]===1;
+}
+
+// scratch canvases: the current frame as a flat silhouette, and a 1/3-size copy
+// that blurs the edges when it is scaled back up
+const sil=document.createElement('canvas'); sil.width=AM.cw; sil.height=AM.ch;
+const sg=sil.getContext('2d');
+const soft=document.createElement('canvas'); soft.width=Math.ceil(AM.cw/3); soft.height=Math.ceil(AM.ch/3);
+const sf=soft.getContext('2d');
+
+const P={x:338, y:396, dir:4, moving:false, walkT:0, idleT:0};   // game start position
+let season='spring', shadowMode='sprite', tint=true, zoom=1, playing=false, showCol=false;
+const held={}; let padDir=null;
+
+/* ---------- sun ---------- */
+const SUNRISE=6, SUNSET=19.5, MAX_ELEV=62*Math.PI/180, GROUND_TILT=0.6, MAX_LEN=2.0;
+function sun(hour){
+  const p=(hour-SUNRISE)/(SUNSET-SUNRISE);
+  const up=p>0&&p<1;
+  const elev=up?MAX_ELEV*Math.sin(Math.PI*p):0;
+  // the shadow swings from west (morning) through north (noon) to east (evening)
+  const rot=(+document.getElementById('rot').value)*Math.PI/180;
+  const a=Math.PI*clamp(p,0,1)+rot;
+  const len=up?Math.min(MAX_LEN,1/Math.tan(Math.max(elev,0.05))):0;
+  // fade in after sunrise and out before sunset
+  const s=up?Math.min(1,elev/(10*Math.PI/180)):0;
+  // (gx,gy): unit direction of the shadow on the ground, y pointing south
+  return {elev, len, gx:-Math.cos(a), gy:-Math.sin(a), strength:s};
+}
+// shadows on snow pick up the blue of the sky
+const SHADOW_RGB={spring:[16,32,12], summer:[16,32,12], fall:[34,24,10], winter:[28,40,82]};
+
+/* ---------- colour grade: multiply tint per hour ---------- */
+const TINT=[[5,'#26336e',.66],[6,'#ff9a6a',.38],[7.5,'#ffd6a8',.18],[10,'#ffffff',0],[15,'#ffffff',0],
+            [17.5,'#ffd296',.18],[19,'#ff8a5a',.36],[20,'#6a5aa0',.5],[21,'#2c3a7a',.64],[22,'#1e2a62',.7]];
+function hex(h){ return [1,3,5].map(i=>parseInt(h.slice(i,i+2),16)); }
+function tintAt(hour){
+  let i=0; while(i<TINT.length-2&&hour>TINT[i+1][0]) i++;
+  const [h0,c0,a0]=TINT[i], [h1,c1,a1]=TINT[i+1];
+  const t=clamp((hour-h0)/(h1-h0),0,1);
+  const A=hex(c0), B=hex(c1);
+  return {rgb:A.map((v,k)=>Math.round(v+(B[k]-v)*t)), a:a0+(a1-a0)*t};
+}
+
+/* ---------- drawing ---------- */
+function frameRect(){
+  const [dname,flip]=DIRMAP[P.dir];
+  const row=ROWOF[(P.moving?'walk':'idle')+'_'+dname], n=ROWN[row];
+  const i=Math.floor((P.moving?P.walkT:P.idleT)/((P.moving?WALK_CYCLE:IDLE_CYCLE)/n))%n;
+  return {sx:i*AM.cw, sy:row*AM.ch, flip};
+}
+function makeSilhouette(f){
+  const [r,g,b]=SHADOW_RGB[season];
+  sg.setTransform(1,0,0,1,0,0); sg.globalCompositeOperation='source-over';
+  sg.clearRect(0,0,AM.cw,AM.ch);
+  if(f.flip){ sg.translate(AM.cw,0); sg.scale(-1,1); }
+  sg.drawImage(sheet,f.sx,f.sy,AM.cw,AM.ch,0,0,AM.cw,AM.ch);
+  sg.setTransform(1,0,0,1,0,0);
+  sg.globalCompositeOperation='source-in'; sg.fillStyle='rgb('+r+','+g+','+b+')'; sg.fillRect(0,0,AM.cw,AM.ch);
+  sf.clearRect(0,0,soft.width,soft.height); sf.imageSmoothingEnabled=true;
+  sf.drawImage(sil,0,0,soft.width,soft.height);
+}
+function contactShadow(fx,fy,alpha){
+  // soft dark patch right under the boots, wider for side views
+  const [r,g,b]=SHADOW_RGB[season], c='rgba('+r+','+g+','+b+',';
+  const side=(P.dir===2||P.dir===6)?1.25:(P.dir%2?1.12:1);
+  const rx=22*side, ry=8;
+  ctx.save(); ctx.translate(fx,fy); ctx.scale(1,ry/rx);
+  const grad=ctx.createRadialGradient(0,0,0,0,0,rx);
+  grad.addColorStop(0,c+alpha+')'); grad.addColorStop(.6,c+alpha*.6+')'); grad.addColorStop(1,c+'0)');
+  ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(0,0,rx,0,7); ctx.fill(); ctx.restore();
+}
+function castShadow(fx,fy,s){
+  if(s.strength<=0) return;
+  // lay the silhouette down on the ground from her feet: height runs along the shadow
+  // direction (times its length, ground y squashed by GROUND_TILT for the top-down
+  // view), width runs across it unsquashed so low-sun shadows don't go wafer thin.
+  // Sprite y is negative above the feet.
+  const {gx,gy,len}=s;
+  ctx.save(); ctx.globalAlpha=0.30*s.strength; ctx.imageSmoothingEnabled=true;
+  ctx.translate(fx,fy);
+  ctx.transform(-gy, gx, -len*gx, -len*gy*GROUND_TILT, 0, 0);
+  ctx.drawImage(soft,-AM.cw/2,-AM.foot,AM.cw,AM.ch);
+  ctx.restore();
+}
+
+function draw(){
+  const hour=+document.getElementById('hour').value, s=sun(hour);
+  ctx.setTransform(1,0,0,1,0,0); ctx.imageSmoothingEnabled=false;
+  ctx.fillStyle='#1b2418'; ctx.fillRect(0,0,W,H);
+  const cam={x:clamp(Math.round(P.x-LW/2),0,WORLD_W-LW), y:clamp(Math.round(P.y-VIEW_H/2+15),0,WORLD_H-VIEW_H)};
+  const fx=(P.x-cam.x)*SC, fy=(P.y+12-cam.y)*SC;
+  ctx.save();
+  if(zoom!==1){ ctx.translate(W/2,H/2); ctx.scale(zoom,zoom); ctx.translate(-fx,-fy); }
+  const map=mapImg(season);
+  if(map.complete&&map.naturalWidth) ctx.drawImage(map,-cam.x*SC,-cam.y*SC,WORLD_W*SC,WORLD_H*SC);
+  if(showCol&&COL){ ctx.drawImage(colView,-cam.x*SC,-cam.y*SC,WORLD_W*SC,WORLD_H*SC); }
+  if(sheet.complete&&sheet.naturalWidth){
+    const f=frameRect();
+    if(shadowMode==='round'){
+      ctx.globalAlpha=.24; ctx.fillStyle='#1a2810';
+      ctx.beginPath(); ctx.ellipse(fx,fy,15*SC,5*SC,0,0,7); ctx.fill(); ctx.globalAlpha=1;
+    } else {
+      makeSilhouette(f);
+      if(shadowMode==='sprite') castShadow(fx,fy,s);
+      contactShadow(fx,fy,0.34);
+    }
+    ctx.save(); ctx.translate(Math.round(fx),Math.round(fy));
+    if(f.flip) ctx.scale(-1,1);
+    ctx.drawImage(sheet,f.sx,f.sy,AM.cw,AM.ch,-Math.round(AM.cw/2),-AM.foot,AM.cw,AM.ch);
+    ctx.restore();
+  }
+  ctx.restore();
+  if(tint){
+    const t=tintAt(hour);
+    if(t.a>0.002){
+      ctx.globalCompositeOperation='multiply'; ctx.globalAlpha=t.a;
+      ctx.fillStyle='rgb('+t.rgb.join(',')+')'; ctx.fillRect(0,0,W,H);
+      ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
+    }
+  }
+  if(!(map.complete&&map.naturalWidth)){
+    ctx.fillStyle='#e4ecdc'; ctx.font='36px Verdana'; ctx.textAlign='center'; ctx.fillText('Loading '+season+'…',W/2,H/2);
+  }
+  const hh=Math.floor(hour), mm=Math.floor((hour-hh)*60);
+  document.getElementById('hourv').textContent=hh+':'+String(mm).padStart(2,'0');
+  document.getElementById('rotv').textContent=document.getElementById('rot').value+'°';
+  document.getElementById('stat').textContent=(s.strength>0
+    ? 'Sun '+Math.round(s.elev*180/Math.PI)+'° high · shadow '+s.len.toFixed(1)+'× her height'
+    : 'Sun down: contact shadow only')+' · at '+Math.round(P.x)+','+Math.round(P.y);
+}
+
+/* ---------- input ---------- */
+const KEYS={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
+addEventListener('keydown',e=>{ const k=e.key.toLowerCase(); if(KEYS[k]){ held[k]=1; e.preventDefault(); } });
+addEventListener('keyup',e=>{ delete held[e.key.toLowerCase()]; });
+const PAD=[[-1,-1],[0,-1],[1,-1],[-1,0],null,[1,0],[-1,1],[0,1],[1,1]];
+const pad=document.getElementById('pad');
+PAD.forEach((v,i)=>{
+  const b=document.createElement('button');
+  b.textContent=['↖','↑','↗','←','■','→','↙','↓','↘'][i];
+  b.onclick=()=>{ padDir=(!v||padDir===v)?null:v; [...pad.children].forEach(c=>c.classList.toggle('on',c===b&&!!padDir)); };
+  pad.appendChild(b);
+});
+function dirFromVec(dx,dy){ return ((Math.round(Math.atan2(dy,dx)/(Math.PI/4))+2)%8+8)%8; }
+function pick(id,fn){ document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>{
+  fn(b.dataset.v); document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.toggle('on',x===b)); }); }
+pick('seasonopts',v=>{ season=v; mapImg(v); });
+pick('shadowopts',v=>shadowMode=v);
+pick('tintopts',v=>tint=v==='1');
+pick('zoomopts',v=>zoom=+v);
+document.querySelector('#colopts button').onclick=e=>{ showCol=!showCol; e.target.classList.toggle('on',showCol); };
+document.querySelector('#playopts button').onclick=e=>{ playing=!playing; e.target.classList.toggle('on',playing); e.target.textContent=playing?'Pause':'Play day'; };
+Object.keys(ASSET_MAPS).forEach(mapImg);   // start loading every season up front
+
+let last=performance.now();
+function tick(now){
+  const dt=Math.min(50,now-last); last=now;
+  let dx=0, dy=0;
+  for(const k in held){ dx+=KEYS[k][0]; dy+=KEYS[k][1]; }
+  if(!dx&&!dy&&padDir){ [dx,dy]=padDir; }
+  const m=Math.hypot(dx,dy);
+  if(m>0){
+    dx/=m; dy/=m;
+    // same rule as the game: test the spot just above her feet, one axis at a time
+    const sp=WALK_SPEED*dt, nx=P.x+dx*sp, ny=P.y+dy*sp;
+    if(!solidAt(nx,P.y+9)) P.x=nx;
+    if(!solidAt(P.x,ny+9)) P.y=ny;
+    P.x=clamp(P.x,21,WORLD_W-21); P.y=clamp(P.y,24,WORLD_H-30);
+    P.dir=dirFromVec(dx,dy); P.walkT+=dt; P.moving=true;
+  } else { P.moving=false; P.walkT=0; P.idleT+=dt; }
+  if(playing){
+    const h=document.getElementById('hour'); let v=+h.value+dt/1000*0.6;   // ~28s per day
+    if(v>22) v=5; h.value=v;
+  }
+  draw(); requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
