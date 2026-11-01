@@ -12,6 +12,9 @@ where the full-size originals live) holds
     crops/<Name>-spritesheet.png         garden effects (the music note), same layout
     party/<Name>-ready-spritesheet.png   a party member's ready-for-their-turn loop, same layout
     party/<Name>-battle.png              their still battle stance (Kaitlyn's is pose.png)
+    party/<Name>-attack-spritesheet.png  their attack, same layout
+    party/<Name>-portrait.png            their face for menus and conversations
+    scenes/<name>.png                    full pictures shown in story scenes
 Pictures may have a white background: white touching the edge of the picture is
 removed (light grey shadows on it become see-through shadows). Each picture is
 trimmed, shrunk to game size and packed into
@@ -19,6 +22,8 @@ trimmed, shrunk to game size and packed into
     assets/sprites/shop_items.png   shop pictures
     assets/sprites/creatures.png    creature and garden-effect animation frames
     assets/sprites/party.webp       party members' battle frames (drawn at 2x, like pose.png)
+    assets/sprites/portrait_<name>.png   party portraits, as tall as Kaitlyn's portrait.png
+    assets/scenes/<name>.jpg        story pictures, 1080 px wide
 with their positions written to js/data/art.js.
 """
 import cv2, numpy as np, os, sys, glob, json
@@ -51,6 +56,9 @@ SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'see
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
 # Bling by her length.
 PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 140)}
+PORTRAIT_H = 312        # Kaitlyn's portrait.png height, in px
+STANCE_HOLE = 400       # white showing through a coil of a battle stance is background too
+SCENE_W = 1080          # story pictures fill the 360-wide screen at 3 device px each
 
 
 def load(path):
@@ -228,11 +236,24 @@ def main():
         pmeta[name] = {'n': len(box), 'ax': ax, 'ay': ay}
         still = os.path.join(SRC, 'party', name.capitalize() + '-battle.png')
         if os.path.exists(still):
-            im = trim(remove_white(load(still)), 0)
+            im = trim(remove_white(load(still), STANCE_HOLE), 0)
             im = shrink(im, (x1 - x0) * sc / im.shape[1])
             pframes.append((name + ' stance', im))
             # its bottom-centre on the first ready frame's
             pmeta[name]['stance'] = {'ax': im.shape[1] // 2, 'ay': im.shape[0] - 1 + (round(box[0].shape[0] * sc) - round(y1 * sc))}
+        # the attack: its first frame is the resting pose, sized and grounded like the ready loop's
+        hit = os.path.join(SRC, 'party', name.capitalize() + '-attack-spritesheet.png')
+        if os.path.exists(hit):
+            abox = grid_frames(hit)
+            ax0, ay0, ax1, ay1 = bbox(abox[0])
+            asc = size / ((ay1 - ay0) if how == 'h' else (ax1 - ax0))
+            for i, x in enumerate(abox): pframes.append((name + ' attack %d' % i, shrink(x, asc)))
+            pmeta[name]['attack'] = {'n': len(abox), 'ax': round((ax0 + ax1) / 2 * asc), 'ay': round(ay1 * asc) - 1}
+        face = os.path.join(SRC, 'party', name.capitalize() + '-portrait.png')
+        if os.path.exists(face):
+            im = trim(remove_white(load(face)), 0)
+            cv2.imwrite(os.path.join(OUT, 'portrait_' + name + '.png'), shrink(im, PORTRAIT_H / im.shape[0]),
+                        [cv2.IMWRITE_PNG_COMPRESSION, 9])
     if pframes:
         psheet, ppos = pack(pframes)
         # lossy WebP (with alpha) is well under half the size of a PNG for these painted frames
@@ -240,6 +261,17 @@ def main():
         for n, d in pmeta.items():
             d['ready'] = [ppos['%s %d' % (n, i)] for i in range(d.pop('n'))]
             if 'stance' in d: d['stance']['r'] = ppos[n + ' stance']
+            if 'attack' in d: d['attack']['f'] = [ppos['%s attack %d' % (n, i)] for i in range(d['attack'].pop('n'))]
+
+    # story pictures: flattened onto black and saved as JPEG at screen width
+    os.makedirs(os.path.join(ROOT, 'assets', 'scenes'), exist_ok=True)
+    for f in sorted(glob.glob(os.path.join(SRC, 'scenes', '*.png'))):
+        a = load(f); s = SCENE_W / a.shape[1]
+        im = shrink(a, s); al = im[..., 3:4] / 255.0
+        flat = (im[..., :3] * al).astype(np.uint8)
+        name = os.path.splitext(os.path.basename(f))[0].strip().lower()
+        cv2.imwrite(os.path.join(ROOT, 'assets', 'scenes', name + '.jpg'), flat, [cv2.IMWRITE_JPEG_QUALITY, 88])
+        print('scene', name, flat.shape[1], 'x', flat.shape[0])
 
     with open(os.path.join(ROOT, 'js', 'data', 'art.js'), 'w', encoding='utf-8') as fh:
         fh.write('/* Made by tools/build_art.py: sheet positions [x,y,w,h] in device px;\n'

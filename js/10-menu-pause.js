@@ -1,8 +1,8 @@
 /* ================================================================
-   PAUSE PANEL: field songs + save
+   PAUSE PANEL: party, gear, items, field songs, save
    ================================================================ */
 let sys={tab:0,idx:0};
-const SYSTABS=['Gear','Items','Songs','Save'];
+const SYSTABS=['Party','Gear','Items','Songs','Save'];
 function openSys(){ G.code=exportCode(); sysSetTab(0); G.scene='sys'; }
 function ownedGear(){ return GEAR.filter(g=>G.gear[g.id]&&g.id!=='silver'&&g.id!=='dizi'); }
 function bonusLines(){
@@ -34,13 +34,15 @@ function castField(f){
   G.scene='world'; autoSave();
 }
 /* ---------- layout: tabs across the top, one list per tab, key hints + Back below ---------- */
-const SYS_TAB_Y=36, SYS_TAB_W=74, SYS_BACK={x:272,y:436,w:62,h:24};
-const SYS_ROWS={0:{y:130,step:29,h:26}, 1:{y:100,step:31,h:29}, 2:{y:80,step:46,h:42}, 3:{y:160,step:44,h:38}};
+const SYS_TAB_Y=36, SYS_TAB_W=58, SYS_BACK={x:272,y:436,w:62,h:24};
+const SYS_ROWS={1:{y:130,step:29,h:26}, 2:{y:100,step:31,h:29}, 3:{y:80,step:46,h:42}, 4:{y:160,step:44,h:38}};
+const PARTY_CARD={y:80,step:116,h:108};
 const SAVE_ACTIONS=["Copy save code","Paste a save code","Save in this browser"];
 function sysCount(){
-  if(sys.tab===0) return FLUTE_META.order.length;
-  if(sys.tab===2) return fieldList().length;
-  if(sys.tab===3) return SAVE_ACTIONS.length;
+  if(sys.tab===0) return 0;                  /* Party: just to look at */
+  if(sys.tab===1) return FLUTE_META.order.length;
+  if(sys.tab===3) return fieldList().length;
+  if(sys.tab===4) return SAVE_ACTIONS.length;
   return cropList().length;                  /* Items: harvested crops can be eaten */
 }
 const cropList=()=>SPECIES_ORDER.filter(s=>G.crops[s]>0);
@@ -64,17 +66,17 @@ function eatCrop(sp){
   sys.idx=Math.min(sys.idx,Math.max(0,cropList().length-1)); autoSave();
 }
 function sysSetTab(t){
-  sys.tab=(t+4)%4;
-  sys.idx=sys.tab===0?Math.max(0,FLUTE_META.order.indexOf(G.flute||'recorder')):0;
+  sys.tab=(t+SYSTABS.length)%SYSTABS.length;
+  sys.idx=sys.tab===1?Math.max(0,FLUTE_META.order.indexOf(G.flute||'recorder')):0;
 }
 function sysActivate(i){
-  if(sys.tab===0){
+  if(sys.tab===1){
     const id=FLUTE_META.order[i];
     if(fluteOwned(id)){ G.flute=id; say(FLUTE_INFO[id].name+" equipped."); if(AC) flute(11,AC.currentTime,.3,.5); }
     else { say("Not owned — buy it at the stall."); blip(150,.08,.2); }
-  } else if(sys.tab===1){ const sp=cropList()[i]; if(sp) eatCrop(sp); }
-  else if(sys.tab===2){ const f=fieldList()[i]; if(f) castField(f); }
-  else if(sys.tab===3){
+  } else if(sys.tab===2){ const sp=cropList()[i]; if(sp) eatCrop(sp); }
+  else if(sys.tab===3){ const f=fieldList()[i]; if(f) castField(f); }
+  else if(sys.tab===4){
     if(i===0){ try{navigator.clipboard.writeText(G.code);}catch(e){}
       say("Save code copied to clipboard."); G.scene='world'; }
     else if(i===1){ const t=prompt("Paste your save code:");
@@ -93,7 +95,7 @@ function sysKey(k){
   else if(isBack(k)||k==='m') G.scene='world';
 }
 function sysTouch(x,y){
-  if(y>SYS_TAB_Y&&y<SYS_TAB_Y+30){ sysSetTab(clamp(Math.floor((x-26)/(SYS_TAB_W+4)),0,3)); return; }
+  if(y>SYS_TAB_Y&&y<SYS_TAB_Y+30){ sysSetTab(clamp(Math.floor((x-26)/(SYS_TAB_W+4)),0,SYSTABS.length-1)); return; }
   if(y>430){ G.scene='world'; return; }
   const R=SYS_ROWS[sys.tab]; if(!R) return;
   for(let i=0;i<sysCount();i++)
@@ -101,7 +103,7 @@ function sysTouch(x,y){
 }
 /* Items tab rows: harvested crops (eat with J), then seeds, as far as the panel goes */
 function itemsLayout(){
-  const R=SYS_ROWS[1], crops=cropList().map((sp,i)=>({sp,y:R.y+i*R.step}));
+  const R=SYS_ROWS[2], crops=cropList().map((sp,i)=>({sp,y:R.y+i*R.step}));
   const seedsY=(crops.length?R.y+crops.length*R.step:R.y+22)+20;
   const seeds=Object.keys(G.seeds).filter(k=>G.seeds[k]>0).map((sp,i)=>({sp,y:seedsY+i*24}))
     .filter(s=>s.y<=396);
@@ -109,11 +111,21 @@ function itemsLayout(){
 }
 function drawSys(){
   dim(); panel(14,26,332,442);
-  for(let i=0;i<4;i++) tabPill(26+i*(SYS_TAB_W+4),SYS_TAB_Y,SYS_TAB_W,28,sys.tab===i);
+  for(let i=0;i<SYSTABS.length;i++) tabPill(26+i*(SYS_TAB_W+4),SYS_TAB_Y,SYS_TAB_W,28,sys.tab===i);
   px(b,26,68,308,2,'#c3b48c');
   const list=fieldList(), R=SYS_ROWS[sys.tab];
   const seeds=Object.keys(G.seeds).filter(k=>G.seeds[k]>0);
   if(sys.tab===0){
+    G.party.forEach((id,i)=>{ const y=PARTY_CARD.y+i*PARTY_CARD.step, M=member(id);
+      px(b,26,y,308,PARTY_CARD.h,'#e8dcc0'); px(b,26,y,308,2,'#c3b48c');
+      px(b,34,y+8,84,PARTY_CARD.h-16,'#d6c49c');
+      const im=portraitImg(id);
+      if(im){ const ph=PARTY_CARD.h-20, pw=ph*im.naturalWidth/im.naturalHeight;
+        b.save(); b.beginPath(); b.rect(34,y+8,84,PARTY_CARD.h-16); b.clip(); b.imageSmoothingEnabled=true;
+        b.drawImage(im,76-pw/2,y+12,pw,ph); b.restore(); }
+      bar(130,y+58,120,9,M.hp,M.maxhp,'#e04a4a','#5a2828');
+      bar(130,y+80,120,9,M.mp,memberMaxMp(id),'#4aa8e0','#20415a'); });
+  } else if(sys.tab===1){
     FLUTE_META.order.forEach((id,i)=>menuRow(26,R.y+i*R.step,308,R.h,sys.idx===i,!fluteOwned(id)));
     px(b,26,226,308,2,'#c3b48c');
     /* full-resolution art of the equipped flute */
@@ -125,13 +137,13 @@ function drawSys(){
         FLBIG_META.cw,FLBIG_META.ch);
       b.restore();
     }
-  } else if(sys.tab===1){
+  } else if(sys.tab===2){
     const L=itemsLayout();
     L.crops.forEach(({sp,y},i)=>{ menuRow(26,y,308,R.h,sys.idx===i); drawCropIcon(b,sp,26+ROW_PAD+11,y+R.h/2,24); });
     L.seeds.forEach(({sp,y},i)=>{ px(b,26,y,308,22,i%2?'#e8dcc0':'#efe6cd');
       if(!drawShopPic(SPECIES[sp].name.toLowerCase()+" seed",40,y+11,14,19)){
         px(b,35,y+6,11,11,SPECIES[sp].fruit); px(b,35,y+6,6,6,SPECIES[sp].dk); } });
-  } else if(sys.tab===2){
+  } else if(sys.tab===3){
     list.forEach((f,i)=>menuRow(26,R.y+i*R.step,308,R.h,sys.idx===i,G.player.mp<f.mp));
   } else {
     portrait(b,155,76,0.5);
@@ -143,6 +155,14 @@ function drawSys(){
   SYSTABS.forEach((t,i)=>T(t,26+i*(SYS_TAB_W+4)+SYS_TAB_W/2,SYS_TAB_Y+20,23,'#3a2a1a','center',sys.tab===i));
 
   if(sys.tab===0){
+    G.party.forEach((id,i)=>{ const y=PARTY_CARD.y+i*PARTY_CARD.step, M=member(id), I=PARTY_INFO[id];
+      T(I.name,130,y+24,28,'#3a2a1a',null,true);
+      T("Lv."+M.lv,326,y+24,22,'#a06a1a','right',true);
+      T(I.role,130,y+40,17,'#7a6a4a');
+      T("HP",256,y+67,18,'#c05050',null,true); T(M.hp+"/"+M.maxhp,326,y+67,18,'#3a2a1a','right');
+      T("MP",256,y+89,18,'#2a6a9a',null,true); T(M.mp+"/"+memberMaxMp(id),326,y+89,18,'#3a2a1a','right'); });
+    if(G.party.length<PARTY_MAX) T("Friends you meet may join you.",180,PARTY_CARD.y+G.party.length*PARTY_CARD.step+30,18,'#8a7a5a','center');
+  } else if(sys.tab===1){
     FLUTE_META.order.forEach((id,i)=>{ const y=R.y+i*R.step, fi=FLUTE_INFO[id], own=fluteOwned(id), eq=G.flute===id;
       T(fi.name,26+ROW_PAD+4,y+18,23,own?'#3a2a1a':'#8c8474',null,eq);
       T("x"+fi.mul.toFixed(2),236,y+18,20,own?'#a06a1a':'#9c9484','right');
@@ -165,7 +185,7 @@ function drawSys(){
       if(lines.length===2&&cur&&lines[1]!==cur) lines[1]=lines[1]+", …";
       lines.slice(0,2).forEach((ln,i)=>T(ln,180,377+i*14,16,'#7a6a4a','center'));
     }
-  } else if(sys.tab===1){
+  } else if(sys.tab===2){
     const L=itemsLayout();
     T("Harvest",30,90,22,'#3a2a1a',null,true);
     T(G.coins+"c",330,90,22,'#a06a1a','right',true);
@@ -180,7 +200,7 @@ function drawSys(){
       T(SPECIES[sp].name+" seed",54,y+15,20,'#3a2a1a');
       T("x"+G.seeds[sp],326,y+15,20,'#3a2a1a','right',true); });
     if(G.msgT>0&&G.msg.startsWith("Ate")) T(G.msg,180,426,17,'#5a7a3a','center',true);
-  } else if(sys.tab===2){
+  } else if(sys.tab===3){
     if(!list.length) T("No field songs yet — reach Lv.4",180,140,24,'#7a6a4a','center');
     list.forEach((f,i)=>{ const y=R.y+i*R.step, ok=G.player.mp>=f.mp;
       T(f.name,26+ROW_PAD+4,y+19,25,ok?'#3a2a1a':'#8a7a68',null,true);
@@ -193,5 +213,5 @@ function drawSys(){
     T("Garden "+G.gardenLv+"  ·  "+G.harvests+" harvests",180,312,19,'#7a6a4a','center');
   }
   T("Back",SYS_BACK.x+SYS_BACK.w/2,SYS_BACK.y+17,22,'#3a2a1a','center',true);
-  keyHint((sysCount()?"W/S choose  ·  J select  ·  ":"")+"A/D tabs  ·  H back",146,452);
+  keyHint((sysCount()?"W/S choose  ·  J select  ·  ":"")+"A/D tabs  ·  H back",146,452,"left/right on the pad: tabs");
 }

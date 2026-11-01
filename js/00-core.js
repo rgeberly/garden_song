@@ -39,7 +39,7 @@ fit();
 const DECK_H=LH-357;
 const deckShown=()=>IS_TOUCH&&G.scene!=='rhythm';
 /* the garden scenes use the whole screen (their HUD holds the deck) */
-const fullScene=()=>G.scene==='world'||G.scene==='sleep'||G.scene==='ask';
+const fullScene=()=>G.scene==='world'||G.scene==='sleep'||G.scene==='ask'||G.scene==='story';
 /* how far down a centred scene's 360x480 layout sits: in the middle of the screen, or
    on touch screens in the middle of the space above the deck (at the top if the space
    is short, when the deck covers the bottom of the layout) */

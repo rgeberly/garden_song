@@ -19,6 +19,7 @@ const nearStall=(f=1)=>Math.hypot(STALL.x-G.player.x,STALL.y+6-G.player.y)<44*f;
 const nearDoor=(f=1)=>Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y)<46*f;
 function interact(){
   if(G.indoors){ houseInteract(); return; }
+  if(nearBling()){ talkBling(); return; }
   if(nearStall()){ openShop(); return; }
   if(nearDoor()){ enterHouse(); return; }
   if(G.swim){ G.player.mp=maxMp(); say("Music Points fully restored!"); return; }
@@ -194,6 +195,11 @@ function drawWorld(){
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k)}));
   G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t)}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
+  /* Bling, at her own size like Kaitlyn (the zoom undone around her) */
+  const bl=blingHere();
+  if(bl&&!bl.inside) ents.push({y:bl.y,f:()=>{ const sx=bl.x-cam.x, sy=bl.y-cam.y;
+    b.save(); b.translate(sx,sy); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); b.translate(-sx,-sy);
+    drawBlingMap(b,sx,sy,BLING_W,bl.mood,bl.flip,bl.moving); b.restore(); }});
   /* the market stand stands over the painted table; drawn goods until its picture loads */
   ents.push({y:STAND_AT.y,f:()=>{
     if(drawCropArt(b,'stand',STAND_AT.x-cam.x,STAND_AT.y-cam.y)) return;
@@ -245,7 +251,8 @@ function drawWorld(){
   drawClockText(); drawBuffsText();
   const R=PROMPT_REACH, p=nearestPlot(R), f=nearestFrog(R);
   let label=null;
-  if(nearStall(R)) label="Shop";
+  if(nearBling(R)) label=blingLabel();
+  else if(nearStall(R)) label="Shop";
   else if(nearDoor(R)) label="Go inside";
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";

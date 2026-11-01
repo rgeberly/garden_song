@@ -53,6 +53,7 @@ function leaveHouse(){
   blip(260,0.06,0.1,'triangle');
 }
 function houseInteract(){
+  if(nearBling()){ talkBling(); return; }
   if(nearBed()){ askSleep(); return; }
   if(nearHouseDoor()){ leaveHouse(); return; }
   say("Home sweet home.");
@@ -75,15 +76,23 @@ function drawHouse(){
   if(im.complete&&im.naturalWidth){ b.imageSmoothingEnabled=true;
     b.drawImage(im,0,cam.top-cam.y*k,LW,HOUSE.h*k); }
   const sx=P.x*k, sy=cam.top+(P.y-cam.y)*k;              /* her feet on screen */
-  b.translate(sx,sy); b.scale(HOUSE_KAIT,HOUSE_KAIT); b.translate(-sx,-sy);   /* larger, around her feet */
-  b.imageSmoothingEnabled=true;
-  drawKaitlynShadow(b,sx,sy,P.dir,P.animT||0,P.moving,true);
-  drawKaitlyn(b,sx,sy,P.dir,P.animT||0,false,P.moving);
+  const kait=()=>{ b.save();
+    b.translate(sx,sy); b.scale(HOUSE_KAIT,HOUSE_KAIT); b.translate(-sx,-sy);   /* larger, around her feet */
+    b.imageSmoothingEnabled=true;
+    drawKaitlynShadow(b,sx,sy,P.dir,P.animT||0,P.moving,true);
+    drawKaitlyn(b,sx,sy,P.dir,P.animT||0,false,P.moving);
+    b.restore(); };
+  /* Bling, when she's in (recovering on the rug, or asleep by the bed), in front or behind */
+  const bl=blingHere();
+  if(bl&&bl.inside){
+    const bling=()=>drawBlingMap(b,bl.x*k,cam.top+(bl.y-cam.y)*k,BLING_W*HOUSE_KAIT,bl.mood,false,false);
+    if(bl.y<P.y){ bling(); kait(); } else { kait(); bling(); }
+  } else kait();
   b.restore();
   drawClockBack(); drawBuffsBack();
   blit();
   drawClockText(); drawBuffsText();
-  const label=nearBed()?"Sleep":nearHouseDoor()?"Go outside":null;
+  const label=nearBling(PROMPT_REACH)?blingLabel():nearBed()?"Sleep":nearHouseDoor()?"Go outside":null;
   if(label&&G.scene==='world') drawPrompt(label,sx,sy-74*HOUSE_KAIT);
   drawHUD();
 }

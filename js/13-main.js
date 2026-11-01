@@ -31,7 +31,9 @@ function loop(now){
   else { if(sfxKey) stopSfx();
          if(G.scene==='rhythm') updateRhythm(dt);
          else if(G.scene==='sleep') updateSleep(dt);
+         else if(G.scene==='story') updateStory(dt);
          else if(G.msgT>0) G.msgT-=dt; }
+  if(G.scene==='world'||G.scene==='story') updateBling(dt);
   padRepeat(dt);
   /* the garden scenes use the whole screen; the others sit centred in it */
   const off=sceneOff();
@@ -48,6 +50,7 @@ function loop(now){
   else if(G.scene==='battle') drawBattle(dt);
   else if(G.scene==='sleep') drawSleep();
   else if(G.scene==='ask') drawAsk();
+  else if(G.scene==='story') drawStory();
   /* the garden's HUD draws the deck itself; everywhere else it goes on top */
   if(deckShown()&&G.scene!=='world'&&G.scene!=='ask') drawDeck();
   requestAnimationFrame(loop);

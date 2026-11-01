@@ -283,7 +283,10 @@ function drawMember(id,x,y,k){
     if(SONG_FX.includes(kind)){ const n=BRN[BROW.flute]||1; drawBattleRow(b,'flute',Math.floor(k*n),x,y); return; }
   }
   if(!standing(id)){ b.globalAlpha=.45; drawStance(id,x,y); b.globalAlpha=1; return; }
-  if(kind==='lunge'){ drawReady(id,x,y,B.anim.t+1500); return; }   /* the strike part of the loop */
+  if(kind==='lunge'){ const a=PARTY_ART[id]&&PARTY_ART[id].attack;
+    if(a) partyFrame(a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y);
+    else drawReady(id,x,y,B.anim.t+1500);                       /* the strike part of the loop */
+    return; }
   const ready=B.turn==='player'&&!B.over&&actor()===id;
   const f=ready?clamp(B.readyT/READY_FADE,0,1):0;
   if(f<1) drawStance(id,x,y);

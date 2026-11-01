@@ -66,6 +66,7 @@ function onTouch(x,y,id,hy){
   if(G.scene==='sys'){ sysTouch(x,y); return; }
   if(G.scene==='sleep'){ sleepTap(); return; }
   if(G.scene==='ask'){ askTouch(x,y); return; }
+  if(G.scene==='story'){ storyTap(); return; }
   if(G.scene==='world'&&x>SYS.x&&x<SYS.x+SYS.w&&hy>SYS.y&&hy<SYS.y+SYS.h) openSys();
 }
 function onTouchMove(x,y,id,hy){
@@ -90,4 +91,5 @@ function onPress(k){
   else if(G.scene==='rhythm') rhythmKey(k);
   else if(G.scene==='sleep'&&(isOk(k)||k==='e')) sleepTap();
   else if(G.scene==='ask') askKey(k);
+  else if(G.scene==='story'&&(isOk(k)||k==='e')) storyTap();
 }
