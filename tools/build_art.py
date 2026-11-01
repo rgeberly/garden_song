@@ -10,12 +10,15 @@ where the full-size originals live) holds
     shop items/<exact shop item name>.png
     creatures/<Name>-spritesheet.png     animation frames in a grid of 256px cells
     crops/<Name>-spritesheet.png         garden effects (the music note), same layout
+    party/<Name>-ready-spritesheet.png   a party member's ready-for-their-turn loop, same layout
+    party/<Name>-battle.png              their still battle stance (Kaitlyn's is pose.png)
 Pictures may have a white background: white touching the edge of the picture is
 removed (light grey shadows on it become see-through shadows). Each picture is
 trimmed, shrunk to game size and packed into
     assets/sprites/crops.png        crops, soil and the stand
     assets/sprites/shop_items.png   shop pictures
     assets/sprites/creatures.png    creature and garden-effect animation frames
+    assets/sprites/party.webp       party members' battle frames (drawn at 2x, like pose.png)
 with their positions written to js/data/art.js.
 """
 import cv2, numpy as np, os, sys, glob, json
@@ -44,6 +47,10 @@ DECOR = {'fountain': ('frog fountain', 168), 'bath': ('bird bath', 162),
 CREATURE_W = {'bluebird': 66, 'monarch': 48, 'music note': 39}
 CREATURE_CELL = 256
 SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'seed apron': 2000}
+# Party members in battle, sized on their first ready frame, in sheet px (the game draws
+# these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
+# Bling by her length.
+PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 140)}
 
 
 def load(path):
@@ -117,6 +124,24 @@ def foot(a):
     return int(round((xs.min() + xs.max()) / 2)), int(bot)
 
 
+def grid_frames(path, C=CREATURE_CELL):
+    """Every non-empty CxC grid cell of an animation sheet, in reading order, all cut
+    to one shared box so the animation doesn't wobble."""
+    a = load(path)
+    cells = [a[r*C:(r+1)*C, c*C:(c+1)*C] for r in range(a.shape[0] // C) for c in range(a.shape[1] // C)]
+    n = [int((x[..., 3] > 20).sum()) for x in cells]
+    cells = [x for x, k in zip(cells, n) if k > max(n) * 0.05]   # skip empty cells and stray specks
+    m = np.zeros((C, C), bool)
+    for x in cells: m |= x[..., 3] > 20
+    ys, xs = np.nonzero(m)
+    return [x[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for x in cells]
+
+
+def bbox(a):
+    ys, xs = np.nonzero(a[..., 3] > 20)
+    return xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+
+
 def pack(items, width=1024):
     """Shelf-pack (name, image) pairs; returns the sheet and {name: [x,y,w,h]}."""
     items = sorted(items, key=lambda it: -it[1].shape[0])
@@ -179,14 +204,7 @@ def main():
     for f, k in sheets:
         name = os.path.basename(f)[:-len('-spritesheet.png')].strip().lower()
         kind[name] = k
-        a = load(f); C = CREATURE_CELL
-        cells = [a[r*C:(r+1)*C, c*C:(c+1)*C] for r in range(a.shape[0] // C) for c in range(a.shape[1] // C)]
-        n = [int((x[..., 3] > 20).sum()) for x in cells]
-        cells = [x for x, k in zip(cells, n) if k > max(n) * 0.05]   # skip empty cells and stray specks
-        m = np.zeros((C, C), bool)
-        for x in cells: m |= x[..., 3] > 20
-        ys, xs = np.nonzero(m)
-        box = [x[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for x in cells]
+        box = grid_frames(f)
         sc = CREATURE_W.get(name, 54) / box[0].shape[1]
         for i, x in enumerate(box): frames.append((name + ' %d' % i, shrink(x, sc)))
         cmeta[name] = len(box)
@@ -195,6 +213,34 @@ def main():
         cv2.imwrite(os.path.join(OUT, 'creatures.png'), csheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
         cmeta = {n: [cpos['%s %d' % (n, i)] for i in range(k)] for n, k in cmeta.items()}
 
+    # party members: the ready loop, sized by PARTY_FIT on its first frame; the still
+    # battle stance is fitted to the width of that first frame and stands where it does.
+    # ax,ay is where the feet (or belly) touch the ground, within each frame.
+    pframes, pmeta = [], {}
+    for f in sorted(glob.glob(os.path.join(SRC, 'party', '*-ready-spritesheet.png'))):
+        name = os.path.basename(f)[:-len('-ready-spritesheet.png')].strip().lower()
+        box = grid_frames(f)
+        x0, y0, x1, y1 = bbox(box[0])
+        how, size = PARTY_FIT.get(name, ('h', 189))
+        sc = size / ((y1 - y0) if how == 'h' else (x1 - x0))
+        for i, x in enumerate(box): pframes.append((name + ' %d' % i, shrink(x, sc)))
+        ax, ay = round((x0 + x1) / 2 * sc), round(box[0].shape[0] * sc) - 1
+        pmeta[name] = {'n': len(box), 'ax': ax, 'ay': ay}
+        still = os.path.join(SRC, 'party', name.capitalize() + '-battle.png')
+        if os.path.exists(still):
+            im = trim(remove_white(load(still)), 0)
+            im = shrink(im, (x1 - x0) * sc / im.shape[1])
+            pframes.append((name + ' stance', im))
+            # its bottom-centre on the first ready frame's
+            pmeta[name]['stance'] = {'ax': im.shape[1] // 2, 'ay': im.shape[0] - 1 + (round(box[0].shape[0] * sc) - round(y1 * sc))}
+    if pframes:
+        psheet, ppos = pack(pframes)
+        # lossy WebP (with alpha) is well under half the size of a PNG for these painted frames
+        cv2.imwrite(os.path.join(OUT, 'party.webp'), psheet, [cv2.IMWRITE_WEBP_QUALITY, 95])
+        for n, d in pmeta.items():
+            d['ready'] = [ppos['%s %d' % (n, i)] for i in range(d.pop('n'))]
+            if 'stance' in d: d['stance']['r'] = ppos[n + ' stance']
+
     with open(os.path.join(ROOT, 'js', 'data', 'art.js'), 'w', encoding='utf-8') as fh:
         fh.write('/* Made by tools/build_art.py: sheet positions [x,y,w,h] in device px;\n'
                  '   ax,ay is where a crop/soil/stand picture stands on the ground. */\n')
@@ -202,9 +248,13 @@ def main():
         fh.write('const SHOP_ART=' + json.dumps(smeta, separators=(',', ':')) + ';\n')
         fh.write('const CREATURE_ART=' + json.dumps({n: v for n, v in cmeta.items() if kind[n] == 'creature'}, separators=(',', ':')) + ';\n')
         fh.write('const FX_ART=' + json.dumps({n: v for n, v in cmeta.items() if kind[n] == 'fx'}, separators=(',', ':')) + ';\n')
+        fh.write('const PARTY_ART=' + json.dumps(pmeta, separators=(',', ':')) + ';\n')
     print('crops.png', sheet.shape[1], 'x', sheet.shape[0], '-', len(crops), 'pictures:', ', '.join(sorted(meta)))
     print('shop_items.png', ssheet.shape[1], 'x', ssheet.shape[0], '-', len(shop), 'pictures')
     print('creatures.png', ', '.join('%s %d frames' % (n, len(v)) for n, v in cmeta.items()))
+    if pframes:
+        print('party.webp', psheet.shape[1], 'x', psheet.shape[0], '-',
+              ', '.join('%s %d frames%s' % (n, len(d['ready']), ' + stance' if 'stance' in d else '') for n, d in pmeta.items()))
 
 
 if __name__ == '__main__':

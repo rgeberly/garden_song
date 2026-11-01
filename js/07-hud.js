@@ -18,19 +18,9 @@ function drawHUD(){
   bar(57,HUD_Y+40,96,7,G.player.xp,G.player.next,'#e8c34a','#5a4a20');
   px(b,SYS.x,SYS.y,SYS.w,SYS.h,'#4a3d2e');
   for(let i=0;i<3;i++) px(b,SYS.x+9,SYS.y+7+i*6,18,3,'#cdbfa6');
-  b.globalAlpha=.92;
-  b.beginPath(); b.arc(PAD.cx,PAD.cy,PAD.r,0,7); b.fillStyle='#3a3228'; b.fill();
-  b.strokeStyle='#5c5040'; b.lineWidth=3; b.stroke();
-  b.beginPath(); b.arc(PAD.cx+padVec.x*18,PAD.cy+padVec.y*18,18,0,7);
-  b.fillStyle='#7d6b52'; b.fill();
-  b.beginPath(); b.arc(BTN.cx,BTN.cy,BTN.r,0,7);
-  b.fillStyle=btnHeld?'#c9a84a':'#8a6a2e'; b.fill();
-  b.strokeStyle='#5c4520'; b.stroke();
-  b.beginPath(); b.arc(BTNB.cx,BTNB.cy,BTNB.r,0,7);       /* B: back / cancel */
-  b.fillStyle=btnBHeld?'#b8a890':'#6a5a48'; b.fill();
-  b.strokeStyle='#4a3e30'; b.stroke(); b.globalAlpha=1;
-  if(G.msgT>0) px(b,6,366,LW-12,22,'#1c1610');
   blit();
+  drawControls();
+  if(G.msgT>0){ m.fillStyle='#1c1610'; m.fillRect(6*SC,366*SC,(LW-12)*SC,22*SC); }
   T("Lv."+G.player.lv,9,HUD_Y+19,28,'#f0e6d2');
   T("HP",46,HUD_Y+19,22,'#f0a0a0','right');
   T("MP",46,HUD_Y+34,22,'#8fd0f0','right');
@@ -43,21 +33,74 @@ function drawHUD(){
   if(h>1.001) T("Harmony x"+h.toFixed(2),225,HUD_Y+50,20,'#8fe07a');
   if(G.msgT>0){ m.globalAlpha=Math.min(1,G.msgT/400);
     T(G.msg,14,381,23,'#f7f0dc'); m.globalAlpha=1; }
-  T("A",BTN.cx,BTN.cy+9,34,'#2b1c12','center',true);
-  T("B",BTNB.cx,BTNB.cy+8,28,'#e8dcc0','center',true);
   b.restore(); m.restore();
 }
-/* On touch screens, a B (back) button for the scenes without the HUD, in the space
-   below them when there is room, otherwise in their bottom-right corner. */
-function backBtnPos(){ return EXTRA>=64?{cx:LW-40,cy:LH+EXTRA/2-34,r:24}:{cx:LW-30,cy:LH-30,r:20}; }
-function drawBackBtn(){
-  if(!IS_TOUCH) return;
-  const p=backBtnPos();
-  m.save(); m.scale(SC,SC); m.globalAlpha=.9;
-  m.fillStyle='#2b1c12'; m.beginPath(); m.arc(p.cx,p.cy,p.r+2,0,7); m.fill();
-  m.fillStyle=btnBHeld?'#b8a890':'#6a5a48'; m.beginPath(); m.arc(p.cx,p.cy,p.r,0,7); m.fill();
+/* ---------- the pad and the A/B buttons ----------
+   Drawn straight onto the screen canvas (crisp at any size) in HUD coordinates: a
+   brass-rimmed wooden well with a thumb knob and engraved arrows, a gold A and a
+   sage-green B that sink a little while held. */
+function roundBtn(c,{cx,cy,r},cols,down){
+  const y=cy+(down?1.5:0);
+  c.fillStyle='rgba(0,0,0,.38)'; c.beginPath(); c.arc(cx,cy+3,r+1.5,0,7); c.fill();
+  c.fillStyle='#2a1a0c'; c.beginPath(); c.arc(cx,y,r+1.6,0,7); c.fill();
+  const g=c.createRadialGradient(cx-r*0.35,y-r*0.45,r*0.08,cx,y,r);
+  g.addColorStop(0,cols[0]); g.addColorStop(0.55,cols[1]); g.addColorStop(1,cols[2]);
+  c.fillStyle=g; c.beginPath(); c.arc(cx,y,r,0,7); c.fill();
+  c.strokeStyle='rgba(255,255,255,.22)'; c.lineWidth=1; c.beginPath(); c.arc(cx,y,r-2,Math.PI*1.1,Math.PI*1.9); c.stroke();
+  c.fillStyle='rgba(255,255,255,.26)'; c.beginPath(); c.ellipse(cx-r*0.12,y-r*0.46,r*0.58,r*0.28,-0.2,0,7); c.fill();
+  if(down){ c.fillStyle='rgba(40,20,0,.16)'; c.beginPath(); c.arc(cx,y,r,0,7); c.fill(); }
+}
+function drawControls(){
+  const c=m, {cx,cy,r}=PAD;
+  c.save(); c.scale(SC,SC);
+  /* the pad: brass rim, dark wooden well, arrows (the held one lights up), knob */
+  c.fillStyle='rgba(0,0,0,.38)'; c.beginPath(); c.arc(cx,cy+3,r+4,0,7); c.fill();
+  const rim=c.createLinearGradient(0,cy-r-4,0,cy+r+4);
+  rim.addColorStop(0,'#d8b46a'); rim.addColorStop(0.5,'#a07a3a'); rim.addColorStop(1,'#5e4120');
+  c.fillStyle='#2a1a0c'; c.beginPath(); c.arc(cx,cy,r+4.6,0,7); c.fill();
+  c.fillStyle=rim; c.beginPath(); c.arc(cx,cy,r+3.4,0,7); c.fill();
+  const well=c.createRadialGradient(cx,cy-r*0.35,r*0.1,cx,cy,r);
+  well.addColorStop(0,'#45341f'); well.addColorStop(1,'#1d140b');
+  c.fillStyle=well; c.beginPath(); c.arc(cx,cy,r,0,7); c.fill();
+  c.strokeStyle='rgba(0,0,0,.45)'; c.lineWidth=2.5; c.beginPath(); c.arc(cx,cy,r-1.2,Math.PI*1.05,Math.PI*1.95); c.stroke();
+  const lit=Math.hypot(padVec.x,padVec.y)>0;
+  [[0,-1],[1,0],[0,1],[-1,0]].forEach(([dx,dy])=>{
+    const on=lit&&(dx?Math.sign(padVec.x)===dx&&Math.abs(padVec.x)>Math.abs(padVec.y)
+                    :Math.sign(padVec.y)===dy&&Math.abs(padVec.y)>=Math.abs(padVec.x));
+    const ax=cx+dx*r*0.74, ay=cy+dy*r*0.74, s=5.5;
+    c.fillStyle=on?'#ffe39a':'#8c7550';
+    c.beginPath(); c.moveTo(ax+dx*s,ay+dy*s); c.lineTo(ax-dy*s-dx*s*0.6,ay+dx*s-dy*s*0.6);
+    c.lineTo(ax+dy*s-dx*s*0.6,ay-dx*s-dy*s*0.6); c.fill();
+  });
+  const kx=cx+padVec.x*18, ky=cy+padVec.y*18;
+  c.fillStyle='rgba(0,0,0,.4)'; c.beginPath(); c.ellipse(kx,ky+3.5,19,17,0,0,7); c.fill();
+  c.fillStyle='#3a2814'; c.beginPath(); c.arc(kx,ky,19.4,0,7); c.fill();
+  const kn=c.createRadialGradient(kx-6,ky-7,2,kx,ky,19);
+  kn.addColorStop(0,'#f5e2b0'); kn.addColorStop(0.5,'#c49c60'); kn.addColorStop(1,'#6e5030');
+  c.fillStyle=kn; c.beginPath(); c.arc(kx,ky,18,0,7); c.fill();
+  c.strokeStyle='rgba(70,45,20,.4)'; c.lineWidth=1.2; c.beginPath(); c.arc(kx,ky,11,0,7); c.stroke();
+  c.fillStyle='rgba(255,255,255,.3)'; c.beginPath(); c.ellipse(kx-4,ky-8,8,4,-0.3,0,7); c.fill();
+  /* B: back / cancel, A: act / accept */
+  roundBtn(c,BTNB,['#eef6dc','#93b27c','#4a663a'],btnBHeld);
+  roundBtn(c,BTN,['#fff4cc','#e4b250','#8e5c1a'],btnHeld);
+  c.restore();
+  const ay=BTN.cy+(btnHeld?1.5:0), by=BTNB.cy+(btnBHeld?1.5:0);
+  T("A",BTN.cx,ay+8.6,60,'rgba(255,244,210,.7)','center',true);
+  T("A",BTN.cx,ay+7.8,60,'#5a3610','center',true);
+  T("B",BTNB.cx,by+6.3,42,'#2c3f22','center',true);
+  T("B",BTNB.cx,by+5.5,42,'#f6fbef','center',true);
+}
+/* the deck along the bottom of the screen for the scenes without the garden's HUD */
+function drawDeck(){
+  m.save(); m.setTransform(1,0,0,1,0,EXTRA*SC);
+  const y0=LH-DECK_H;
+  m.fillStyle='#2b241c'; m.fillRect(0,y0*SC,LW*SC,DECK_H*SC);
+  m.fillStyle='rgba(255,235,200,.035)';
+  for(let i=0;i<6;i++) m.fillRect(0,(y0+12+i*19)*SC,LW*SC,SC);       /* faint wood grain */
+  m.fillStyle='#4a3d2e'; m.fillRect(0,y0*SC,LW*SC,3*SC);
+  m.fillStyle='rgba(0,0,0,.3)'; m.fillRect(0,(y0+3)*SC,LW*SC,2*SC);
+  drawControls();
   m.restore();
-  T("B",p.cx,p.cy+p.r*0.3,Math.round(p.r*1.05),'#f3ead2','center',true);
 }
 function panel(x,y,w,h){ px(b,x,y,w,h,'#2b1c12'); px(b,x+3,y+3,w-6,h-6,'#f3ead2'); }
 /* The menu cursor is the flute you have equipped (its big art), laid at a slight

@@ -32,8 +32,9 @@ function loop(now){
          if(G.scene==='rhythm') updateRhythm(dt);
          else if(G.scene==='sleep') updateSleep(dt);
          else if(G.msgT>0) G.msgT-=dt; }
+  padRepeat(dt);
   /* the garden scenes use the whole screen; the others sit centred in it */
-  const off=(G.scene==='world'||G.scene==='sleep'||G.scene==='ask')?0:EXTRA/2;
+  const off=sceneOff();
   m.setTransform(1,0,0,1,0,0); m.fillStyle='#141c14'; m.fillRect(0,0,LW*SC,SCREEN_H*SC);
   m.setTransform(1,0,0,1,0,off*SC);
   b.setTransform(SC,0,0,SC,0,off*SC);
@@ -47,7 +48,8 @@ function loop(now){
   else if(G.scene==='battle') drawBattle(dt);
   else if(G.scene==='sleep') drawSleep();
   else if(G.scene==='ask') drawAsk();
-  if(G.scene==='menu'||G.scene==='shop'||G.scene==='sys') drawBackBtn();
+  /* the garden's HUD draws the deck itself; everywhere else it goes on top */
+  if(deckShown()&&G.scene!=='world'&&G.scene!=='ask') drawDeck();
   requestAnimationFrame(loop);
 }
 /* ---- loading screen: assets now arrive over the network ---- */

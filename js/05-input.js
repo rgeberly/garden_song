@@ -16,29 +16,48 @@ addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
 addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); keys[k]=false;
   if(G.scene==='rhythm'&&k in KEYLANE) laneUp(KEYLANE[k]); });
 const touches={};
-/* pointer position in the scene's own coordinates: the garden scenes use the whole
-   screen (their HUD sits EXTRA lower than its 300..480 layout), the rest are centred */
-const fullScene=()=>G.scene==='world'||G.scene==='sleep'||G.scene==='ask';
+/* pointer position in the scene's own coordinates (see sceneOff), plus hy: where it is
+   in the HUD/deck layout, which sits EXTRA lower than its 300..480 coordinates */
 function cpos(e){ const r=cv.getBoundingClientRect();
   const y=(e.clientY-r.top)/r.height*SCREEN_H;
-  return {x:(e.clientX-r.left)/r.width*LW, y:fullScene()?y:y-EXTRA/2, sy:y}; }
+  return {x:(e.clientX-r.left)/r.width*LW, y:y-sceneOff(), hy:y-EXTRA}; }
 cv.addEventListener('pointerdown',e=>{ e.preventDefault(); initAudio();
   if(AC&&AC.state==='suspended')AC.resume();
   const p=cpos(e); touches[e.pointerId]=p;
-  /* the B button of the scenes without a HUD */
-  if(IS_TOUCH&&(G.scene==='menu'||G.scene==='shop'||G.scene==='sys')){ const q=backBtnPos();
-    if(Math.hypot(p.x-q.cx,p.y-q.cy)<q.r+10){ btnBHeld=true; onPress('escape'); return; } }
-  onTouch(p.x,p.y,e.pointerId);
+  if(!deckTouch(p.x,p.hy,e.pointerId)) onTouch(p.x,p.y,e.pointerId,p.hy);
   try{cv.setPointerCapture(e.pointerId);}catch(_){} });
 cv.addEventListener('pointermove',e=>{ if(touches[e.pointerId]){ const p=cpos(e);
-  touches[e.pointerId].x=p.x; touches[e.pointerId].y=p.y; onTouchMove(p.x,p.y,e.pointerId);} });
+  touches[e.pointerId].x=p.x; touches[e.pointerId].y=p.y; onTouchMove(p.x,p.y,e.pointerId,p.hy);} });
 function endT(e){ if(touches[e.pointerId]){ onTouchEnd(e.pointerId); delete touches[e.pointerId]; } }
 cv.addEventListener('pointerup',endT); cv.addEventListener('pointercancel',endT);
 
 const PAD={cx:66,cy:420,r:46}, BTN={cx:297,cy:420,r:39}, BTNB={cx:228,cy:448,r:26},
       SYS={x:318,y:307,w:36,h:27};
 let padVec={x:0,y:0}, padId=null, btnHeld=false, btnBHeld=false;
-function onTouch(x,y,id){
+/* The deck's pad and buttons, in any scene that shows them (hy in HUD coordinates).
+   In the garden the pad walks and A acts; elsewhere the pad works like the arrow keys
+   (held, it repeats), A like J / Enter and B like H / Esc. Returns true if it took the
+   touch. Outside the garden the rest of the deck is dead space, so a tap there can't
+   reach a menu row hidden under it. */
+function deckTouch(x,hy,id){
+  if(!deckShown()&&G.scene!=='world') return false;     /* the garden HUD's pad works with a mouse too */
+  if(Math.hypot(x-PAD.cx,hy-PAD.cy)<PAD.r+26){ padId=id; setPad(x,hy); return true; }
+  if(Math.hypot(x-BTNB.cx,hy-BTNB.cy)<BTNB.r+8){ btnBHeld=true; onPress('escape'); return true; }
+  if(Math.hypot(x-BTN.cx,hy-BTN.cy)<BTN.r+18){ btnHeld=true;
+    if(G.scene==='world') interact(); else onPress('enter'); return true; }
+  return G.scene!=='world'&&hy>LH-DECK_H;
+}
+/* outside the garden, a held pad direction presses that arrow, then repeats */
+const PAD_DELAY=380, PAD_EVERY=140;
+let padDir=null, padRep=0;
+function padRepeat(dt){
+  let d=null;
+  if(padId!==null&&G.scene!=='world'&&deckShown()&&(padVec.x||padVec.y))
+    d=Math.abs(padVec.x)>Math.abs(padVec.y)?(padVec.x>0?'arrowright':'arrowleft'):(padVec.y>0?'arrowdown':'arrowup');
+  if(d!==padDir){ padDir=d; padRep=PAD_DELAY; if(d) onPress(d); }
+  else if(d&&(padRep-=dt)<=0){ padRep=PAD_EVERY; onPress(d); }
+}
+function onTouch(x,y,id,hy){
   if(G.scene==='title'){ if(y>376&&y<412) openSys(); else startGame(); return; }
   if(G.scene==='rhythm'){ rhythmTouch(x,y,id); return; }
   if(G.scene==='battle'){ battleTouch(x,y); return; }
@@ -47,16 +66,10 @@ function onTouch(x,y,id){
   if(G.scene==='sys'){ sysTouch(x,y); return; }
   if(G.scene==='sleep'){ sleepTap(); return; }
   if(G.scene==='ask'){ askTouch(x,y); return; }
-  if(G.scene==='world'){
-    const hy=y-EXTRA;                         /* HUD coordinates */
-    if(x>SYS.x&&x<SYS.x+SYS.w&&hy>SYS.y&&hy<SYS.y+SYS.h){ openSys(); return; }
-    if(Math.hypot(x-PAD.cx,hy-PAD.cy)<PAD.r+26){ padId=id; setPad(x,hy); }
-    else if(Math.hypot(x-BTNB.cx,hy-BTNB.cy)<BTNB.r+8){ btnBHeld=true; onPress('escape'); }
-    else if(Math.hypot(x-BTN.cx,hy-BTN.cy)<BTN.r+18){ btnHeld=true; interact(); }
-  }
+  if(G.scene==='world'&&x>SYS.x&&x<SYS.x+SYS.w&&hy>SYS.y&&hy<SYS.y+SYS.h) openSys();
 }
-function onTouchMove(x,y,id){
-  if(G.scene==='world'&&padId===id) setPad(x,y-EXTRA);
+function onTouchMove(x,y,id,hy){
+  if(padId===id) setPad(x,hy);
   if(G.scene==='rhythm') rhythmMove(x,y,id);
 }
 function onTouchEnd(id){

@@ -44,17 +44,22 @@ function sysCount(){
   return cropList().length;                  /* Items: harvested crops can be eaten */
 }
 const cropList=()=>SPECIES_ORDER.filter(s=>G.crops[s]>0);
-/* eat one harvested crop for its effect (EAT in 01-content.js) */
-function eatCrop(sp){
-  if(!(G.crops[sp]>0)) return;
-  const e=EAT[sp]||{}, P=G.player;
+/* eat one harvested crop for its effect (EAT in 01-content.js); its HP and MP go to
+   party member id (Kaitlyn unless said). Returns what it did, as text. */
+function applyFood(sp,id){
+  id=id||'kaitlyn';
+  const e=EAT[sp]||{}, M=member(id);
   G.crops[sp]--; if(G.crops[sp]<=0) delete G.crops[sp];
-  if(e.hp) P.hp=Math.min(P.maxhp,P.hp+e.hp);
-  if(e.mp) P.mp=Math.min(maxMp(),P.mp+e.mp);
+  if(e.hp) M.hp=Math.min(M.maxhp,M.hp+e.hp);
+  if(e.mp) M.mp=Math.min(memberMaxMp(id),M.mp+e.mp);
   if(e.speed) G.snackT=Math.max(G.snackT,e.speed);
   if(e.calm){ G.calmT=Math.max(G.calmT,e.calm); G.lureT=0; }
   if(e.lure){ G.lureT=Math.max(G.lureT,e.lure); G.calmT=0; }
-  say("Ate a "+SPECIES[sp].name+": "+eatText(sp)+".");
+  return eatText(sp);
+}
+function eatCrop(sp){
+  if(!(G.crops[sp]>0)) return;
+  say("Ate a "+SPECIES[sp].name+": "+applyFood(sp)+".");
   if(AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
   sys.idx=Math.min(sys.idx,Math.max(0,cropList().length-1)); autoSave();
 }

@@ -39,6 +39,7 @@ const ASSET_STEM_FLUTE="assets/audio/stem_flute.mp3";
 const ASSET_MAPS={"spring":"assets/sprites/map_spring.jpg","summer":"assets/sprites/map_summer.jpg",
                   "fall":"assets/sprites/map_fall.jpg","winter":"assets/sprites/map_winter.jpg"};
 const ASSET_MAP=ASSET_MAPS.spring;
+const ASSET_PARTY="assets/sprites/party.webp";
 const ASSET_HOUSE="assets/sprites/map_house.jpg";
 const ASSET_MAPCOL="assets/sprites/map_collision.png";
 const MAP_META={"world":720,"cells":360};

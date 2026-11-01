@@ -33,8 +33,25 @@ addEventListener('resize',fit);
 const px=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h);};
 const clamp=(v,a,z)=>v<a?a:v>z?z:v;
 fit();
-/* centred scenes: their own top and bottom edges, reaching into the extra space */
-const BAND_TOP=()=>-EXTRA/2, BAND_BOT=()=>LH+EXTRA/2;
+/* On touch screens the pad and the A/B buttons stay in a deck along the bottom of the
+   screen in every scene but the rhythm game, where they would be in the way. The deck
+   is the HUD's lower part (y 357..480 of its layout) wherever it is drawn. */
+const DECK_H=LH-357;
+const deckShown=()=>IS_TOUCH&&G.scene!=='rhythm';
+/* the garden scenes use the whole screen (their HUD holds the deck) */
+const fullScene=()=>G.scene==='world'||G.scene==='sleep'||G.scene==='ask';
+/* how far down a centred scene's 360x480 layout sits: in the middle of the screen, or
+   on touch screens in the middle of the space above the deck (at the top if the space
+   is short, when the deck covers the bottom of the layout) */
+function sceneOff(){
+  if(fullScene()) return 0;
+  if(!deckShown()) return EXTRA/2;
+  return Math.max(0,(EXTRA-DECK_H)/2);
+}
+/* centred scenes: their own top and bottom edges, reaching into the extra space
+   (down to the deck when it shows) */
+const BAND_TOP=()=>-sceneOff();
+const BAND_BOT=()=>(deckShown()?SCREEN_H-DECK_H:SCREEN_H)-sceneOff();
 /* Scenes draw shapes into buf and text straight onto the screen (m), both shifted to
    where the scene sits; blit copies buf onto the screen as is (it is already shifted). */
 function blit(){ m.save(); m.setTransform(1,0,0,1,0,0); m.drawImage(buf,0,0); m.restore(); }
@@ -214,25 +231,6 @@ function drawBattleRow(c,name,idx,cx,footY){
   const i=clamp(idx,0,n-1);
   drawDev(c,IMG_BATL,i*BATL_META.cw,row*BATL_META.ch,
     BATL_META.cw,BATL_META.ch,cx,footY,2,3);
-}
-function drawBattleK(c,cx,footY,swim,k){
-  if(B&&B.over==='lose'){ drawPose(c,1,cx,footY); return; }
-  if(B&&B.over==='win'){
-    const n=BRN[BROW.victory]||1;
-    drawBattleRow(c,'victory',Math.floor(G.t/85)%n,cx,footY); return;
-  }
-  if(B&&B.anim){
-    const kind=B.anim.kind;
-    if(kind==='kick'){
-      const n=BRN[BROW[B.kickVar||'kick']]||1;
-      drawBattleRow(c,B.kickVar||'kick',Math.floor(k*n),cx,footY); return;
-    }
-    if(kind!=='enemy'){
-      const n=BRN[BROW.flute]||1;
-      drawBattleRow(c,'flute',Math.floor(k*n),cx,footY); return;
-    }
-  }
-  drawPose(c,0,cx,footY);
 }
 function drawEnemyArt(c,species,cx,footY,zoom){
   const i=ENC.order.indexOf(species);

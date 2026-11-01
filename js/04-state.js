@@ -14,6 +14,7 @@ const G={
   pests:[], pestTimer:9000,
   msg:'', msgT:0, frogT:0, t:0, code:'',
   clock:6*60, day:1, indoors:false,      /* game minutes since midnight; see 14-daytime.js */
+  party:['kaitlyn'], allies:{},          /* who fights (up to 3); allies' own stats */
 };
 const maxMp=()=>14+G.player.lv*2+(G.gear.cloth?8:0);
 const fluteMul=()=>G.gear.dizi?1.35:(G.gear.silver?1.15:1);
@@ -27,6 +28,22 @@ function harmony(){
   return h;
 }
 function say(t){ G.msg=t; G.msgT=2900; }
+/* ---------- party ----------
+   Kaitlyn's stats are G.player; anyone who joins her keeps theirs in G.allies.
+   skills: what the second battle command is called for them; attack: their free hit. */
+const PARTY_MAX=3;
+const PARTY_INFO={
+  kaitlyn:{name:"Kaitlyn", skills:"Songs",  attack:"Quick Kick"},
+  bling:  {name:"Bling",   skills:"Skills", attack:"Bite", hp:24, mp:8, pow:0.6},
+};
+const member=id=>id==='kaitlyn'?G.player:G.allies[id];
+const memberMaxMp=id=>id==='kaitlyn'?maxMp():G.allies[id].maxmp;
+function joinParty(id){
+  if(G.party.includes(id)||G.party.length>=PARTY_MAX) return;
+  const I=PARTY_INFO[id];
+  if(!G.allies[id]) G.allies[id]={lv:1,hp:I.hp,maxhp:I.hp,mp:I.mp,maxmp:I.mp};
+  G.party.push(id);
+}
 function addXp(n){
   G.player.xp+=n;
   while(G.player.xp>=G.player.next){
@@ -58,6 +75,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0],
+    pa:G.party,al:G.allies,
     pl:plots.map(p=>[p.dead?-2:p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
 }
 function exportCode(){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(saveObj())))); }catch(e){ return ''; } }
@@ -68,6 +86,7 @@ function applySave(o){
   G.coins=o.c; [G.gardenLv,G.gardenXp,G.gardenNext,G.harvests]=o.g;
   G.seeds=o.s||{}; G.unlocked=o.u||['strawberry']; G.gear=o.ge||{}; G.yard=o.y||{}; G.crops=o.cr||{};
   G.flute=o.fl||'recorder';
+  G.allies=o.al||{}; G.party=(o.pa||['kaitlyn']).filter(id=>id==='kaitlyn'||G.allies[id]);
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; preloadSeasonMaps(); }
   (o.pl||[]).forEach((v,i)=>{ const p=plots[i]; if(!p)return;
     p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; p.sungDay=v[4]||0; p.fullDay=v[5]||0; });

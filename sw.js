@@ -1,4 +1,4 @@
-const CACHE='kgs-v16';
+const CACHE='kgs-v17';
 const FILES=[
  "./",
  "assets/audio/music_battle.m4a",
@@ -27,6 +27,7 @@ const FILES=[
  "assets/sprites/frogs.png",
  "assets/sprites/map_collision.png",
  "assets/sprites/map_house.jpg",
+ "assets/sprites/party.webp",
  "assets/sprites/map_fall.jpg",
  "assets/sprites/map_spring.jpg",
  "assets/sprites/map_summer.jpg",

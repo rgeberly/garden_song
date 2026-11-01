@@ -2,7 +2,7 @@
    WORLD SCENE
    ================================================================ */
 function startGame(){ G.scene='world'; initMusic(); setMusic('calm');
-  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); autoLoad(); }
+  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); partyImg(); autoLoad(); }
 /* "near" checks take a reach factor: 1 for what A/J acts on, PROMPT_REACH for when the
    overhead prompt shows, so prompts only appear once she is right beside something */
 const PROMPT_REACH=0.5;
