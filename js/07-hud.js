@@ -5,8 +5,12 @@ function bar(x,y,w,h,v,max,col,bg){
   px(b,x-2,y-2,w+4,h+4,'#241a12'); px(b,x,y,w,h,bg);
   px(b,x,y,Math.round(w*clamp(v/max,0,1)),h,col);
 }
+/* The HUD is laid out for y 300..480 and pinned to the bottom of the screen; any
+   gap between the garden view and it is filled with the HUD's wood colour. */
 function drawHUD(){
-  b.clearRect(0,0,LW,LH);
+  wipeBuf();
+  px(b,0,VIEW_H,LW,SCREEN_H-VIEW_H,'#2b241c');
+  b.save(); b.translate(0,EXTRA); m.save(); m.translate(0,EXTRA*SC);
   px(b,0,HUD_Y,LW,LH-HUD_Y,'#2b241c'); px(b,0,HUD_Y,LW,3,'#4a3d2e');
   px(b,0,357,LW,2,'#4a3d2e');
   bar(57,HUD_Y+9,96,10,G.player.hp,G.player.maxhp,'#e04a4a','#5a2828');
@@ -21,9 +25,12 @@ function drawHUD(){
   b.fillStyle='#7d6b52'; b.fill();
   b.beginPath(); b.arc(BTN.cx,BTN.cy,BTN.r,0,7);
   b.fillStyle=btnHeld?'#c9a84a':'#8a6a2e'; b.fill();
-  b.strokeStyle='#5c4520'; b.stroke(); b.globalAlpha=1;
+  b.strokeStyle='#5c4520'; b.stroke();
+  b.beginPath(); b.arc(BTNB.cx,BTNB.cy,BTNB.r,0,7);       /* B: back / cancel */
+  b.fillStyle=btnBHeld?'#b8a890':'#6a5a48'; b.fill();
+  b.strokeStyle='#4a3e30'; b.stroke(); b.globalAlpha=1;
   if(G.msgT>0) px(b,6,366,LW-12,22,'#1c1610');
-  m.drawImage(buf,0,0);
+  blit();
   T("Lv."+G.player.lv,9,HUD_Y+19,28,'#f0e6d2');
   T("HP",46,HUD_Y+19,22,'#f0a0a0','right');
   T("MP",46,HUD_Y+34,22,'#8fd0f0','right');
@@ -37,6 +44,20 @@ function drawHUD(){
   if(G.msgT>0){ m.globalAlpha=Math.min(1,G.msgT/400);
     T(G.msg,14,381,23,'#f7f0dc'); m.globalAlpha=1; }
   T("A",BTN.cx,BTN.cy+9,34,'#2b1c12','center',true);
+  T("B",BTNB.cx,BTNB.cy+8,28,'#e8dcc0','center',true);
+  b.restore(); m.restore();
+}
+/* On touch screens, a B (back) button for the scenes without the HUD, in the space
+   below them when there is room, otherwise in their bottom-right corner. */
+function backBtnPos(){ return EXTRA>=64?{cx:LW-40,cy:LH+EXTRA/2-34,r:24}:{cx:LW-30,cy:LH-30,r:20}; }
+function drawBackBtn(){
+  if(!IS_TOUCH) return;
+  const p=backBtnPos();
+  m.save(); m.scale(SC,SC); m.globalAlpha=.9;
+  m.fillStyle='#2b1c12'; m.beginPath(); m.arc(p.cx,p.cy,p.r+2,0,7); m.fill();
+  m.fillStyle=btnBHeld?'#b8a890':'#6a5a48'; m.beginPath(); m.arc(p.cx,p.cy,p.r,0,7); m.fill();
+  m.restore();
+  T("B",p.cx,p.cy+p.r*0.3,Math.round(p.r*1.05),'#f3ead2','center',true);
 }
 function panel(x,y,w,h){ px(b,x,y,w,h,'#2b1c12'); px(b,x+3,y+3,w-6,h-6,'#f3ead2'); }
 /* The menu cursor is the flute you have equipped (its big art), laid at a slight
@@ -106,12 +127,16 @@ function drawBuffsText(){
   });
 }
 /* small key reminder along the bottom of a menu */
-function keyHint(txt,x,y){ T(txt,x,y,16,'#8a7a5a','center'); }
-function dim(){ b.globalAlpha=.76; px(b,0,0,LW,LH,'#0d1410'); b.globalAlpha=1; }
+/* keyboard hints show on computers only; touch screens get touchTxt, if any */
+function keyHint(txt,x,y,touchTxt){ const t=IS_TOUCH?touchTxt:txt; if(t) T(t,x,y,16,'#8a7a5a','center'); }
+function dim(){ fillScreen(b,'#0d1410',.76); }
+/* the garden (no one in it) filling the screen behind a menu */
 function drawWorldStatic(){
   const cam=camera();
+  b.save(); b.setTransform(SC,0,0,SC,0,0);
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM); drawMap(cam); b.restore();
   tintView(b); b.restore();
-  px(b,0,VIEW_H,LW,LH-VIEW_H,'#2b241c');
+  px(b,0,VIEW_H,LW,SCREEN_H-VIEW_H,'#2b241c');
+  b.restore();
 }

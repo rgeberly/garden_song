@@ -38,7 +38,17 @@ RAISED_Y.forEach((gy,ri)=>RAISED_X.forEach(gx=>{
   x:F(c[0]),y:F(c[1]),tree:true,raised:false,bed:2+i,
   sp:null,stage:0,growth:0,health:100,lock:null}));
 
-const STAGE_COST=110, MAX_GROWTH=STAGE_COST*3;
+/* growth needed per stage: crops take a few days of songs to fill their bar */
+const STAGE_COST=330, MAX_GROWTH=STAGE_COST*3;
+/* Set a plant's growth and work out its stage. A full bar ripens (stage 3, ready to
+   harvest) only from the day after it filled; until then it stays at stage 2. */
+function setGrowth(p,g){
+  p.growth=clamp(g,0,MAX_GROWTH);
+  if(p.growth>=MAX_GROWTH){ if(!p.fullDay) p.fullDay=G.day; } else p.fullDay=0;
+  p.stage=p.growth>=MAX_GROWTH&&G.day>p.fullDay?3:Math.min(2,Math.floor(p.growth/STAGE_COST));
+}
+/* a new morning: bars that filled yesterday are ripe now */
+function ripenPlants(){ plots.forEach(p=>{ if(p.sp) setGrowth(p,p.growth); }); }
 const active=p=>!p.lock||G.yard[p.lock];
 
 /* ambient wildlife */
@@ -76,6 +86,23 @@ function drawWild(c,w,cam){
   px(c,Math.round(x)-1,Math.round(y)-1,3,3,w.bird?'#4a7ad0':'#f08a2a');
 }
 
+
+/* A little music note bobbing over a plant that has had its song today
+   (FX_ART['music note'] in creatures.png), just above the top of the plant. */
+function plantHeight(p){
+  const a=CROP_ART[p.stage===0?'sprout':CROP_STAGE[p.stage]+' '+SPECIES[p.sp].name.toLowerCase()];
+  return a?a.ay*CROP_STAGE_SCALE[p.stage]/SC:14;
+}
+function drawSungNote(c,p,x,y){
+  const F=typeof FX_ART!=='undefined'&&FX_ART['music note'];
+  const top=y-plantHeight(p)-6+Math.sin(G.t/420+p.x)*2;
+  if(F&&IMG_CREATURES.complete&&IMG_CREATURES.naturalWidth){
+    const [sx,sy,fw,fh]=F[Math.floor(G.t/45)%F.length];
+    c.save(); c.translate(x+6,top); c.scale(1/SC,1/SC); c.imageSmoothingEnabled=true;
+    c.drawImage(IMG_CREATURES,sx,sy,fw,fh,-fw/2,-fh,fw,fh); c.restore(); return;
+  }
+  noteGlyph(c,Math.round(x+3),Math.round(top-14),'#2b1c12',1);
+}
 
 /* the painted map replaces the old procedurally drawn one */
 function buildWorld(){ /* nothing to build — the map is an image */ }

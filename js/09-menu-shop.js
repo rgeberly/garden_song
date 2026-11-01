@@ -163,7 +163,7 @@ function drawShop(){
       px(b,bx,306,117,42,on?'#a8781e':'#2b1c12'); px(b,bx+3,309,111,36,col);
       if(on){ px(b,bx+3,309,111,3,'#fff3c0'); fluteCursor(bx+33,327); } });
   }
-  m.drawImage(buf,0,0);
+  blit();
   if(shop.confirm){
     const sellAllAsk=shop.confirm.type==='sellall';
     T(sellAllAsk?"Sell everything?":"Confirm purchase",180,216,32,'#3a2a1a','center',true);
@@ -194,9 +194,10 @@ function drawShop(){
     T(sel.btn||(ok?"Buy  ·  "+sel.cost+"c":"Need "+sel.cost+"c"),BUY.x+BUY.w/2,BUY.y+16.5,20,ok?'#3a2a1a':'#7a6e5e','center',true);
   }
   if(pageCount()>1){
-    T("< prev  Q",55,432,22,'#3a2a1a','center',true);
-    T("E  next >",304,432,22,'#3a2a1a','center',true);
+    T(IS_TOUCH?"< prev":"< prev  Q",55,432,22,'#3a2a1a','center',true);
+    T(IS_TOUCH?"next >":"E  next >",304,432,22,'#3a2a1a','center',true);
     T("page "+(shop.page+1)+" / "+pageCount(),180,432,22,'#7a6a4a','center');
   }
-  keyHint("W/S choose  ·  A/D tabs  ·  J "+(shop.tab===3?"sell":"buy")+"  ·  H leave  (or tap here)",180,456);
+  keyHint("W/S choose  ·  A/D tabs  ·  J "+(shop.tab===3?"sell":"buy")+"  ·  H leave  (or tap here)",180,456,
+    "tap an item, then tap it again or the button  ·  tap here to leave");
 }

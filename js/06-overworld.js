@@ -35,6 +35,7 @@ function interact(){
   if(plot.dead){ plot.dead=false; say("Cleared away the ruined plant."); blip(260,0.08,0.12,'triangle'); return; }
   if(!plot.sp){ openSeedMenu(plot); return; }
   if(plot.stage>=3){ harvest(plot); return; }
+  if(plot.growth>=MAX_GROWTH){ say("Fully grown! It will be ripe for harvest tomorrow."); return; }
   /* one song per plant per day keeps the days moving */
   if(plot.sungDay===G.day){ say("This plant already had its song today. Come back tomorrow!"); return; }
   startRhythm(plot);
@@ -46,7 +47,7 @@ function harvestOne(plot){
   G.crops[plot.sp]=(G.crops[plot.sp]||0)+1;
   addXp(S.xp); addGardenXp(Math.round(S.xp*1.2)); G.harvests++;
   if(Math.random()<SEED_DROP) G.seeds[plot.sp]=(G.seeds[plot.sp]||0)+1;   /* seeds are mostly bought */
-  Object.assign(plot,{sp:null,stage:0,growth:0,health:100,sungDay:0});
+  Object.assign(plot,{sp:null,stage:0,growth:0,health:100,sungDay:0,fullDay:0});
   return S.xp;
 }
 function harvest(plot){
@@ -115,7 +116,7 @@ function updateWorld(dt){
   }
   P.x=clamp(P.x,21,WORLD_W-21); P.y=clamp(P.y,24,WORLD_H-30);
   const wasSwim=G.swim;
-  G.swim=inPool(P.x,P.y+9);
+  G.swim=season()!=='winter'&&inPool(P.x,P.y+9);   /* frozen in winter: she walks on the ice */
   if(G.swim&&!wasSwim){ say("Ahh. Music Points restoring..."); blip(500,0.12,0.15,'sine'); }
   if(G.swim){ G.mpTick+=dt; if(G.mpTick>380){ G.mpTick=0;
     if(P.mp<maxMp()){ P.mp++; if(P.mp===maxMp()) say("Music Points full!"); } } }
@@ -140,10 +141,9 @@ function updateWorld(dt){
       if(p.chew>1600){ p.chew=0;
         const bite=p.species==='hoa'?12:6;
         p.target.health=Math.max(0,p.target.health-bite);
-        p.target.growth=Math.max(0,p.target.growth-bite*1.5);
-        p.target.stage=clamp(Math.floor(p.target.growth/STAGE_COST),0,3);
+        setGrowth(p.target,p.target.growth-bite*1.5);
         if(p.target.health<=0){ say("A plant was ruined! Clear it away to replant.");
-          Object.assign(p.target,{sp:null,stage:0,growth:0,health:100,dead:true,sungDay:0}); } } }
+          Object.assign(p.target,{sp:null,stage:0,growth:0,health:100,dead:true,sungDay:0,fullDay:0}); } } }
   }
   if(G.frogT>0) G.frogT-=dt;
   if(G.msgT>0) G.msgT-=dt;
@@ -154,10 +154,12 @@ function updateWorld(dt){
     if(w.x<-40||w.x>WORLD_W+40) WILD.splice(i,1);
   }
 }
-/* The camera works in world px; the view shows LW/WORLD_ZOOM by VIEW_H/WORLD_ZOOM of them. */
-const VIEW_WW=LW/WORLD_ZOOM, VIEW_WH=VIEW_H/WORLD_ZOOM;
-const camera=()=>({x:clamp(Math.round(G.player.x-VIEW_WW/2),0,WORLD_W-VIEW_WW),
-                   y:clamp(Math.round(G.player.y-VIEW_WH/2+15),0,WORLD_H-VIEW_WH)});
+/* The camera works in world px; the view shows LW/WORLD_ZOOM by VIEW_H/WORLD_ZOOM of
+   them (VIEW_H grows on tall screens). */
+const VIEW_WW=LW/WORLD_ZOOM;
+function camera(){ const vh=VIEW_H/WORLD_ZOOM;
+  return {x:clamp(Math.round(G.player.x-VIEW_WW/2),0,WORLD_W-VIEW_WW),
+          y:clamp(Math.round(G.player.y-vh/2+15),0,WORLD_H-vh)}; }
 /* where a world point lands in the garden view, in logical screen px */
 const toView=(wx,wy,cam)=>[(wx-cam.x)*WORLD_ZOOM,(wy-cam.y)*WORLD_ZOOM];
 function drawWorld(){
@@ -165,7 +167,7 @@ function drawWorld(){
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);           /* the zoomed-out garden */
   drawMap(cam);
-  for(let i=0;i<7;i++){
+  if(season()!=='winter') for(let i=0;i<7;i++){       /* ripples on the water (not on ice) */
     const yy=POOL.y+18+i*13, off=Math.round(Math.sin(G.t/450+i)*13);
     b.globalAlpha=.35;
     px(b,POOL.x+24+off+i*46-cam.x,yy-cam.y,18,2,'#dff4ff');
@@ -177,7 +179,8 @@ function drawWorld(){
       if(!p.tree) drawSoil(b,x,y);
       if(p.dead) drawRuined(b,x,y,p.tree);
       else if(p.sp){ drawPlant(b,x,y,p.sp,p.stage,p.tree);
-        drawMeter(b,x,y+(p.tree?26:14),p.growth/MAX_GROWTH,p.stage>=3); } }}); });
+        drawMeter(b,x,y+(p.tree?26:14),p.growth/MAX_GROWTH,p.stage>=3);
+        if(p.sungDay===G.day) drawSungNote(b,p,x,y); } }}); });
   Object.keys(DECOR_SPOT).forEach(id=>{ if(!G.yard[id])return;
     const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>drawDecor(b,id,x-cam.x,y-cam.y,G.t)}); });
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k)}));
@@ -230,7 +233,7 @@ function drawWorld(){
   tintView(b);
   b.restore();
   drawClockBack(); drawBuffsBack();
-  m.drawImage(buf,0,0);
+  blit();
   drawClockText(); drawBuffsText();
   const R=PROMPT_REACH, p=nearestPlot(R), f=nearestFrog(R);
   let label=null;
@@ -238,7 +241,7 @@ function drawWorld(){
   else if(nearDoor(R)) label="Sleep";
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
-  else if(p) label=p.dead?"Clear":!p.sp?"Plant":p.stage>=3?"Harvest":p.sungDay===G.day?"Sung today":"Play song";
+  else if(p) label=p.dead?"Clear":!p.sp?"Plant":p.stage>=3?"Harvest":p.growth>=MAX_GROWTH?"Ripe tomorrow":p.sungDay===G.day?"Sung today":"Play song";
   if(label&&G.scene==='world'){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74); }
   drawHUD();
 }

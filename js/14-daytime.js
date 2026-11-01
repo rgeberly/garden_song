@@ -5,7 +5,7 @@
    songs and battles stop time.
    ================================================================ */
 const WAKE_AT=6*60, EARLY_BED=22*60, MIDNIGHT=24*60;
-const MS_PER_MINUTE=500, DAYS_PER_SEASON=7, SEASONS=['spring','summer','fall','winter'];
+const MS_PER_MINUTE=500, DAYS_PER_SEASON=10, SEASONS=['spring','summer','fall','winter'];
 const SEASON_NAME={spring:'Spring',summer:'Summer',fall:'Fall',winter:'Winter'};
 const seasonOf=day=>SEASONS[Math.floor((day-1)/DAYS_PER_SEASON)%SEASONS.length];
 const season=()=>seasonOf(G.day);
@@ -35,9 +35,10 @@ function clockText(){
   return {h:((h+11)%12)+1, mm:String(mm).padStart(2,'0'), ap:h<12?'AM':'PM'};
 }
 /* a little cream tag in the bottom-right of the garden view */
-const CLOCK={w:84,h:27,x:LW-84-5,y:VIEW_H-27-5};
+const CLOCK={w:84,h:27,x:LW-84-5};
+const clockY=()=>VIEW_H-CLOCK.h-5;          /* bottom-right corner of the garden view */
 function drawClockBack(){
-  const {x,y,w,h}=CLOCK;
+  const {x,w,h}=CLOCK, y=clockY();
   b.fillStyle='rgba(20,14,8,.35)';
   b.beginPath(); b.roundRect(x+1,y+2,w,h,9); b.fill();
   b.fillStyle='#2b1c12'; b.beginPath(); b.roundRect(x,y,w,h,9); b.fill();
@@ -55,7 +56,7 @@ function drawClockBack(){
   }
 }
 function drawClockText(){
-  const {x,y}=CLOCK, t=clockText();
+  const {x}=CLOCK, y=clockY(), t=clockText();
   // the colon blinks once a game minute
   const colon=Math.floor(G.clock*2)%2===0||G.scene!=='world'?':':' ';
   T(t.h+colon+t.mm,x+52,y+14,27,'#3a2a1a','right',true);
@@ -149,7 +150,10 @@ function askKey(k){
   else if(isOk(k)||k==='e') askAnswer(ask.idx===0);
   else if(isBack(k)) askAnswer(false);
 }
+/* how far the window is moved down to sit in the middle of a taller garden view */
+const askY=()=>Math.max(0,Math.round(VIEW_H/2-162));
 function askTouch(x,y){
+  y-=askY();
   const hit=ASK_BTN.findIndex(r=>x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h);
   if(hit>=0) askAnswer(hit===0);
   else if(!(x>ASK.x&&x<ASK.x+ASK.w&&y>ASK.y&&y<ASK.y+ASK.h)) askAnswer(false);
@@ -157,19 +161,21 @@ function askTouch(x,y){
 function askAnswer(yes){ ask=null; G.scene='world'; if(yes) goToSleep(false); }
 function drawAsk(){
   drawWorld();
-  b.clearRect(0,0,LW,LH);
+  wipeBuf();
   b.globalAlpha=.45; px(b,0,0,LW,VIEW_H,'#0d1410'); b.globalAlpha=1;
+  b.save(); b.translate(0,askY()); m.save(); m.translate(0,askY()*SC);
   panel(ASK.x,ASK.y,ASK.w,ASK.h);
   ASK_BTN.forEach((r,i)=>{ const on=ask.idx===i;
     px(b,r.x,r.y,r.w,r.h,on?'#a8781e':'#2b1c12');
     px(b,r.x+2,r.y+2,r.w-4,r.h-4,i===0?'#c8d8f0':'#e2d3ae');
     if(on){ px(b,r.x+2,r.y+2,r.w-4,3,'#fff3c0'); fluteCursor(r.x+33,r.y+r.h/2); } });
-  m.drawImage(buf,0,0);
+  blit();
   const early=G.clock<=EARLY_BED, t=clockText();
   T("Go to bed now?",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
   T("It's "+t.h+":"+t.mm+" "+t.ap+".",LW/2,ASK.y+52,20,'#6a5a3a','center');
   T(early?"Asleep by 10 PM: a free coffee in the morning!":"She'll wake at 6 AM.",LW/2,ASK.y+69,18,early?'#5a7a3a':'#7a6a4a','center');
   ["Sleep","Stay up"].forEach((s,i)=>{ const r=ASK_BTN[i]; T(s,r.x+r.w/2+12,r.y+23,26,'#3a2a1a','center',true); });
+  b.restore(); m.restore();
 }
 let sleep=null;
 function goToSleep(midnight){
@@ -184,7 +190,7 @@ function doorstep(){
 }
 function wakeUp(){
   const before=season();
-  G.day++; G.clock=WAKE_AT;
+  G.day++; G.clock=WAKE_AT; ripenPlants();
   const p=doorstep(); G.player.x=p.x; G.player.y=p.y; G.player.dir=4;
   G.player.moving=false; G.player.walkT=0; G.swim=false;
   preloadSeasonMaps();
@@ -210,22 +216,22 @@ function sleepTap(){ if(sleep&&sleep.phase==='yawn') sleepNext(); }
 function drawSleep(){
   const ph=sleep.phase;
   if(ph==='night'){
-    m.setTransform(1,0,0,1,0,0); m.fillStyle='#0d1410'; m.fillRect(0,0,LW*SC,LH*SC);
+    m.setTransform(1,0,0,1,0,0); m.fillStyle='#0d1410'; m.fillRect(0,0,LW*SC,SCREEN_H*SC);
     const z='Zzz'.slice(0,1+Math.floor(sleep.t/350)%3);
-    T(z,LW/2,LH*0.44,48,'#c9d4f0','center',true);
-    T(SEASON_NAME[season()]+' · Day '+G.day,LW/2,LH*0.44+40,26,'#8a96b8','center');
+    T(z,LW/2,SCREEN_H*0.44,48,'#c9d4f0','center',true);
+    T(SEASON_NAME[season()]+' · Day '+G.day,LW/2,SCREEN_H*0.44+40,26,'#8a96b8','center');
     return;
   }
   drawWorld();
   if(ph==='yawn') drawYawn();
   const a=ph==='out'?sleep.t/SLEEP_FADE:ph==='in'?1-sleep.t/SLEEP_FADE:0;
   if(a>0){ m.setTransform(1,0,0,1,0,0); m.globalAlpha=clamp(a,0,1);
-    m.fillStyle='#0d1410'; m.fillRect(0,0,LW*SC,LH*SC); m.globalAlpha=1; }
+    m.fillStyle='#0d1410'; m.fillRect(0,0,LW*SC,SCREEN_H*SC); m.globalAlpha=1; }
 }
 /* her portrait and a sleepy line, over the bottom of the garden view */
 function drawYawn(){
-  const x=10, y=176, w=LW-20, h=112;
-  b.clearRect(0,0,LW,LH);
+  const x=10, y=VIEW_H-124, w=LW-20, h=112;     /* along the bottom of the garden view */
+  wipeBuf();
   b.globalAlpha=.35; px(b,0,0,LW,VIEW_H,'#0d1410'); b.globalAlpha=1;
   panel(x,y,w,h);
   px(b,x+9,y+9,86,h-18,'#e2d3ae');
@@ -234,7 +240,7 @@ function drawYawn(){
     b.save(); b.beginPath(); b.rect(x+9,y+9,86,h-18); b.clip(); b.imageSmoothingEnabled=true;
     b.drawImage(IMG_PT,x+9+(86-pw)/2,y+11,pw,ph); b.restore();
   }
-  m.drawImage(buf,0,0);
+  blit();
   T("Kaitlyn",x+108,y+28,22,'#a06a1a','left',true);
   T("*Yawn*",x+108,y+56,30,'#3a2a1a','left',true);
   T("Ohhhh I'm so sleepy!",x+108,y+82,27,'#3a2a1a','left');

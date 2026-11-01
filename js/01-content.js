@@ -44,25 +44,25 @@ const PESTS={
   hoa    :{name:"HOA President",hp:130,atk:12,xp:120,coin:60, col:'#c9b48a',dk:'#6b5c3a',hl:'#f7f3e0',min:5,boss:true},
 };
 const GEAR=[
-  {id:'boots',  name:"Sturdy Boots",   cost:120, desc:"walk 35% faster"},
-  {id:'can',    name:"Watering Can",   cost:150, desc:"+25% song growth"},
-  {id:'charm',  name:"Frog Charm",     cost:170, desc:"frogs heal 2x as often"},
-  {id:'polish', name:"Flute Polish",   cost:210, desc:"+30% song damage"},
-  {id:'trellis',name:"Trellis Kit",    cost:280, desc:"double harmony bonus"},
-  {id:'cloth',  name:"Cleaning Cloth", cost:240, desc:"+8 max Music Points"},
-  {id:'kickers',name:"Garden Boots",   cost:190, desc:"kick hits 60% harder"},
-  {id:'basket', name:"Harvest Basket", cost:340, desc:"harvest every ripe plot at once"},
-  {id:'apron',  name:"Seed Apron",     cost:300, desc:"planting fills the whole bed"},
-  {id:'silver', name:"Silver Flute",   cost:400, desc:"+15% song growth & damage"},
-  {id:'dizi',   name:"Mystic Dizi",    cost:900, desc:"+35% song growth & damage"},
+  {id:'boots',  name:"Sturdy Boots",   cost:240, desc:"walk 35% faster"},
+  {id:'can',    name:"Watering Can",   cost:300, desc:"+25% song growth"},
+  {id:'charm',  name:"Frog Charm",     cost:340, desc:"frogs heal 2x as often"},
+  {id:'polish', name:"Flute Polish",   cost:420, desc:"+30% song damage"},
+  {id:'trellis',name:"Trellis Kit",    cost:560, desc:"double harmony bonus"},
+  {id:'cloth',  name:"Cleaning Cloth", cost:480, desc:"+8 max Music Points"},
+  {id:'kickers',name:"Garden Boots",   cost:380, desc:"kick hits 60% harder"},
+  {id:'basket', name:"Harvest Basket", cost:680, desc:"harvest every ripe plot at once"},
+  {id:'apron',  name:"Seed Apron",     cost:600, desc:"planting fills the whole bed"},
+  {id:'silver', name:"Silver Flute",   cost:800, desc:"+15% song growth & damage"},
+  {id:'dizi',   name:"Mystic Dizi",    cost:1800, desc:"+35% song growth & damage"},
 ];
 const YARD=[
-  {id:'bed5',    name:"Till the Back Row", cost:340, desc:"+3 spots in the ground plot"},
-  {id:'bed6',    name:"Second Bed Row",    cost:420, desc:"+4 spots in the raised bed"},
-  {id:'fountain',name:"Frog Fountain",    cost:260, desc:"+0.2 harmony"},
-  {id:'lantern', name:"Stone Lantern",    cost:180, desc:"pests arrive 40% slower"},
-  {id:'arch',    name:"Flower Arch",      cost:220, desc:"+15% harvest coins"},
-  {id:'bath',    name:"Bird Bath",        cost:200, desc:"+10% song growth"},
+  {id:'bed5',    name:"Till the Back Row", cost:680, desc:"+3 spots in the ground plot"},
+  {id:'bed6',    name:"Second Bed Row",    cost:840, desc:"+4 spots in the raised bed"},
+  {id:'fountain',name:"Frog Fountain",    cost:520, desc:"+0.2 harmony"},
+  {id:'lantern', name:"Stone Lantern",    cost:360, desc:"pests arrive 40% slower"},
+  {id:'arch',    name:"Flower Arch",      cost:440, desc:"+15% harvest coins"},
+  {id:'bath',    name:"Bird Bath",        cost:400, desc:"+10% song growth"},
 ];
 const KICK_SHOUTS=["Hiya!","Take that!","May my boot aim true!","Not in MY garden!",
   "Shoo!","Out you go!","Mind the tomatoes!","Bastard!","I'll kill you!","You coward!",
@@ -78,7 +78,7 @@ const MOVES=[
   {id:'hymn',  name:"Harvest Hymn",    lv:11,mp:12, notes:10, pow:3.2,  heal:12,fx:'hymn'},
 ];
 const FIELD=[
-  {id:'reprise',name:"Growth Reprise",lv:4, mp:6, desc:"+50 growth to every plant"},
+  {id:'reprise',name:"Growth Reprise",lv:4, mp:6, desc:"+150 growth to every plant"},
   {id:'ward',   name:"Pest Ward",     lv:6, mp:8, desc:"drives every pest away"},
   {id:'shower', name:"Sun Shower",    lv:8, mp:7, desc:"restores plant health"},
 ];

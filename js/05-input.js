@@ -16,19 +16,28 @@ addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
 addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); keys[k]=false;
   if(G.scene==='rhythm'&&k in KEYLANE) laneUp(KEYLANE[k]); });
 const touches={};
+/* pointer position in the scene's own coordinates: the garden scenes use the whole
+   screen (their HUD sits EXTRA lower than its 300..480 layout), the rest are centred */
+const fullScene=()=>G.scene==='world'||G.scene==='sleep'||G.scene==='ask';
 function cpos(e){ const r=cv.getBoundingClientRect();
-  return {x:(e.clientX-r.left)/r.width*LW,y:(e.clientY-r.top)/r.height*LH}; }
+  const y=(e.clientY-r.top)/r.height*SCREEN_H;
+  return {x:(e.clientX-r.left)/r.width*LW, y:fullScene()?y:y-EXTRA/2, sy:y}; }
 cv.addEventListener('pointerdown',e=>{ e.preventDefault(); initAudio();
   if(AC&&AC.state==='suspended')AC.resume();
-  const p=cpos(e); touches[e.pointerId]=p; onTouch(p.x,p.y,e.pointerId);
+  const p=cpos(e); touches[e.pointerId]=p;
+  /* the B button of the scenes without a HUD */
+  if(IS_TOUCH&&(G.scene==='menu'||G.scene==='shop'||G.scene==='sys')){ const q=backBtnPos();
+    if(Math.hypot(p.x-q.cx,p.y-q.cy)<q.r+10){ btnBHeld=true; onPress('escape'); return; } }
+  onTouch(p.x,p.y,e.pointerId);
   try{cv.setPointerCapture(e.pointerId);}catch(_){} });
 cv.addEventListener('pointermove',e=>{ if(touches[e.pointerId]){ const p=cpos(e);
   touches[e.pointerId].x=p.x; touches[e.pointerId].y=p.y; onTouchMove(p.x,p.y,e.pointerId);} });
 function endT(e){ if(touches[e.pointerId]){ onTouchEnd(e.pointerId); delete touches[e.pointerId]; } }
 cv.addEventListener('pointerup',endT); cv.addEventListener('pointercancel',endT);
 
-const PAD={cx:66,cy:420,r:46}, BTN={cx:297,cy:420,r:39}, SYS={x:318,y:307,w:36,h:27};
-let padVec={x:0,y:0}, padId=null, btnHeld=false;
+const PAD={cx:66,cy:420,r:46}, BTN={cx:297,cy:420,r:39}, BTNB={cx:228,cy:448,r:26},
+      SYS={x:318,y:307,w:36,h:27};
+let padVec={x:0,y:0}, padId=null, btnHeld=false, btnBHeld=false;
 function onTouch(x,y,id){
   if(G.scene==='title'){ if(y>376&&y<412) openSys(); else startGame(); return; }
   if(G.scene==='rhythm'){ rhythmTouch(x,y,id); return; }
@@ -39,18 +48,20 @@ function onTouch(x,y,id){
   if(G.scene==='sleep'){ sleepTap(); return; }
   if(G.scene==='ask'){ askTouch(x,y); return; }
   if(G.scene==='world'){
-    if(x>SYS.x&&x<SYS.x+SYS.w&&y>SYS.y&&y<SYS.y+SYS.h){ openSys(); return; }
-    if(Math.hypot(x-PAD.cx,y-PAD.cy)<PAD.r+26){ padId=id; setPad(x,y); }
-    else if(Math.hypot(x-BTN.cx,y-BTN.cy)<BTN.r+18){ btnHeld=true; interact(); }
+    const hy=y-EXTRA;                         /* HUD coordinates */
+    if(x>SYS.x&&x<SYS.x+SYS.w&&hy>SYS.y&&hy<SYS.y+SYS.h){ openSys(); return; }
+    if(Math.hypot(x-PAD.cx,hy-PAD.cy)<PAD.r+26){ padId=id; setPad(x,hy); }
+    else if(Math.hypot(x-BTNB.cx,hy-BTNB.cy)<BTNB.r+8){ btnBHeld=true; onPress('escape'); }
+    else if(Math.hypot(x-BTN.cx,hy-BTN.cy)<BTN.r+18){ btnHeld=true; interact(); }
   }
 }
 function onTouchMove(x,y,id){
-  if(G.scene==='world'&&padId===id) setPad(x,y);
+  if(G.scene==='world'&&padId===id) setPad(x,y-EXTRA);
   if(G.scene==='rhythm') rhythmMove(x,y,id);
 }
 function onTouchEnd(id){
   if(padId===id){ padId=null; padVec={x:0,y:0}; }
-  btnHeld=false;
+  btnHeld=false; btnBHeld=false;
   if(G.scene==='rhythm') rhythmRelease(id);
 }
 function setPad(x,y){ const dx=x-PAD.cx,dy=y-PAD.cy,mm=Math.hypot(dx,dy)||1;

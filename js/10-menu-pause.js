@@ -22,9 +22,8 @@ function castField(f){
   G.player.mp-=f.mp;
   if(f.id==='reprise'){
     let n=0;
-    plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage<3){ p.growth=Math.min(MAX_GROWTH,p.growth+50);
-      p.stage=clamp(Math.floor(p.growth/STAGE_COST),0,3); n++; } });
-    say("Growth Reprise: +50 growth to "+n+" plants.");
+    plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage<3){ setGrowth(p,p.growth+150); n++; } });
+    say("Growth Reprise: +150 growth to "+n+" plants.");
   } else if(f.id==='ward'){
     const n=G.pests.length; G.pests=[]; say("Pest Ward: "+n+" pest"+(n===1?"":"s")+" fled the garden.");
   } else {
@@ -135,7 +134,7 @@ function drawSys(){
   }
   px(b,SYS_BACK.x,SYS_BACK.y,SYS_BACK.w,SYS_BACK.h,'#2b1c12');
   px(b,SYS_BACK.x+2,SYS_BACK.y+2,SYS_BACK.w-4,SYS_BACK.h-4,'#c9a08a');
-  m.drawImage(buf,0,0);
+  blit();
   SYSTABS.forEach((t,i)=>T(t,26+i*(SYS_TAB_W+4)+SYS_TAB_W/2,SYS_TAB_Y+20,23,'#3a2a1a','center',sys.tab===i));
 
   if(sys.tab===0){

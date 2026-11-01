@@ -178,7 +178,8 @@ function cancelRhythm(){
 }
 function rhythmTouch(x,y,id){
   if(R_&&R_.done){ finishRhythm(); return; }
-  if(x>CANCEL.x&&x<CANCEL.x+CANCEL.w&&y>CANCEL.y&&y<CANCEL.y+CANCEL.h){ cancelRhythm(); return; }
+  const cy=CANCEL.y+BAND_TOP();            /* the Stop button rides at the top of the screen */
+  if(x>CANCEL.x&&x<CANCEL.x+CANCEL.w&&y>cy&&y<cy+CANCEL.h){ cancelRhythm(); return; }
   if(y<165) return;
   const lane=clamp(Math.floor((x-LANE_X0)/LANE_W),0,LANES-1);
   touches[id].lane=lane; laneDown(lane);
@@ -252,13 +253,11 @@ function finishRhythm(){
   const h=harmony(), mul=(G.gear.can?1.25:1)*(G.yard.bath?1.1:1)*(plot.raised?1.3:1)*fluteMul();
   const gain=Math.round((38+acc*72+R_.maxcombo*1.6)*h*mul);
   const before=plot.stage;
-  plot.growth=Math.min(MAX_GROWTH,plot.growth+gain);
+  setGrowth(plot,plot.growth+gain);
   plot.health=Math.min(100,plot.health+Math.round(acc*15));
-  plot.stage=clamp(Math.floor(plot.growth/STAGE_COST),0,3);
   const share=Math.round(gain*0.32); let spread=0;
   plots.forEach(q=>{ if(q!==plot&&active(q)&&q.sp&&q.stage<3){
-    q.growth=Math.min(MAX_GROWTH,q.growth+share);
-    q.stage=clamp(Math.floor(q.growth/STAGE_COST),0,3); spread++; } });
+    setGrowth(q,q.growth+share); spread++; } });
   addXp(Math.round(6+acc*S.xp)); addGardenXp(Math.round(4+acc*8));
   G.player.mp=Math.min(maxMp(),G.player.mp+1);
   let msg="+"+gain+" growth"+(plot.raised?" (raised +30%)":"");
@@ -283,9 +282,11 @@ function rhythmPlant(c,x,base,grow,pulse){
 }
 function drawRhythm(){
   const grow=clamp(R_.combo/14,0,1);
+  const T0=BAND_TOP(), T1=BAND_BOT(), TH=T1-T0;     /* the full screen, on tall phones too */
   const sky=b.createLinearGradient(0,0,0,LH);
   sky.addColorStop(0,'#1b2f46'); sky.addColorStop(0.34,'#3a5a72');
   sky.addColorStop(0.62,'#6a7f6a'); sky.addColorStop(1,'#25341f');
+  px(b,0,T0,LW,-T0,'#1b2f46');
   b.fillStyle=sky; b.fillRect(0,0,LW,LH);
   /* low sun and its glow, brightening with the combo */
   b.globalAlpha=.20+grow*0.28;
@@ -310,7 +311,7 @@ function drawRhythm(){
       b.beginPath(); b.ellipse(hx,hy,34,hh,0,0,7); b.fill();
     }
   });
-  px(b,0,282,LW,LH-282,'#25381f');
+  px(b,0,282,LW,T1-282,'#25381f');
   /* fireflies */
   for(let i=0;i<14;i++){
     const fx=(i*53+G.t*0.011*(1+i%3))%LW;
@@ -319,14 +320,14 @@ function drawRhythm(){
     px(b,Math.round(fx),Math.round(fy),3,3,'#f7f0a0'); b.globalAlpha=1;
   }
   for(let i=0;i<LANES;i++){ const x=LANE_X0+i*LANE_W;
-    b.globalAlpha=.72; px(b,x,0,LANE_W-3,LH,(i%2)?'#1e2731':'#222c37'); b.globalAlpha=1;
-    if(R_.flash[i]>0){ b.globalAlpha=R_.flash[i]/500; px(b,x,0,LANE_W-3,LH,'#5ea8d8'); b.globalAlpha=1; } }
+    b.globalAlpha=.72; px(b,x,T0,LANE_W-3,TH,(i%2)?'#1e2731':'#222c37'); b.globalAlpha=1;
+    if(R_.flash[i]>0){ b.globalAlpha=R_.flash[i]/500; px(b,x,T0,LANE_W-3,TH,'#5ea8d8'); b.globalAlpha=1; } }
   /* carved wooden frame down both margins */
   for(const fx of [0,LW-21]){
-    px(b,fx,0,21,LH,'#3b2a18');
-    px(b,fx+3,0,15,LH,'#7d5c34');
-    px(b,fx+3,0,4,LH,'#a8845a');
-    for(let y=6;y<LH;y+=27){
+    px(b,fx,T0,21,TH,'#3b2a18');
+    px(b,fx+3,T0,15,TH,'#7d5c34');
+    px(b,fx+3,T0,4,TH,'#a8845a');
+    for(let y=6-Math.ceil(-T0/27)*27;y<T1;y+=27){
       px(b,fx+3,y,15,4,'#5e4526'); px(b,fx+5,y+8,11,11,'#8f6a3c');
       px(b,fx+7,y+10,7,7,'#c9a05a');
     }
@@ -358,7 +359,7 @@ function drawRhythm(){
     px(b,x-2,HITLINE-7,18,16,FS.dark);
     px(b,x,HITLINE-5,14,12,R_.press[i]?'#fff3b0':'#241a10');
     if(R_.press[i]){ px(b,x+2,HITLINE-3,10,8,'#ffe08a');
-      b.globalAlpha=.5; px(b,LANE_X0+i*LANE_W,0,LANE_W-3,LH,'#ffe08a'); b.globalAlpha=1; }
+      b.globalAlpha=.5; px(b,LANE_X0+i*LANE_W,T0,LANE_W-3,TH,'#ffe08a'); b.globalAlpha=1; }
   }
   for(let i=0;i<LANES;i++) rhythmPlant(b,LANE_X0+i*LANE_W+LANE_W/2,LH-26,grow,R_.flash[i]>60);
   const holdLabels=[];
@@ -366,7 +367,7 @@ function drawRhythm(){
     if(n.done&&n.type==='tap') continue;
     if(n.type==='tap'){
       const y=HITLINE-((n.t-R_.time)/FALL)*HITLINE;
-      if(y<-20||y>LH)continue;
+      if(y<T0-20||y>T1)continue;
       const x=LANE_X0+n.lane*LANE_W;
       px(b,x+7,Math.round(y)-8,LANE_W-17,16,'#2b1c12');
       px(b,x+9,Math.round(y)-6,LANE_W-21,12,'#f2701c');
@@ -376,7 +377,7 @@ function drawRhythm(){
       for(let s=0;s<=steps;s++){
         const k=s/steps, tt=n.t+n.dur*k;
         const yy=HITLINE-((tt-R_.time)/FALL)*HITLINE;
-        if(yy<-16||yy>LH)continue;
+        if(yy<T0-16||yy>T1)continue;
         const lane=n.lane+(n.endLane-n.lane)*k;
         const x=Math.round(LANE_X0+lane*LANE_W+LANE_W/2-16);
         const filled=act&&k<=(R_.time-n.t)/n.dur;
@@ -385,7 +386,7 @@ function drawRhythm(){
         px(b,x,Math.round(yy)-4,32,3,filled?'#ffffff':'#fff3b0');
       }
       const yh=HITLINE-((n.t-R_.time)/FALL)*HITLINE;
-      if(yh>-16&&yh<LH){ const x=LANE_X0+n.lane*LANE_W;
+      if(yh>T0-16&&yh<T1){ const x=LANE_X0+n.lane*LANE_W;
         px(b,x+6,Math.round(yh)-10,LANE_W-15,20,'#2b1c12');
         px(b,x+9,Math.round(yh)-7,LANE_W-21,14,'#ffcf3a');
         holdLabels.push({x:x+LANE_W/2-2,y:Math.round(yh)+5}); }
@@ -403,21 +404,21 @@ function drawRhythm(){
   R_.fx.forEach(f=>{ const a=Math.min(1,f.t/400);
     if(f.kind==='note') noteGlyph(b,Math.round(f.x),Math.round(f.y),'#ffe08a',a);
     else { b.globalAlpha=a; px(b,Math.round(f.x),Math.round(f.y),3,3,'#c8ffb0'); b.globalAlpha=1; } });
-  px(b,0,0,LW,46,'#101820'); px(b,0,46,LW,2,'#2a3a48');
-  drawFluteIcon(b,LW-52,26,1.3);
-  if(!R_.done){ px(b,CANCEL.x,CANCEL.y,CANCEL.w,CANCEL.h,'#3a2a2a');
-    px(b,CANCEL.x+2,CANCEL.y+2,CANCEL.w-4,CANCEL.h-4,'#c9a08a'); }
+  px(b,0,T0,LW,46,'#101820'); px(b,0,T0+46,LW,2,'#2a3a48');   /* header pinned to the top edge */
+  drawFluteIcon(b,LW-52,T0+26,1.3);
+  if(!R_.done){ px(b,CANCEL.x,CANCEL.y+T0,CANCEL.w,CANCEL.h,'#3a2a2a');
+    px(b,CANCEL.x+2,CANCEL.y+T0+2,CANCEL.w-4,CANCEL.h-4,'#c9a08a'); }
   let liveHold=null;
   for(const n of R_.chart.notes) if(n.type==='hold'&&R_.time>=n.t&&R_.time<=n.t+n.dur) liveHold=n;
   if(R_.done){
-    b.globalAlpha=.86; px(b,0,0,LW,LH,'#0d1410'); b.globalAlpha=1;
+    b.globalAlpha=.86; px(b,0,T0,LW,TH,'#0d1410'); b.globalAlpha=1;
     panel(36,150,288,180);
     if(R_.frogT>0){ const bo=Math.abs(Math.sin(G.t/220))*6;
       drawFrog(b,168,292-bo,G.t,2);
       for(let i=0;i<3;i++){ const a=G.t/300+i*2.1;
         noteGlyph(b,Math.round(178+Math.cos(a)*33),Math.round(292-bo-6+Math.sin(a)*14),'#ffe08a',1); } }
   }
-  m.drawImage(buf,0,0);
+  blit();
   holdLabels.forEach(h=>T("HOLD",h.x,h.y,20,'#2b1c12','center',true));
   if(liveHold&&!liveHold.holding){
     const gx=LANE_X0+liveHold.reqLane*LANE_W+LANE_W/2;
@@ -425,15 +426,15 @@ function drawRhythm(){
   }
   R_.pop.forEach(p=>{ m.globalAlpha=Math.min(1,p.t/300);
     T(p.txt,p.x,HITLINE-42-(700-p.t)/16,28,p.c,'center',true); m.globalAlpha=1; });
-  T(R_.battle?R_.battle.name:("Growing "+SPECIES[R_.plot.sp].name),9,19,26,'#f0e6d2');
+  T(R_.battle?R_.battle.name:("Growing "+SPECIES[R_.plot.sp].name),9,T0+19,26,'#f0e6d2');
   T("Combo "+R_.combo+"    Max "+R_.maxcombo+"    P"+R_.perfect+" G"+R_.good+" M"+R_.miss,
-    9,37,20,'#e8c34a');
-  T(FLUTE_INFO[G.flute||'recorder'].name,LW-52,44,15,'#9fb2c6','center');
-  if(!R_.done) T("✕  Stop",CANCEL.x+CANCEL.w/2,CANCEL.y+18,20,'#3a2a1a','center',true);
+    9,T0+37,20,'#e8c34a');
+  T(FLUTE_INFO[G.flute||'recorder'].name,LW-52,T0+44,15,'#9fb2c6','center');
+  if(!R_.done) T("✕  Stop",CANCEL.x+CANCEL.w/2,CANCEL.y+T0+18,20,'#3a2a1a','center',true);
   /* the count-in, and which key plays which lane until the first note arrives */
   const cb=countBeat();
   if(!R_.done&&cb<COUNT_BEATS){
-    "HJKL".split('').forEach((ch,i)=>T(ch,LANE_X0+i*LANE_W+LANE_W/2-2,HITLINE+34,26,'#f7f0dc','center',true));
+    if(!IS_TOUCH) "HJKL".split('').forEach((ch,i)=>T(ch,LANE_X0+i*LANE_W+LANE_W/2-2,HITLINE+34,26,'#f7f0dc','center',true));
     if(cb<0) T("Get ready...",LW/2,210,34,'#f7f0dc','center',true);
     else {
       const f=(R_.time-R_.count.start)/R_.count.beat-cb;          /* 0..1 through this beat */

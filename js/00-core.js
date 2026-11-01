@@ -3,21 +3,47 @@
 /* ==================================================================
    KAITLYN'S GARDEN SONG · v6   ·   360x480 logical, 1080x1440 out
    ================================================================== */
-const LW=360, LH=480, SC=3, VIEW_H=300, HUD_Y=VIEW_H;
+/* Scenes are laid out for a 360x480 screen. On taller screens (phones) the canvas
+   grows to SCREEN_H: the garden view takes the EXTRA height (VIEW_H) with the HUD
+   and controls pinned to the bottom, and the other scenes are centred in it. */
+const LW=360, LH=480, SC=3, HUD_Y=300;
 const WORLD_W=720, WORLD_H=720;
+let SCREEN_H=LH, EXTRA=0, VIEW_H=HUD_Y;
+const MAX_VIEW_H=560;       /* the whole map height at the garden's zoom (720 x 0.8, less a margin) */
+/* touch screens get on-screen buttons only, no keyboard hints */
+const IS_TOUCH=matchMedia('(pointer: coarse)').matches||'ontouchstart' in window;
 
 const cv=document.getElementById('c');
-cv.width=LW*SC; cv.height=LH*SC;
 const m=cv.getContext('2d');
-const buf=document.createElement('canvas'); buf.width=LW*SC; buf.height=LH*SC;
+const buf=document.createElement('canvas');
 const b=buf.getContext('2d');
-m.imageSmoothingEnabled=false; b.imageSmoothingEnabled=false;
-function fit(){ const s=Math.min(innerWidth/(LW*SC),innerHeight/(LH*SC));
-  cv.style.width=(LW*SC*s)+'px'; cv.style.height=(LH*SC*s)+'px'; }
-addEventListener('resize',fit); fit();
+function layout(){
+  const want=Math.round(LW*innerHeight/Math.max(1,innerWidth));
+  const h=clamp(want,LH,LH+420);
+  if(h===SCREEN_H&&cv.height===h*SC) return;
+  SCREEN_H=h; EXTRA=h-LH; VIEW_H=Math.min(HUD_Y+EXTRA,MAX_VIEW_H);
+  cv.width=buf.width=LW*SC; cv.height=buf.height=SCREEN_H*SC;   /* resets both contexts */
+  m.imageSmoothingEnabled=false; b.imageSmoothingEnabled=false;
+}
+function fit(){ layout();
+  const s=Math.min(innerWidth/(LW*SC),innerHeight/(SCREEN_H*SC));
+  cv.style.width=(LW*SC*s)+'px'; cv.style.height=(SCREEN_H*SC*s)+'px'; }
+addEventListener('resize',fit);
 
 const px=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h);};
 const clamp=(v,a,z)=>v<a?a:v>z?z:v;
+fit();
+/* centred scenes: their own top and bottom edges, reaching into the extra space */
+const BAND_TOP=()=>-EXTRA/2, BAND_BOT=()=>LH+EXTRA/2;
+/* Scenes draw shapes into buf and text straight onto the screen (m), both shifted to
+   where the scene sits; blit copies buf onto the screen as is (it is already shifted). */
+function blit(){ m.save(); m.setTransform(1,0,0,1,0,0); m.drawImage(buf,0,0); m.restore(); }
+function wipeBuf(){ b.save(); b.setTransform(1,0,0,1,0,0); b.clearRect(0,0,buf.width,buf.height); b.restore(); }
+/* fill the whole screen, whatever the scene's shift */
+function fillScreen(c,col,alpha){
+  c.save(); c.setTransform(c===m?1:SC,0,0,c===m?1:SC,0,0); c.globalAlpha=alpha===undefined?1:alpha;
+  c.fillStyle=col; c.fillRect(0,0,c===m?LW*SC:LW,c===m?SCREEN_H*SC:SCREEN_H); c.restore();
+}
 const rnd=(a,z)=>a+Math.random()*(z-a);
 const ri=(a,z)=>Math.floor(rnd(a,z+1));
 const FONT="Verdana, sans-serif";
