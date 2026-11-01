@@ -34,7 +34,6 @@ function drawHUD(){
   T(G.coins+"c",225,HUD_Y+37,28,'#e8c34a',null,true);
   const h=harmony();
   if(h>1.001) T("Harmony x"+h.toFixed(2),225,HUD_Y+50,20,'#8fe07a');
-  if(G.coffeeT>0) T("COFFEE "+Math.ceil(G.coffeeT/1000)+"s",159,HUD_Y+48,20,'#e8a86a');
   if(G.msgT>0){ m.globalAlpha=Math.min(1,G.msgT/400);
     T(G.msg,14,381,23,'#f7f0dc'); m.globalAlpha=1; }
   T("A",BTN.cx,BTN.cy+9,34,'#2b1c12','center',true);
@@ -73,12 +72,46 @@ function tabPill(x,y,w,h,sel){
   if(sel){ px(b,x,y,w,h,'#a8781e'); px(b,x+2,y+2,w-4,h-2,'#f0cf6a'); px(b,x+2,y+2,w-4,3,'#fff0b0'); }
   else { px(b,x,y+3,w,h-3,'#c9b894'); px(b,x,y+3,w,2,'#b8a67e'); }
 }
+/* Shop pictures (assets/sprites/shop_items.png, keyed by lower-case item name) load the
+   first time a menu needs them. drawShopPic fits one into a box centred on cx,cy. */
+let IMG_SHOPART=null;
+function shopArtImg(){
+  if(!IMG_SHOPART){ IMG_SHOPART=new Image(); IMG_SHOPART.src=ASSET_SHOPART; }
+  return IMG_SHOPART.complete&&IMG_SHOPART.naturalWidth?IMG_SHOPART:null;
+}
+function drawShopPic(key,cx,cy,bw,bh){
+  const r=SHOP_ART[key], img=shopArtImg(); if(!r||!img) return false;
+  const [sx,sy,w,h]=r, s=Math.min(1,bw*SC/w,bh*SC/h);
+  b.save(); b.scale(1/SC,1/SC); b.imageSmoothingEnabled=true;
+  b.drawImage(img,sx,sy,w,h,Math.round(cx*SC-w*s/2),Math.round(cy*SC-h*s/2),w*s,h*s);
+  b.restore(); return true;
+}
+/* Timed effects (coffee, snacks) as small cream pills stacked in the bottom-left of
+   the garden view, each with a coloured dot and the seconds left. */
+const BUFFS=[['coffeeT','Coffee','#a8682a'],['snackT','Quick feet','#5aa347'],
+             ['calmT','Calm garden','#5a9ad8'],['lureT','Pest lure','#c0563a']];
+const activeBuffs=()=>BUFFS.filter(([k])=>G[k]>0);
+function drawBuffsBack(){
+  activeBuffs().forEach(([k,name,col],i)=>{
+    const w=TW(name+" 000s",16,true)+20, x=5, y=VIEW_H-24-i*20;
+    b.fillStyle='rgba(20,14,8,.3)'; b.beginPath(); b.roundRect(x+1,y+2,w,16,8); b.fill();
+    b.fillStyle='#2b1c12'; b.beginPath(); b.roundRect(x,y,w,16,8); b.fill();
+    b.fillStyle='#f3ead2'; b.beginPath(); b.roundRect(x+1.5,y+1.5,w-3,13,6.5); b.fill();
+    b.fillStyle=col; b.beginPath(); b.arc(x+9,y+8,3.2,0,7); b.fill();
+  });
+}
+function drawBuffsText(){
+  activeBuffs().forEach(([k,name],i)=>{
+    T(name+" "+Math.ceil(G[k]/1000)+"s",5+16,VIEW_H-24-i*20+11.5,16,'#3a2a1a','left',true);
+  });
+}
 /* small key reminder along the bottom of a menu */
 function keyHint(txt,x,y){ T(txt,x,y,16,'#8a7a5a','center'); }
 function dim(){ b.globalAlpha=.76; px(b,0,0,LW,LH,'#0d1410'); b.globalAlpha=1; }
 function drawWorldStatic(){
   const cam=camera();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
-  drawMap(cam); tintView(b); b.restore();
+  b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM); drawMap(cam); b.restore();
+  tintView(b); b.restore();
   px(b,0,VIEW_H,LW,LH-VIEW_H,'#2b241c');
 }

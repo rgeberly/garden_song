@@ -14,6 +14,27 @@ const SPECIES={
   avocado   :{name:"Avocado",   kind:'tree',fruit:'#4a7a33',dk:'#26421b',cost:82,value:168,xp:22,notes:16},
 };
 const SPECIES_ORDER=Object.keys(SPECIES);
+/* What eating a harvested crop does (from the Items menu). hp/mp restore; the rest
+   are timed in real ms: speed = walk 25% faster, calm = pests come half as often,
+   lure = pests come twice as often (more battles, more XP). */
+const EAT={
+  strawberry:{hp:8},                 blueberry:{mp:5},
+  tomato:    {hp:6,mp:3},            sunflower:{speed:60000},
+  lemongrass:{calm:120000},          squash:   {hp:15},
+  melon:     {hp:20,mp:8},           satsuma:  {mp:10,speed:30000},
+  muscadine: {lure:120000},          avocado:  {hp:12,mp:6},
+};
+function eatText(sp){
+  const e=EAT[sp]||{}, L=[];
+  if(e.hp) L.push("+"+e.hp+" HP");
+  if(e.mp) L.push("+"+e.mp+" MP");
+  if(e.speed) L.push("faster for "+Math.round(e.speed/1000)+"s");
+  if(e.calm) L.push("fewer pests for "+Math.round(e.calm/60000)+" min");
+  if(e.lure) L.push("more pests for "+Math.round(e.lure/60000)+" min");
+  return L.join(", ")||"tasty";
+}
+/* sale price of one harvested crop at the stall */
+const sellPrice=sp=>Math.round(SPECIES[sp].value*(G.yard.arch?1.15:1));
 const PESTS={
   beetle :{name:"June Beetle",  hp:26, atk:4, xp:14, coin:14, col:'#3f3478',dk:'#241d47',hl:'#6f63b8',min:1},
   wasp   :{name:"Paper Wasp",   hp:20, atk:6, xp:16, coin:17, col:'#e8b02a',dk:'#6b4a10',hl:'#fff0a0',min:1},
@@ -129,8 +150,8 @@ function plantArt(sp,stage,tree){
   return plantCache[key]={cv:cvv,ox:cx,oy:cy};
 }
 /* ---------------- painted crops, soil and stand (assets/sprites/crops.png) ----------------
-   Stage 0 is the shared sprout, 1 a smaller baby, 2 the baby, 3 mature. Crops without
-   pictures yet fall back to the drawn ones above. */
+   Stage 0 is the shared sprout, 1 a smaller baby, 2 the baby, 3 mature (fruit trees are
+   built larger). Crops without pictures yet fall back to the drawn ones above. */
 const IMG_CROPS=new Image(); IMG_CROPS.src=ASSET_CROPS;
 const CROP_STAGE=['sprout','baby','baby','mature'], CROP_STAGE_SCALE=[1,0.8,1,1];
 const cropsReady=()=>IMG_CROPS.complete&&IMG_CROPS.naturalWidth>0;
@@ -138,17 +159,29 @@ const cropsReady=()=>IMG_CROPS.complete&&IMG_CROPS.naturalWidth>0;
 function drawCropArt(c,key,x,y,s){
   const a=CROP_ART[key]; if(!a||!cropsReady()) return false;
   const [sx,sy,w,h]=a.r, k=s||1;
-  c.save(); c.scale(1/SC,1/SC); c.imageSmoothingEnabled=k!==1;
+  c.save(); c.scale(1/SC,1/SC); c.imageSmoothingEnabled=true;
   c.drawImage(IMG_CROPS,sx,sy,w,h,Math.round(x*SC-a.ax*k),Math.round(y*SC-a.ay*k),Math.round(w*k),Math.round(h*k));
   c.restore(); return true;
 }
 function drawPlant(c,x,y,sp,stage,tree){
-  if(!tree){
-    const key=stage===0?'sprout':CROP_STAGE[stage]+' '+SPECIES[sp].name.toLowerCase();
-    if(drawCropArt(c,key,x,y,CROP_STAGE_SCALE[stage])) return;
-  }
+  const key=stage===0?'sprout':CROP_STAGE[stage]+' '+SPECIES[sp].name.toLowerCase();
+  if(drawCropArt(c,key,x,y,CROP_STAGE_SCALE[stage])) return;
   const a=plantArt(sp,stage,tree);
   c.drawImage(a.cv,Math.round(x-a.ox),Math.round(y-a.oy));
+}
+/* what is left when pests eat a plant's health to zero; cleared with A/J */
+function drawRuined(c,x,y,tree){
+  if(drawCropArt(c,'damaged',x,y,tree?1.2:1)) return;
+  px(c,x-1,y-12,2,12,'#6b5a3a'); px(c,x-6,y-8,5,2,'#8a6a3a'); px(c,x+1,y-10,5,2,'#8a6a3a');
+}
+/* a small picture of a crop or seed packet fitted into a box centred on cx,cy */
+function drawCropIcon(c,sp,cx,cy,box){
+  const a=CROP_ART['mature '+SPECIES[sp].name.toLowerCase()];
+  if(a&&cropsReady()){ const [sx,sy,w,h]=a.r, s=Math.min(box*SC/w,box*SC/h);
+    c.save(); c.scale(1/SC,1/SC); c.imageSmoothingEnabled=true;
+    c.drawImage(IMG_CROPS,sx,sy,w,h,Math.round(cx*SC-w*s/2),Math.round(cy*SC-h*s/2),w*s,h*s);
+    c.restore(); return; }
+  const S=SPECIES[sp]; px(c,cx-5,cy-5,10,10,S.fruit); px(c,cx-5,cy-5,5,5,S.dk);
 }
 /* a mound of soil for a garden spot (the plant stands in its middle) */
 function drawSoil(c,x,y){

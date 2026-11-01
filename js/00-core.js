@@ -76,7 +76,10 @@ const AM=ANIM_META;
 /* Every walk row is 24 frames = four steps of 6 frames, starting on the left
    foot (walkT resets on stop). 1400ms puts a relaxed step every 350ms: ~25px
    steps at WALK_SPEED, so the feet keep pace with the ground. Idle rows are 8 frames. */
-const WALK_CYCLE=1400, IDLE_CYCLE=1600, WALK_SPEED=0.072;   // px per ms
+/* The garden is drawn at WORLD_ZOOM (zoomed out) while Kaitlyn keeps her own size,
+   so she covers 1/WORLD_ZOOM more ground per step: her feet still keep pace. */
+const WORLD_ZOOM=0.8;
+const WALK_CYCLE=1400, IDLE_CYCLE=1600, WALK_SPEED=0.072/WORLD_ZOOM;   // world px per ms
 /* game dir 0 N,1 NE,2 E,3 SE,4 S,5 SW,6 W,7 NW  ->  sheet + horizontal flip.
    SW, W and NW are mirrors of SE, E and NE. */
 const DIRMAP=[['up',0],['northeast',0],['east',0],['southeast',0],

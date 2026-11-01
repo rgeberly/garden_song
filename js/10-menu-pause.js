@@ -36,13 +36,28 @@ function castField(f){
 }
 /* ---------- layout: tabs across the top, one list per tab, key hints + Back below ---------- */
 const SYS_TAB_Y=36, SYS_TAB_W=74, SYS_BACK={x:272,y:436,w:62,h:24};
-const SYS_ROWS={0:{y:130,step:29,h:26}, 2:{y:80,step:46,h:42}, 3:{y:160,step:44,h:38}};
+const SYS_ROWS={0:{y:130,step:29,h:26}, 1:{y:100,step:31,h:29}, 2:{y:80,step:46,h:42}, 3:{y:160,step:44,h:38}};
 const SAVE_ACTIONS=["Copy save code","Paste a save code","Save in this browser"];
 function sysCount(){
   if(sys.tab===0) return FLUTE_META.order.length;
   if(sys.tab===2) return fieldList().length;
   if(sys.tab===3) return SAVE_ACTIONS.length;
-  return 0;                                  /* Items is just a list to read */
+  return cropList().length;                  /* Items: harvested crops can be eaten */
+}
+const cropList=()=>SPECIES_ORDER.filter(s=>G.crops[s]>0);
+/* eat one harvested crop for its effect (EAT in 01-content.js) */
+function eatCrop(sp){
+  if(!(G.crops[sp]>0)) return;
+  const e=EAT[sp]||{}, P=G.player;
+  G.crops[sp]--; if(G.crops[sp]<=0) delete G.crops[sp];
+  if(e.hp) P.hp=Math.min(P.maxhp,P.hp+e.hp);
+  if(e.mp) P.mp=Math.min(maxMp(),P.mp+e.mp);
+  if(e.speed) G.snackT=Math.max(G.snackT,e.speed);
+  if(e.calm){ G.calmT=Math.max(G.calmT,e.calm); G.lureT=0; }
+  if(e.lure){ G.lureT=Math.max(G.lureT,e.lure); G.calmT=0; }
+  say("Ate a "+SPECIES[sp].name+": "+eatText(sp)+".");
+  if(AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
+  sys.idx=Math.min(sys.idx,Math.max(0,cropList().length-1)); autoSave();
 }
 function sysSetTab(t){
   sys.tab=(t+4)%4;
@@ -53,7 +68,8 @@ function sysActivate(i){
     const id=FLUTE_META.order[i];
     if(fluteOwned(id)){ G.flute=id; say(FLUTE_INFO[id].name+" equipped."); if(AC) flute(11,AC.currentTime,.3,.5); }
     else { say("Not owned — buy it at the stall."); blip(150,.08,.2); }
-  } else if(sys.tab===2){ const f=fieldList()[i]; if(f) castField(f); }
+  } else if(sys.tab===1){ const sp=cropList()[i]; if(sp) eatCrop(sp); }
+  else if(sys.tab===2){ const f=fieldList()[i]; if(f) castField(f); }
   else if(sys.tab===3){
     if(i===0){ try{navigator.clipboard.writeText(G.code);}catch(e){}
       say("Save code copied to clipboard."); G.scene='world'; }
@@ -79,6 +95,14 @@ function sysTouch(x,y){
   for(let i=0;i<sysCount();i++)
     if(y>R.y+i*R.step&&y<R.y+i*R.step+R.h&&x>26&&x<334){ sys.idx=i; sysActivate(i); return; }
 }
+/* Items tab rows: harvested crops (eat with J), then seeds, as far as the panel goes */
+function itemsLayout(){
+  const R=SYS_ROWS[1], crops=cropList().map((sp,i)=>({sp,y:R.y+i*R.step}));
+  const seedsY=(crops.length?R.y+crops.length*R.step:R.y+22)+20;
+  const seeds=Object.keys(G.seeds).filter(k=>G.seeds[k]>0).map((sp,i)=>({sp,y:seedsY+i*24}))
+    .filter(s=>s.y<=396);
+  return {crops,seedsY,seeds};
+}
 function drawSys(){
   dim(); panel(14,26,332,442);
   for(let i=0;i<4;i++) tabPill(26+i*(SYS_TAB_W+4),SYS_TAB_Y,SYS_TAB_W,28,sys.tab===i);
@@ -98,9 +122,11 @@ function drawSys(){
       b.restore();
     }
   } else if(sys.tab===1){
-    seeds.forEach((k,i)=>{ const y=100+i*27; if(y>400) return;
-      px(b,26,y,308,24,i%2?'#e8dcc0':'#efe6cd');
-      px(b,36,y+7,11,11,SPECIES[k].fruit); px(b,36,y+7,6,6,SPECIES[k].dk); });
+    const L=itemsLayout();
+    L.crops.forEach(({sp,y},i)=>{ menuRow(26,y,308,R.h,sys.idx===i); drawCropIcon(b,sp,26+ROW_PAD+11,y+R.h/2,24); });
+    L.seeds.forEach(({sp,y},i)=>{ px(b,26,y,308,22,i%2?'#e8dcc0':'#efe6cd');
+      if(!drawShopPic(SPECIES[sp].name.toLowerCase()+" seed",40,y+11,14,19)){
+        px(b,35,y+6,11,11,SPECIES[sp].fruit); px(b,35,y+6,6,6,SPECIES[sp].dk); } });
   } else if(sys.tab===2){
     list.forEach((f,i)=>menuRow(26,R.y+i*R.step,308,R.h,sys.idx===i,G.player.mp<f.mp));
   } else {
@@ -136,15 +162,20 @@ function drawSys(){
       lines.slice(0,2).forEach((ln,i)=>T(ln,180,377+i*14,16,'#7a6a4a','center'));
     }
   } else if(sys.tab===1){
-    T("Inventory",30,90,24,'#3a2a1a',null,true);
-    T(G.coins+"c",330,90,24,'#a06a1a','right',true);
-    if(!seeds.length) T("No seeds — buy some at the stall.",180,160,22,'#7a6a4a','center');
-    seeds.forEach((k,i)=>{ const y=100+i*27; if(y>400) return;
-      const S=SPECIES[k];
-      T(S.name,56,y+17,22,'#3a2a1a');
-      T("sells "+S.value+"c",262,y+17,18,'#a06a1a','right');
-      T("x"+G.seeds[k],326,y+17,22,'#3a2a1a','right',true); });
-    if(G.coffeeT>0) T("Coffee boost: "+Math.ceil(G.coffeeT/1000)+"s left",180,418,19,'#a8682a','center');
+    const L=itemsLayout();
+    T("Harvest",30,90,22,'#3a2a1a',null,true);
+    T(G.coins+"c",330,90,22,'#a06a1a','right',true);
+    if(!L.crops.length) T("Nothing harvested yet.",180,112,19,'#7a6a4a','center');
+    L.crops.forEach(({sp,y},i)=>{ const x=26+ROW_PAD+26;
+      T(SPECIES[sp].name+"  x"+G.crops[sp],x,y+13,21,'#3a2a1a',null,true);
+      T("Eat: "+eatText(sp),x,y+25,16,'#5a7a3a');
+      T("sells "+sellPrice(sp)+"c",326,y+13,16,'#a06a1a','right'); });
+    T("Seeds",30,L.seedsY-6,22,'#3a2a1a',null,true);
+    if(!L.seeds.length) T("No seeds — buy some at the stall.",180,L.seedsY+14,19,'#7a6a4a','center');
+    L.seeds.forEach(({sp,y})=>{
+      T(SPECIES[sp].name+" seed",54,y+15,20,'#3a2a1a');
+      T("x"+G.seeds[sp],326,y+15,20,'#3a2a1a','right',true); });
+    if(G.msgT>0&&G.msg.startsWith("Ate")) T(G.msg,180,426,17,'#5a7a3a','center',true);
   } else if(sys.tab===2){
     if(!list.length) T("No field songs yet — reach Lv.4",180,140,24,'#7a6a4a','center');
     list.forEach((f,i)=>{ const y=R.y+i*R.step, ok=G.player.mp>=f.mp;

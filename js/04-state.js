@@ -8,7 +8,9 @@ const G={
   seeds:{strawberry:3,tomato:2,sunflower:2},
   unlocked:['strawberry','tomato','sunflower'],
   gear:{}, yard:{}, flute:'recorder',
+  crops:{},                                 /* harvested, not yet sold or eaten */
   coffeeT:0, swim:false, mpTick:0, wildT:4000,
+  snackT:0, calmT:0, lureT:0,               /* timed effects from eating crops (ms) */
   pests:[], pestTimer:9000,
   msg:'', msgT:0, frogT:0, t:0, code:'',
   clock:6*60, day:1, indoors:false,      /* game minutes since midnight; see 14-daytime.js */
@@ -55,8 +57,8 @@ function saveObj(){
   return {v:7,p:[G.player.lv,G.player.xp,G.player.next,G.player.hp,G.player.maxhp,G.player.mp,
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
-    s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,t:[G.day,Math.floor(G.clock)],
-    pl:plots.map(p=>[p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health)])};
+    s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock)],
+    pl:plots.map(p=>[p.dead?-2:p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health)])};
 }
 function exportCode(){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(saveObj())))); }catch(e){ return ''; } }
 function applySave(o){
@@ -64,11 +66,11 @@ function applySave(o){
   const P=G.player;
   [P.lv,P.xp,P.next,P.hp,P.maxhp,P.mp,P.x,P.y]=o.p;
   G.coins=o.c; [G.gardenLv,G.gardenXp,G.gardenNext,G.harvests]=o.g;
-  G.seeds=o.s||{}; G.unlocked=o.u||['strawberry']; G.gear=o.ge||{}; G.yard=o.y||{};
+  G.seeds=o.s||{}; G.unlocked=o.u||['strawberry']; G.gear=o.ge||{}; G.yard=o.y||{}; G.crops=o.cr||{};
   G.flute=o.fl||'recorder';
   if(o.t){ [G.day,G.clock]=o.t; preloadSeasonMaps(); }
   (o.pl||[]).forEach((v,i)=>{ const p=plots[i]; if(!p)return;
-    p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; });
+    p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; });
   buildWorld(); return true;
 }
 function importCode(s){ try{ return applySave(JSON.parse(decodeURIComponent(escape(atob(s.trim()))))); }catch(e){ return false; } }

@@ -23,7 +23,11 @@ OUT = os.path.join(ROOT, 'assets', 'sprites')
 
 # On-screen size, in device px (3 per game px), of a full 1024px source picture.
 # Pictures keep their sizes relative to each other within a group.
-CANVAS_PX = {'sprout': 84, 'baby': 126, 'mature': 162, 'soil': 108, 'stand': 300}
+CANVAS_PX = {'sprout': 84, 'baby': 126, 'mature': 162, 'soil': 108, 'stand': 300,
+             'baby tree': 150, 'mature tree': 228, 'damaged': 126}
+# fruit trees grow in the stone rings and stand taller than the bed crops
+TREES = {'satsuma', 'muscadine', 'avocado'}
+CROP_GROUPS = ('sprout', 'baby', 'mature', 'baby tree', 'mature tree', 'damaged')
 SHOP_BOX = 240          # shop pictures are fitted into this square, in device px
 # Pure white enclosed by the picture (between leaves, inside a handle) is also
 # background, but only where the art itself has no big white parts: every crop,
@@ -121,14 +125,18 @@ def main():
     crops, meta = [], {}
     def add(key, path, group):
         a = load(path); s = CANVAS_PX[group] / max(a.shape[:2])
-        im = shrink(trim(remove_white(a, CROP_HOLE if group in ('sprout', 'baby', 'mature') else 0)), s)
+        im = shrink(trim(remove_white(a, CROP_HOLE if group in CROP_GROUPS else 0)), s)
         ax, ay = foot(im)
         crops.append((key, im)); meta[key] = {'ax': ax, 'ay': ay}
     for f in sorted(glob.glob(os.path.join(SRC, 'crops', '*.png'))):
         base = os.path.splitext(os.path.basename(f))[0].lower()
         if base == 'sprout': add('sprout', f, 'sprout')
-        elif base.startswith('baby '): add('baby ' + base[5:].strip(), f, 'baby')
-        elif base.startswith('mature '): add('mature ' + base[7:].strip(), f, 'mature')
+        elif base == 'damaged plant': add('damaged', f, 'damaged')
+        else:
+            for stage in ('baby', 'mature'):
+                if base.startswith(stage + ' '):
+                    crop = base[len(stage) + 1:].strip()
+                    add(stage + ' ' + crop, f, stage + (' tree' if crop in TREES else ''))
     for key, name, group in (('soil', 'Soil.png', 'soil'), ('stand', 'MarketStand.png', 'stand')):
         p = os.path.join(SRC, name)
         if os.path.exists(p): add(key, p, group)

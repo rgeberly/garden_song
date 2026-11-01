@@ -3,16 +3,19 @@
    ================================================================ */
 function startGame(){ G.scene='world'; initMusic(); setMusic('calm');
   say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); autoLoad(); }
-function nearestPlot(){
+/* "near" checks take a reach factor: 1 for what A/J acts on, PROMPT_REACH for when the
+   overhead prompt shows, so prompts only appear once she is right beside something */
+const PROMPT_REACH=0.5;
+function nearestPlot(f=1){
   let best=null,bd=1e9;
   for(const p of plots){ if(!active(p))continue;
     const d=Math.hypot(p.x-G.player.x,p.y-G.player.y); if(d<bd){bd=d;best=p;} }
-  return bd<40?best:null;
+  return bd<40*f?best:null;
 }
-const nearestFrog=()=>FROGS.find(f=>Math.hypot(f.x-G.player.x,f.y-G.player.y)<32);
+const nearestFrog=(f=1)=>FROGS.find(fr=>Math.hypot(fr.x-G.player.x,fr.y-G.player.y)<32*f);
 const nearestPest=()=>G.pests.find(p=>Math.hypot(p.x-G.player.x,p.y-G.player.y)<26);
-const nearStall=()=>Math.hypot(STALL.x-G.player.x,STALL.y+6-G.player.y)<44;
-const nearDoor=()=>Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y)<46;
+const nearStall=(f=1)=>Math.hypot(STALL.x-G.player.x,STALL.y+6-G.player.y)<44*f;
+const nearDoor=(f=1)=>Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y)<46*f;
 function interact(){
   if(nearStall()){ openShop(); return; }
   /* bedtime at the front door for now; later the bed inside the house */
@@ -32,31 +35,33 @@ function interact(){
   }
   const plot=nearestPlot();
   if(!plot){ say("Nothing here. Find a garden bed."); return; }
+  if(plot.dead){ plot.dead=false; say("Cleared away the ruined plant."); blip(260,0.08,0.12,'triangle'); return; }
   if(!plot.sp){ openSeedMenu(plot); return; }
   if(plot.stage>=3){ harvest(plot); return; }
   startRhythm(plot);
 }
+/* Harvest goes into the basket (G.crops) for selling at the stall or eating;
+   it earns XP, not coins. Returns the XP gained. */
 function harvestOne(plot){
   const S=SPECIES[plot.sp];
-  let bonus=Math.round(S.value*(0.6+plot.health/250));
-  if(G.yard.arch) bonus=Math.round(bonus*1.15);
-  G.coins+=bonus; addXp(S.xp); addGardenXp(Math.round(S.xp*1.2)); G.harvests++;
+  G.crops[plot.sp]=(G.crops[plot.sp]||0)+1;
+  addXp(S.xp); addGardenXp(Math.round(S.xp*1.2)); G.harvests++;
   if(Math.random()<0.5) G.seeds[plot.sp]=(G.seeds[plot.sp]||0)+1;
   Object.assign(plot,{sp:null,stage:0,growth:0,health:100});
-  return bonus;
+  return S.xp;
 }
 function harvest(plot){
-  let total=0,n=0;
+  let xp=0,n=0; const name=SPECIES[plot.sp].name;
   if(G.gear.basket){
-    plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage>=3){ total+=harvestOne(p); n++; } });
-  } else { total=harvestOne(plot); n=1; }
+    plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage>=3){ xp+=harvestOne(p); n++; } });
+  } else { xp=harvestOne(plot); n=1; }
   G.player.mp=Math.min(maxMp(),G.player.mp+2*n);
-  say(n>1?("Harvested "+n+" crops!  +"+total+"c"):("Harvested!  +"+total+"c"));
+  say((n>1?"Harvested "+n+" crops!":"Harvested a "+name+"!")+"  +"+xp+" xp");
   if(AC){flute(6,AC.currentTime,.3,.6);flute(11,AC.currentTime+.1,.35,.6);flute(14,AC.currentTime+.2,.5,.6);}
   autoSave();
 }
 function spawnPest(){
-  if(G.pests.length>=3) return;
+  if(G.pests.length>=(G.lureT>0?5:3)) return;
   const planted=plots.filter(p=>active(p)&&p.sp); if(!planted.length) return;
   let pool=Object.keys(PESTS).filter(k=>!PESTS[k].boss&&PESTS[k].min<=G.gardenLv);
   let sp=pool[ri(0,pool.length-1)];
@@ -83,7 +88,7 @@ function updateWorld(dt){
   const mm=Math.hypot(dx,dy);
   if(mm>0.15){
     dx/=mm; dy/=mm;
-    const mul=(G.gear.boots?1.35:1)*(G.coffeeT>0?1.5:1)*(G.swim?0.62:1);
+    const mul=(G.gear.boots?1.35:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1)*(G.swim?0.62:1);
     const sp=WALK_SPEED*mul*dt;
     const nx=P.x+dx*sp, ny=P.y+dy*sp;
     if(!solidAt(nx,P.y+9)) P.x=nx;
@@ -106,10 +111,11 @@ function updateWorld(dt){
   if(G.swim&&!wasSwim){ say("Ahh. Music Points restoring..."); blip(500,0.12,0.15,'sine'); }
   if(G.swim){ G.mpTick+=dt; if(G.mpTick>380){ G.mpTick=0;
     if(P.mp<maxMp()){ P.mp++; if(P.mp===maxMp()) say("Music Points full!"); } } }
-  if(G.coffeeT>0) G.coffeeT-=dt;
-  const lanternMul=G.yard.lantern?1.4:1;
+  for(const k of ['coffeeT','snackT','calmT','lureT']) if(G[k]>0) G[k]=Math.max(0,G[k]-dt);
+  /* lantern and lemongrass keep pests away, muscadine draws them in */
+  const pestMul=(G.yard.lantern?1.4:1)*(G.calmT>0?2:1)*(G.lureT>0?0.5:1);
   G.pestTimer-=dt;
-  if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*lanternMul; spawnPest(); }
+  if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul; spawnPest(); }
   for(const p of G.pests){
     if(Math.hypot(p.x-P.x,p.y-(P.y+6))<20){ startBattle(p); return; }
     if(!p.target.sp||!active(p.target)) p.target=plots.find(q=>active(q)&&q.sp)||p.target;
@@ -123,8 +129,8 @@ function updateWorld(dt){
         p.target.health=Math.max(0,p.target.health-bite);
         p.target.growth=Math.max(0,p.target.growth-bite*1.5);
         p.target.stage=clamp(Math.floor(p.target.growth/STAGE_COST),0,3);
-        if(p.target.health<=0){ say("A plant was ruined!");
-          Object.assign(p.target,{sp:null,stage:0,growth:0,health:100}); } } }
+        if(p.target.health<=0){ say("A plant was ruined! Clear it away to replant.");
+          Object.assign(p.target,{sp:null,stage:0,growth:0,health:100,dead:true}); } } }
   }
   if(G.frogT>0) G.frogT-=dt;
   if(G.msgT>0) G.msgT-=dt;
@@ -135,11 +141,16 @@ function updateWorld(dt){
     if(w.x<-40||w.x>WORLD_W+40) WILD.splice(i,1);
   }
 }
-const camera=()=>({x:clamp(Math.round(G.player.x-LW/2),0,WORLD_W-LW),
-                   y:clamp(Math.round(G.player.y-VIEW_H/2+15),0,WORLD_H-VIEW_H)});
+/* The camera works in world px; the view shows LW/WORLD_ZOOM by VIEW_H/WORLD_ZOOM of them. */
+const VIEW_WW=LW/WORLD_ZOOM, VIEW_WH=VIEW_H/WORLD_ZOOM;
+const camera=()=>({x:clamp(Math.round(G.player.x-VIEW_WW/2),0,WORLD_W-VIEW_WW),
+                   y:clamp(Math.round(G.player.y-VIEW_WH/2+15),0,WORLD_H-VIEW_WH)});
+/* where a world point lands in the garden view, in logical screen px */
+const toView=(wx,wy,cam)=>[(wx-cam.x)*WORLD_ZOOM,(wy-cam.y)*WORLD_ZOOM];
 function drawWorld(){
   const cam=camera();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
+  b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);           /* the zoomed-out garden */
   drawMap(cam);
   for(let i=0;i<7;i++){
     const yy=POOL.y+18+i*13, off=Math.round(Math.sin(G.t/450+i)*13);
@@ -151,7 +162,8 @@ function drawWorld(){
   plots.forEach(p=>{ if(!active(p))return;
     ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
       if(!p.tree) drawSoil(b,x,y);
-      if(p.sp){ drawPlant(b,x,y,p.sp,p.stage,p.tree);
+      if(p.dead) drawRuined(b,x,y,p.tree);
+      else if(p.sp){ drawPlant(b,x,y,p.sp,p.stage,p.tree);
         drawMeter(b,x,y+(p.tree?26:14),p.growth/MAX_GROWTH,p.stage>=3); } }}); });
   Object.keys(DECOR_SPOT).forEach(id=>{ if(!G.yard[id])return;
     const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>drawDecor(b,id,x-cam.x,y-cam.y,G.t)}); });
@@ -165,14 +177,18 @@ function drawWorld(){
     px(b,x-16,y-10,32,10,'#6b4a2a'); px(b,x-16,y-10,32,2,'#8f6a3c');
     px(b,x-12,y-16,7,7,'#e8433f'); px(b,x-3,y-16,7,7,'#f0c44a'); px(b,x+6,y-16,7,7,'#5a70c4');
   }});
+  /* Kaitlyn is drawn at her own size: undo the zoom around her feet */
   ents.push({y:G.player.y+9,f:()=>{
     const sx=G.player.x-cam.x, sy=G.player.y+12-cam.y;
+    b.save(); b.translate(sx,sy); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); b.translate(-sx,-sy);
+    b.imageSmoothingEnabled=false;
     if(!G.swim) drawKaitlynShadow(b,sx,sy,G.player.dir,G.player.animT||0,G.player.moving);
     if(G.swim){
-      b.save(); b.beginPath(); b.rect(0,0,LW,sy-21); b.clip();
+      b.save(); b.beginPath(); b.rect(sx-200,sy-1000,400,979); b.clip();
       drawKaitlyn(b,sx,sy,G.player.dir,G.player.animT||0,true,G.player.moving); b.restore();
       for(let i=-18;i<=18;i+=4) px(b,sx+i,sy-21+((i%3)?0:2),3,2,'#8fd8ee');
     } else drawKaitlyn(b,sx,sy,G.player.dir,G.player.animT||0,false,G.player.moving);
+    b.restore();
   }});
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   /* shadows drift across the ground in world space, so they stay put
@@ -185,12 +201,13 @@ function drawWorld(){
     const wx=((G.t*0.010+i*260)%CP);
     for(const off of [0,-CP]){
       const sx=wx+off-cam.x, sy=wy-cam.y;
-      if(sx<-220||sx>LW+220) continue;
+      if(sx<-220||sx>VIEW_WW+220) continue;
       b.beginPath(); b.ellipse(sx,sy,120,44,0,0,7); b.fill();
       b.beginPath(); b.ellipse(sx+70,sy+22,74,30,0,0,7); b.fill();
     }
   }
   b.globalAlpha=1;
+  b.restore();                                         /* back to screen px */
   /* the painting is lit from the upper right — follow it */
   const sun=b.createLinearGradient(LW,0,0,VIEW_H);
   sun.addColorStop(0,'rgba(255,244,205,0.13)');
@@ -199,25 +216,23 @@ function drawWorld(){
   b.globalAlpha=day; b.fillStyle=sun; b.fillRect(0,0,LW,VIEW_H); b.globalAlpha=1;
   tintView(b);
   b.restore();
-  drawClockBack();
+  drawClockBack(); drawBuffsBack();
   m.drawImage(buf,0,0);
-  drawClockText();
-  const p=nearestPlot(),f=nearestFrog();
+  drawClockText(); drawBuffsText();
+  const R=PROMPT_REACH, p=nearestPlot(R), f=nearestFrog(R);
   let label=null;
-  if(nearStall()) label="Shop";
-  else if(nearDoor()) label=G.clock>=BED_FROM?"Sleep":"Home";
+  if(nearStall(R)) label="Shop";
+  else if(nearDoor(R)) label=G.clock>=BED_FROM?"Sleep":"Home";
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
-  else if(p) label=!p.sp?"Plant":(p.stage>=3?"Harvest":"Play song");
-  if(label) drawPrompt(label,G.player.x-cam.x,G.player.y-62-cam.y);
+  else if(p) label=p.dead?"Clear":!p.sp?"Plant":(p.stage>=3?"Harvest":"Play song");
+  if(label){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74); }
   drawHUD();
 }
-/* What A/J will do here: a cream speech bubble over her head with a gold key badge
-   (J after keyboard use, A after touch) that floats gently instead of blinking.
+/* What A/J will do here: a cream speech bubble over her head that floats gently.
    cx, by are the bubble's centre and the tip of its pointer, in logical px. */
 function drawPrompt(label,cx,by){
-  const key=G.lastInput==='touch'?'A':'J';
-  const tw=TW(label,24,true), r=7, h=19, w=tw+r*2+14;
+  const tw=TW(label,24,true), h=19, w=tw+18;
   const x=Math.round(cx-w/2), y=Math.round(by-h-5+Math.sin(G.t/520)*1.2);
   m.save(); m.scale(SC,SC);
   m.fillStyle='rgba(20,12,4,.28)';                 /* soft shadow */
@@ -229,10 +244,6 @@ function drawPrompt(label,cx,by){
   m.beginPath(); m.roundRect(x,y,w,h,8); m.fill();
   m.beginPath(); m.moveTo(cx-3.6,y+h-0.5); m.lineTo(cx,y+h+4); m.lineTo(cx+3.6,y+h-0.5); m.fill();
   m.fillStyle='#fff9ea'; m.fillRect(x+4,y+1.5,w-8,2);   /* top highlight */
-  const kx=x+r+3, ky=y+h/2;                         /* key badge */
-  m.fillStyle='#8a5a1e'; m.beginPath(); m.arc(kx,ky,r,0,7); m.fill();
-  m.fillStyle='#f0c45a'; m.beginPath(); m.arc(kx,ky-0.4,r-1.4,0,7); m.fill();
   m.restore();
-  T(key,kx,ky+3.3,20,'#4a2e10','center',true);
-  T(label,x+r*2+8,y+h/2+3.6,24,'#3a2a1a','left',true);
+  T(label,cx,y+h/2+3.6,24,'#3a2a1a','center',true);
 }
