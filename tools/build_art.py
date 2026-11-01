@@ -8,11 +8,13 @@ where the full-size originals live) holds
     crops/Sprout.png, crops/Baby <crop>.png, crops/Mature <crop>.png
     Soil.png, MarketStand.png
     shop items/<exact shop item name>.png
+    creatures/<Name>-spritesheet.png     animation frames in a grid of 256px cells
 Pictures may have a white background: white touching the edge of the picture is
 removed (light grey shadows on it become see-through shadows). Each picture is
 trimmed, shrunk to game size and packed into
     assets/sprites/crops.png        crops, soil and the stand
     assets/sprites/shop_items.png   shop pictures
+    assets/sprites/creatures.png    creature animation frames
 with their positions written to js/data/art.js.
 """
 import cv2, numpy as np, os, sys, glob, json
@@ -33,6 +35,13 @@ SHOP_BOX = 240          # shop pictures are fitted into this square, in device p
 # background, but only where the art itself has no big white parts: every crop,
 # and these shop items. Smallest hole cleared, in source px.
 CROP_HOLE = 40
+# Yard decorations shown in the garden reuse their shop pictures, at this height
+# (device px) on the map: {key in the game: shop item name}.
+DECOR = {'fountain': ('frog fountain', 168), 'bath': ('bird bath', 162),
+         'arch': ('flower arch', 300), 'lantern': ('stone lantern', 186)}
+# Creatures that flutter around the garden: width of one frame in device px.
+CREATURE_W = {'bluebird': 66, 'monarch': 48}
+CREATURE_CELL = 256
 SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'seed apron': 2000}
 
 
@@ -140,6 +149,13 @@ def main():
     for key, name, group in (('soil', 'Soil.png', 'soil'), ('stand', 'MarketStand.png', 'stand')):
         p = os.path.join(SRC, name)
         if os.path.exists(p): add(key, p, group)
+    for key, (item, h) in DECOR.items():
+        hits = [f for f in glob.glob(os.path.join(SRC, 'shop items', '*.png'))
+                if os.path.splitext(os.path.basename(f))[0].strip().lower() == item]
+        if not hits: continue
+        im = trim(remove_white(load(hits[0]), SHOP_HOLES.get(item, 0)))
+        im = shrink(im, h / im.shape[0]); ax, ay = foot(im)
+        crops.append(('decor ' + key, im)); meta['decor ' + key] = {'ax': ax, 'ay': ay}
     sheet, pos = pack(crops)
     cv2.imwrite(os.path.join(OUT, 'crops.png'), sheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
     for k in meta: meta[k]['r'] = pos[k]
@@ -154,13 +170,36 @@ def main():
     cv2.imwrite(os.path.join(OUT, 'shop_items.png'), ssheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
     smeta = {k: spos[k] for k, _ in shop}
 
+    # creatures: every non-empty grid cell is a frame, in reading order; all frames
+    # share one crop box so the animation doesn't wobble
+    frames, cmeta = [], {}
+    for f in sorted(glob.glob(os.path.join(SRC, 'creatures', '*-spritesheet.png'))):
+        name = os.path.basename(f)[:-len('-spritesheet.png')].strip().lower()
+        a = load(f); C = CREATURE_CELL
+        cells = [a[r*C:(r+1)*C, c*C:(c+1)*C] for r in range(a.shape[0] // C) for c in range(a.shape[1] // C)]
+        n = [int((x[..., 3] > 20).sum()) for x in cells]
+        cells = [x for x, k in zip(cells, n) if k > max(n) * 0.05]   # skip empty cells and stray specks
+        m = np.zeros((C, C), bool)
+        for x in cells: m |= x[..., 3] > 20
+        ys, xs = np.nonzero(m)
+        box = [x[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for x in cells]
+        sc = CREATURE_W.get(name, 54) / box[0].shape[1]
+        for i, x in enumerate(box): frames.append((name + ' %d' % i, shrink(x, sc)))
+        cmeta[name] = len(box)
+    if frames:
+        csheet, cpos = pack(frames)
+        cv2.imwrite(os.path.join(OUT, 'creatures.png'), csheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        cmeta = {n: [cpos['%s %d' % (n, i)] for i in range(k)] for n, k in cmeta.items()}
+
     with open(os.path.join(ROOT, 'js', 'data', 'art.js'), 'w', encoding='utf-8') as fh:
         fh.write('/* Made by tools/build_art.py: sheet positions [x,y,w,h] in device px;\n'
                  '   ax,ay is where a crop/soil/stand picture stands on the ground. */\n')
         fh.write('const CROP_ART=' + json.dumps(meta, separators=(',', ':')) + ';\n')
         fh.write('const SHOP_ART=' + json.dumps(smeta, separators=(',', ':')) + ';\n')
+        fh.write('const CREATURE_ART=' + json.dumps(cmeta, separators=(',', ':')) + ';\n')
     print('crops.png', sheet.shape[1], 'x', sheet.shape[0], '-', len(crops), 'pictures:', ', '.join(sorted(meta)))
     print('shop_items.png', ssheet.shape[1], 'x', ssheet.shape[0], '-', len(shop), 'pictures')
+    print('creatures.png', ', '.join('%s %d frames' % (n, len(v)) for n, v in cmeta.items()))
 
 
 if __name__ == '__main__':

@@ -22,7 +22,7 @@ const EAT={
   tomato:    {hp:6,mp:3},            sunflower:{speed:60000},
   lemongrass:{calm:120000},          squash:   {hp:15},
   melon:     {hp:20,mp:8},           satsuma:  {mp:10,speed:30000},
-  muscadine: {lure:120000},          avocado:  {hp:12,mp:6},
+  muscadine: {lure:120000},          avocado:  {hp:30,mp:30},
 };
 function eatText(sp){
   const e=EAT[sp]||{}, L=[];
@@ -36,12 +36,12 @@ function eatText(sp){
 /* sale price of one harvested crop at the stall */
 const sellPrice=sp=>Math.round(SPECIES[sp].value*(G.yard.arch?1.15:1));
 const PESTS={
-  beetle :{name:"June Beetle",  hp:26, atk:4, xp:14, coin:14, col:'#3f3478',dk:'#241d47',hl:'#6f63b8',min:1},
-  wasp   :{name:"Paper Wasp",   hp:20, atk:6, xp:16, coin:17, col:'#e8b02a',dk:'#6b4a10',hl:'#fff0a0',min:1},
-  rat    :{name:"Garden Rat",   hp:34, atk:5, xp:20, coin:21, col:'#8a8072',dk:'#4a443c',hl:'#c4bcae',min:2},
-  crab   :{name:"Hermit Crab",  hp:44, atk:5, xp:26, coin:28, col:'#c46a3a',dk:'#7d3a18',hl:'#e8a06a',min:3},
-  raccoon:{name:"Raccoon",      hp:56, atk:8, xp:36, coin:40, col:'#8a8f96',dk:'#3f454c',hl:'#c4c9d0',min:4},
-  hoa    :{name:"HOA President",hp:130,atk:12,xp:120,coin:180,col:'#c9b48a',dk:'#6b5c3a',hl:'#f7f3e0',min:5,boss:true},
+  beetle :{name:"June Beetle",  hp:26, atk:4, xp:14, coin:5,  col:'#3f3478',dk:'#241d47',hl:'#6f63b8',min:1},
+  wasp   :{name:"Paper Wasp",   hp:20, atk:6, xp:16, coin:6,  col:'#e8b02a',dk:'#6b4a10',hl:'#fff0a0',min:1},
+  rat    :{name:"Garden Rat",   hp:34, atk:5, xp:20, coin:8,  col:'#8a8072',dk:'#4a443c',hl:'#c4bcae',min:2},
+  crab   :{name:"Hermit Crab",  hp:44, atk:5, xp:26, coin:10, col:'#c46a3a',dk:'#7d3a18',hl:'#e8a06a',min:3},
+  raccoon:{name:"Raccoon",      hp:56, atk:8, xp:36, coin:14, col:'#8a8f96',dk:'#3f454c',hl:'#c4c9d0',min:4},
+  hoa    :{name:"HOA President",hp:130,atk:12,xp:120,coin:60, col:'#c9b48a',dk:'#6b5c3a',hl:'#f7f3e0',min:5,boss:true},
 };
 const GEAR=[
   {id:'boots',  name:"Sturdy Boots",   cost:120, desc:"walk 35% faster"},
@@ -207,6 +207,7 @@ function drawStall(c,x,y){
   px(c,x-15,y-26,6,6,'#e8433f'); px(c,x-5,y-26,6,6,'#f0c44a'); px(c,x+6,y-26,6,6,'#5a70c4');
 }
 function drawDecor(c,id,x,y,t){
+  if(drawCropArt(c,'decor '+id,x,y)) return;          /* painted, from the shop picture */
   if(id==='fountain'){ px(c,x-14,y-6,28,12,'#9aa6ac'); px(c,x-11,y-3,22,6,'#57b6d6');
     px(c,x-3,y-18,6,13,'#8f9aa0'); px(c,x-2,y-24+Math.sin(t/300)*3,3,6,'#8fd8ee');
     drawFrog(c,x-11,y-38,t,1); }

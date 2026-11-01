@@ -18,7 +18,7 @@ function menuChoose(i){
   let n=0;
   const plant=p=>{ if(!G.seeds[sp])return false;
     G.seeds[sp]--; if(G.seeds[sp]<=0) delete G.seeds[sp];
-    Object.assign(p,{sp,stage:0,growth:0,health:100}); n++; return true; };
+    Object.assign(p,{sp,stage:0,growth:0,health:100,sungDay:0}); n++; return true; };
   plant(menu.plot);
   if(G.gear.apron){
     plots.forEach(p=>{ if(p!==menu.plot&&active(p)&&!p.sp&&p.bed===menu.plot.bed&&plotAccepts(p,sp)) plant(p); });

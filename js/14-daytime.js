@@ -4,7 +4,7 @@
    she is out in the garden (the world scene, not indoors), so menus,
    songs and battles stop time.
    ================================================================ */
-const WAKE_AT=6*60, BED_FROM=18*60, EARLY_BED=22*60, MIDNIGHT=24*60;
+const WAKE_AT=6*60, EARLY_BED=22*60, MIDNIGHT=24*60;
 const MS_PER_MINUTE=500, DAYS_PER_SEASON=7, SEASONS=['spring','summer','fall','winter'];
 const SEASON_NAME={spring:'Spring',summer:'Summer',fall:'Fall',winter:'Winter'};
 const seasonOf=day=>SEASONS[Math.floor((day-1)/DAYS_PER_SEASON)%SEASONS.length];
@@ -137,6 +137,40 @@ function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving){
 const daylight=()=>sunAt(G.clock/60).strength;
 
 /* ---------- going to bed ---------- */
+/* Bed is allowed any time, after a yes/no: W/S or A/D choose, J/Space confirm, H/Esc
+   (or tapping outside) cancels. The clock stays still while it is open. */
+let ask=null;
+function askSleep(){
+  ask={idx:0}; padVec={x:0,y:0}; padId=null; btnHeld=false; G.scene='ask';
+}
+const ASK={x:40,y:96,w:280,h:132}, ASK_BTN=[{x:58,y:180,w:112,h:34},{x:190,y:180,w:112,h:34}];
+function askKey(k){
+  if(isLeft(k)||isRight(k)||isUp(k)||isDown(k)) ask.idx=1-ask.idx;
+  else if(isOk(k)||k==='e') askAnswer(ask.idx===0);
+  else if(isBack(k)) askAnswer(false);
+}
+function askTouch(x,y){
+  const hit=ASK_BTN.findIndex(r=>x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h);
+  if(hit>=0) askAnswer(hit===0);
+  else if(!(x>ASK.x&&x<ASK.x+ASK.w&&y>ASK.y&&y<ASK.y+ASK.h)) askAnswer(false);
+}
+function askAnswer(yes){ ask=null; G.scene='world'; if(yes) goToSleep(false); }
+function drawAsk(){
+  drawWorld();
+  b.clearRect(0,0,LW,LH);
+  b.globalAlpha=.45; px(b,0,0,LW,VIEW_H,'#0d1410'); b.globalAlpha=1;
+  panel(ASK.x,ASK.y,ASK.w,ASK.h);
+  ASK_BTN.forEach((r,i)=>{ const on=ask.idx===i;
+    px(b,r.x,r.y,r.w,r.h,on?'#a8781e':'#2b1c12');
+    px(b,r.x+2,r.y+2,r.w-4,r.h-4,i===0?'#c8d8f0':'#e2d3ae');
+    if(on){ px(b,r.x+2,r.y+2,r.w-4,3,'#fff3c0'); fluteCursor(r.x+33,r.y+r.h/2); } });
+  m.drawImage(buf,0,0);
+  const early=G.clock<=EARLY_BED, t=clockText();
+  T("Go to bed now?",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
+  T("It's "+t.h+":"+t.mm+" "+t.ap+".",LW/2,ASK.y+52,20,'#6a5a3a','center');
+  T(early?"Asleep by 10 PM: a free coffee in the morning!":"She'll wake at 6 AM.",LW/2,ASK.y+69,18,early?'#5a7a3a':'#7a6a4a','center');
+  ["Sleep","Stay up"].forEach((s,i)=>{ const r=ASK_BTN[i]; T(s,r.x+r.w/2+12,r.y+23,26,'#3a2a1a','center',true); });
+}
 let sleep=null;
 function goToSleep(midnight){
   sleep={phase:midnight?'yawn':'out', t:0, early:!midnight&&G.clock<=EARLY_BED};

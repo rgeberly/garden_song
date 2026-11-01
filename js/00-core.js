@@ -42,9 +42,21 @@ IMG_MAPCOL.onload=()=>{
   const g=cc.getContext('2d');
   g.drawImage(IMG_MAPCOL,0,0,MAP_META.cells,MAP_META.cells);
   const d=g.getImageData(0,0,MAP_META.cells,MAP_META.cells).data;
-  COL=new Uint8Array(MAP_META.cells*MAP_META.cells);
-  for(let i=0,j=0;i<COL.length;i++,j+=4) COL[i]=d[j]>128?0:1;   // 1 = blocked
+  const C=MAP_META.cells, raw=new Uint8Array(C*C);
+  for(let i=0,j=0;i<raw.length;i++,j+=4) raw[i]=d[j]>128?0:1;   // 1 = blocked
+  /* give her some wiggle room: a cell stays blocked only if every cell within
+     COL_SLACK of it is blocked too, so blocked areas shrink by that many cells */
+  COL=new Uint8Array(C*C);
+  for(let y=0;y<C;y++) for(let x=0;x<C;x++){
+    let all=raw[y*C+x];
+    for(let dy=-COL_SLACK;all&&dy<=COL_SLACK;dy++) for(let dx=-COL_SLACK;all&&dx<=COL_SLACK;dx++){
+      const xx=x+dx, yy=y+dy;
+      if(xx>=0&&yy>=0&&xx<C&&yy<C&&!raw[yy*C+xx]) all=0;
+    }
+    COL[y*C+x]=all;
+  }
 };
+const COL_SLACK=2;   // cells (2 world px each)
 [[IMG_PT,ASSET_PT],[IMG_EN,ASSET_EN],[IMG_BATL,ASSET_BATL],
  [IMG_POSE,ASSET_POSE],[IMG_FL,ASSET_FL],[IMG_FROG,ASSET_FROG],
  [IMG_FLBIG,ASSET_FLBIG],[IMG_MAP,ASSET_MAP],[IMG_MAPCOL,ASSET_MAPCOL]].forEach(([im,src])=>{

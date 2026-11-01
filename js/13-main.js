@@ -41,6 +41,7 @@ function loop(now){
   else if(G.scene==='rhythm') drawRhythm();
   else if(G.scene==='battle') drawBattle(dt);
   else if(G.scene==='sleep') drawSleep();
+  else if(G.scene==='ask') drawAsk();
   requestAnimationFrame(loop);
 }
 /* ---- loading screen: assets now arrive over the network ---- */

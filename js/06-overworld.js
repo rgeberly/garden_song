@@ -2,10 +2,11 @@
    WORLD SCENE
    ================================================================ */
 function startGame(){ G.scene='world'; initMusic(); setMusic('calm');
-  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); autoLoad(); }
+  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); autoLoad(); }
 /* "near" checks take a reach factor: 1 for what A/J acts on, PROMPT_REACH for when the
    overhead prompt shows, so prompts only appear once she is right beside something */
 const PROMPT_REACH=0.5;
+const SEED_DROP=0.15;    /* chance a harvest also gives back a seed */
 function nearestPlot(f=1){
   let best=null,bd=1e9;
   for(const p of plots){ if(!active(p))continue;
@@ -19,11 +20,7 @@ const nearDoor=(f=1)=>Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y
 function interact(){
   if(nearStall()){ openShop(); return; }
   /* bedtime at the front door for now; later the bed inside the house */
-  if(nearDoor()){
-    if(G.clock>=BED_FROM) goToSleep(false);
-    else say("Too early for bed. Kaitlyn can turn in after 6 PM.");
-    return;
-  }
+  if(nearDoor()){ askSleep(); return; }
   if(G.swim){ G.player.mp=maxMp(); say("Music Points fully restored!"); return; }
   const frog=nearestFrog();
   if(frog){
@@ -38,6 +35,8 @@ function interact(){
   if(plot.dead){ plot.dead=false; say("Cleared away the ruined plant."); blip(260,0.08,0.12,'triangle'); return; }
   if(!plot.sp){ openSeedMenu(plot); return; }
   if(plot.stage>=3){ harvest(plot); return; }
+  /* one song per plant per day keeps the days moving */
+  if(plot.sungDay===G.day){ say("This plant already had its song today. Come back tomorrow!"); return; }
   startRhythm(plot);
 }
 /* Harvest goes into the basket (G.crops) for selling at the stall or eating;
@@ -46,8 +45,8 @@ function harvestOne(plot){
   const S=SPECIES[plot.sp];
   G.crops[plot.sp]=(G.crops[plot.sp]||0)+1;
   addXp(S.xp); addGardenXp(Math.round(S.xp*1.2)); G.harvests++;
-  if(Math.random()<0.5) G.seeds[plot.sp]=(G.seeds[plot.sp]||0)+1;
-  Object.assign(plot,{sp:null,stage:0,growth:0,health:100});
+  if(Math.random()<SEED_DROP) G.seeds[plot.sp]=(G.seeds[plot.sp]||0)+1;   /* seeds are mostly bought */
+  Object.assign(plot,{sp:null,stage:0,growth:0,health:100,sungDay:0});
   return S.xp;
 }
 function harvest(plot){
@@ -62,7 +61,10 @@ function harvest(plot){
 }
 function spawnPest(){
   if(G.pests.length>=(G.lureT>0?5:3)) return;
-  const planted=plots.filter(p=>active(p)&&p.sp); if(!planted.length) return;
+  /* with nothing growing, pests still turn up now and then and just wander, so
+     there is always a way to earn a few coins */
+  const planted=plots.filter(p=>active(p)&&p.sp);
+  if(!planted.length&&Math.random()>WANDER_SPAWN) return;
   let pool=Object.keys(PESTS).filter(k=>!PESTS[k].boss&&PESTS[k].min<=G.gardenLv);
   let sp=pool[ri(0,pool.length-1)];
   if(G.gardenLv>=5&&Math.random()<0.07) sp='hoa';
@@ -72,8 +74,14 @@ function spawnPest(){
       x=e===0?F(.12):e===1?F(.88):ri(F(.12),F(.88));
       y=e===2?F(.30):e===3?F(.72):ri(F(.30),F(.72));
   } while(solidAt(x,y)&&guard++<40);
-  G.pests.push({species:sp,x,y,target:planted[ri(0,planted.length-1)],hp:PESTS[sp].hp,chew:0});
+  G.pests.push({species:sp,x,y,target:planted.length?planted[ri(0,planted.length-1)]:null,hp:PESTS[sp].hp,chew:0});
   if(sp==='hoa') say("The HOA President is inspecting your yard!");
+}
+const WANDER_SPAWN=0.35;   /* chance a pest still comes when nothing is planted */
+function wanderSpot(){
+  let x,y,guard=0;
+  do{ x=ri(F(.15),F(.85)); y=ri(F(.28),F(.72)); } while(solidAt(x,y)&&guard++<30);
+  return {x,y};
 }
 function updateWorld(dt){
   tickClock(dt);
@@ -118,10 +126,15 @@ function updateWorld(dt){
   if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul; spawnPest(); }
   for(const p of G.pests){
     if(Math.hypot(p.x-P.x,p.y-(P.y+6))<20){ startBattle(p); return; }
-    if(!p.target.sp||!active(p.target)) p.target=plots.find(q=>active(q)&&q.sp)||p.target;
-    const ddx=p.target.x-p.x, ddy=p.target.y-p.y, d=Math.hypot(ddx,ddy)||1;
-    const spd=(p.species==='hoa'?0.017:0.024)*(p.slow||1);
-    if(d>9){ p.x+=ddx/d*spd*dt; p.y+=ddy/d*spd*dt; }
+    if(!p.target||!p.target.sp||!active(p.target)){
+      const growing=plots.filter(q=>active(q)&&q.sp);
+      p.target=growing.length?growing[ri(0,growing.length-1)]:null;
+    }
+    /* no crop to chew: amble between random open spots on the lawn */
+    if(!p.target&&(!p.roam||Math.hypot(p.roam.x-p.x,p.roam.y-p.y)<6)) p.roam=wanderSpot();
+    const goal=p.target||p.roam, ddx=goal.x-p.x, ddy=goal.y-p.y, d=Math.hypot(ddx,ddy)||1;
+    const spd=(p.species==='hoa'?0.017:0.024)*(p.slow||1)*(p.target?1:0.6);
+    if(d>9||!p.target){ p.x+=ddx/d*spd*dt; p.y+=ddy/d*spd*dt; }
     else if(p.target.sp){
       p.chew+=dt;
       if(p.chew>1600){ p.chew=0;
@@ -130,7 +143,7 @@ function updateWorld(dt){
         p.target.growth=Math.max(0,p.target.growth-bite*1.5);
         p.target.stage=clamp(Math.floor(p.target.growth/STAGE_COST),0,3);
         if(p.target.health<=0){ say("A plant was ruined! Clear it away to replant.");
-          Object.assign(p.target,{sp:null,stage:0,growth:0,health:100,dead:true}); } } }
+          Object.assign(p.target,{sp:null,stage:0,growth:0,health:100,dead:true,sungDay:0}); } } }
   }
   if(G.frogT>0) G.frogT-=dt;
   if(G.msgT>0) G.msgT-=dt;
@@ -222,11 +235,11 @@ function drawWorld(){
   const R=PROMPT_REACH, p=nearestPlot(R), f=nearestFrog(R);
   let label=null;
   if(nearStall(R)) label="Shop";
-  else if(nearDoor(R)) label=G.clock>=BED_FROM?"Sleep":"Home";
+  else if(nearDoor(R)) label="Sleep";
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
-  else if(p) label=p.dead?"Clear":!p.sp?"Plant":(p.stage>=3?"Harvest":"Play song");
-  if(label){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74); }
+  else if(p) label=p.dead?"Clear":!p.sp?"Plant":p.stage>=3?"Harvest":p.sungDay===G.day?"Sung today":"Play song";
+  if(label&&G.scene==='world'){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74); }
   drawHUD();
 }
 /* What A/J will do here: a cream speech bubble over her head that floats gently.

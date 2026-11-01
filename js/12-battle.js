@@ -16,7 +16,7 @@ function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++)
 function anim(kind,dur,onHit){ B.anim={kind,t:0,dur,hit:false,onHit}; }
 function battleKey(k){
   if(!B)return;
-  if(B.over){ endBattle(); return; }
+  if(B.over){ if(!winGuard()) endBattle(); return; }
   if(B.turn!=='player')return;
   /* B.idx runs over the moves, and one past the last move is Flee */
   const ms=moveList(), flee=ms.length;
@@ -30,7 +30,7 @@ function battleKey(k){
 }
 function battleTouch(x,y){
   if(!B)return;
-  if(B.over){ endBattle(); return; }
+  if(B.over){ if(!winGuard()) endBattle(); return; }
   if(B.turn!=='player')return;
   const ms=moveList(), top=282, rowH=25;
   for(let i=0;i<ms.length;i++)
@@ -46,8 +46,27 @@ function hitEnemy(dmg,label){
   B.hp-=dmg; B.shake=340; B.flash=200;
   pop("-"+dmg,EX,EY-10,'#ffd24a'); thud(); B.log=label;
 }
+/* ---------- victory: rewards are given at once, the screen then shows them ---------- */
+const SEED_LOOT=0.10, WIN_DELAY=250, WIN_FILL=900, WIN_GUARD=350;
+function winRewards(){
+  const P=PESTS[B.species], pl=G.player;
+  const seed=Math.random()<SEED_LOOT&&G.unlocked.length?G.unlocked[ri(0,G.unlocked.length-1)]:null;
+  B.win={xp:P.xp,coins:P.coin,seed,from:{lv:pl.lv,xp:pl.xp,next:pl.next},t:0};
+  G.coins+=P.coin; if(seed) G.seeds[seed]=(G.seeds[seed]||0)+1;
+  G.pests=G.pests.filter(p=>p!==B.pest);
+  addXp(P.xp);
+}
+/* a moment's pause so the key that won the fight doesn't also close the screen */
+const winGuard=()=>B.over==='win'&&B.win&&B.win.t<WIN_GUARD;
+/* the XP bar as it fills, levelling up the same way addXp does */
+function xpShown(){
+  const w=B.win, k=clamp((w.t-WIN_DELAY)/WIN_FILL,0,1);
+  let lv=w.from.lv, xp=w.from.xp+w.xp*k, next=w.from.next;
+  while(xp>=next){ xp-=next; lv++; next=Math.floor(next*1.45); }
+  return {lv,xp:Math.floor(xp),next,k};
+}
 function afterHit(){
-  if(B.hp<=0){ B.over='win'; B.log="The "+B.name+" flees the garden!"; playOne('victory',0.6); return; }
+  if(B.hp<=0){ B.over='win'; B.log="The "+B.name+" flees the garden!"; playOne('victory',0.6); winRewards(); return; }
   B.turn='enemy'; setTimeout(enemyTurn,700);
 }
 function useMove(mv){
@@ -96,9 +115,9 @@ function enemyTurn(){
 }
 function endBattle(){
   const P=PESTS[B.species];
-  if(B.over==='win'){ G.coins+=P.coin; addXp(P.xp);
-    G.pests=G.pests.filter(p=>p!==B.pest);
-    say((P.boss?"The HOA President retreats! ":"Won!  ")+"+"+P.coin+"c  +"+P.xp+"xp"); }
+  if(B.over==='win'){ const w=B.win;      /* rewards were given when the fight was won */
+    if(G.player.lv===w.from.lv)
+      say((P.boss?"The HOA President retreats! ":"Won!  ")+"+"+w.coins+"c  +"+w.xp+"xp"+(w.seed?"  + a seed":"")); }
   else if(B.over==='lose'){ G.player.hp=Math.max(4,Math.floor(G.player.maxhp*0.4));
     G.pests=G.pests.filter(p=>p!==B.pest); G.player.x=338; G.player.y=396;
     const lost=Math.floor(G.coins*0.5); G.coins-=lost;
@@ -183,11 +202,15 @@ function drawBattle(dt){
   const eL=(B.anim&&B.anim.kind==='enemy')?Math.round(Math.sin(k*Math.PI)*-38):0;
   const bob=Math.round(Math.sin(G.t/420)*2);
   b.globalAlpha=.22; b.fillStyle='#1a2810';
-  b.beginPath(); b.ellipse(EX+sh+eL,EY+52,30,7,0,0,7); b.fill(); b.globalAlpha=1;
+  if(B.win) B.win.t+=dt;
+  const gone=B.win?clamp(B.win.t/450,0,1):0;          /* the beaten pest fades away */
+  b.globalAlpha=.22*(1-gone);
+  b.beginPath(); b.ellipse(EX+sh+eL,EY+52,30,7,0,0,7); b.fill(); b.globalAlpha=1-gone;
   if(!drawEnemyArt(b,B.species,EX+sh+eL,EY+52+bob,2)){
     b.save(); b.translate(EX+sh+eL-20,EY+bob-30); b.scale(2.2,2.2);
     blitS(b,S_HOA,M_HOA,0,0,1); b.restore();
   }
+  b.globalAlpha=1;
   if(B.flash>0){ b.globalAlpha=B.flash/600; px(b,EX-52,EY-40,104,96,'#ffffff'); b.globalAlpha=1; }
   let kx=KX,ky=KY,rot=0;
   if(B.anim&&B.anim.kind==='kick'){
@@ -207,19 +230,24 @@ function drawBattle(dt){
   bar(18,46,180,10,B.hp,B.maxhp,'#e0603a','#4a2a20');
   bar(144,206,120,10,G.player.hp,G.player.maxhp,'#e04a4a','#5a2828');
   bar(144,221,120,9,G.player.mp,maxMp(),'#4aa8e0','#20415a');
-  px(b,12,237,336,39,'#2b1c12'); px(b,15,240,330,33,'#f3ead2');
+  if(!(B.over==='win'&&B.win)){ px(b,12,237,336,39,'#2b1c12'); px(b,15,240,330,33,'#f3ead2'); }
   const ms=moveList(), top=282, rowH=25;
   const pick=B.turn==='player';
   if(!B.over) ms.forEach((mv,i)=>menuRow(15,top+i*rowH,225,23,pick&&i===B.idx,G.player.mp<mv.mp));
   if(!B.over){ const sel=pick&&B.idx===ms.length;
     if(sel){ px(b,248,top-1,92,25,'#a8781e'); px(b,250,top+1,88,21,'#e8b8a0'); fluteCursor(282,top+11); }
     else px(b,249,top,90,23,'#c9a08a'); }
-  if(B.over) panel(36,294,288,99);
+  const won=B.over==='win'&&B.win, xs=won?xpShown():null;
+  if(won){
+    panel(24,238,312,206);
+    bar(48,312,264,12,xs.xp,xs.next,'#e8c34a','#5a4a20');
+    if(B.win.seed) drawShopPic(SPECIES[B.win.seed].name.toLowerCase()+" seed",118,364,16,22);
+  } else if(B.over) panel(36,294,288,99);
   m.drawImage(buf,0,0);
   T(B.name+(B.boss?"  ★BOSS":""),18,40,28,'#f0e6d2',null,true);
   T("Kaitlyn  Lv."+G.player.lv,18,214,25,'#f0e6d2');
   T("HP",128,214,20,'#f0a0a0','right'); T("MP",128,229,20,'#8fd0f0','right');
-  wrapT(B.log,24,258,318,24,'#3a2a1a');
+  if(!won) wrapT(B.log,24,258,318,24,'#3a2a1a');
   B.pops.forEach(p=>{ p.t-=dt; p.y-=dt*0.03;
     m.globalAlpha=Math.min(1,p.t/400); T(p.txt,p.x,p.y,40,p.col,'center',true); m.globalAlpha=1; });
   B.pops=B.pops.filter(p=>p.t>0);
@@ -232,6 +260,20 @@ function drawBattle(dt){
     m.fillStyle='#2b1c12'; m.fillRect((sx-5)*SC,(sy+22)*SC,10*SC,7*SC);
     T(B.shout.txt,sx,sy+17,26,'#3a2a1a','center',true);
     m.globalAlpha=1;
+  }
+  if(won){
+    const w=B.win, up=xs.lv>w.from.lv;
+    T("Victory!",180,268,34,'#3a2a1a','center',true);
+    T("+"+w.xp+" XP",150,292,24,'#a0781a','right',true);
+    T("+"+w.coins+"c",210,292,24,'#a06a1a','left',true);
+    T("Lv."+xs.lv,48,307,22,'#3a2a1a','left',true);
+    if(up&&Math.floor(G.t/260)%2===0) T("LEVEL UP!",104,307,20,'#c9701c','left',true);
+    T(xs.xp+" / "+xs.next+" XP",312,307,20,'#6a5a3a','right');
+    T((xs.next-xs.xp)+" XP to the next level",180,342,19,'#7a6a4a','center');
+    if(w.seed) T("Found: "+SPECIES[w.seed].name+" seed",132,369,21,'#3a5a2a','left',true);
+    else T("No seeds this time.",180,369,19,'#9a8a6a','center');
+    if(!winGuard()) T("J / tap to continue",180,428,19,'#8a7a5a','center');
+    return;
   }
   if(B.over){
     T(B.over==='win'?"Victory!":B.over==='lose'?"Defeated":"Escaped",180,333,34,'#3a2a1a','center',true);

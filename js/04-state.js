@@ -58,7 +58,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock)],
-    pl:plots.map(p=>[p.dead?-2:p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health)])};
+    pl:plots.map(p=>[p.dead?-2:p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0])};
 }
 function exportCode(){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(saveObj())))); }catch(e){ return ''; } }
 function applySave(o){
@@ -70,7 +70,7 @@ function applySave(o){
   G.flute=o.fl||'recorder';
   if(o.t){ [G.day,G.clock]=o.t; preloadSeasonMaps(); }
   (o.pl||[]).forEach((v,i)=>{ const p=plots[i]; if(!p)return;
-    p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; });
+    p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; p.sungDay=v[4]||0; });
   buildWorld(); return true;
 }
 function importCode(s){ try{ return applySave(JSON.parse(decodeURIComponent(escape(atob(s.trim()))))); }catch(e){ return false; } }
