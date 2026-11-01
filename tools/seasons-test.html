@@ -187,7 +187,9 @@ function castShadow(fx,fy,s){
   const {gx,gy,len}=s;
   ctx.save(); ctx.globalAlpha=0.30*s.strength; ctx.imageSmoothingEnabled=true;
   ctx.translate(fx,fy);
-  ctx.transform(-gy, gx, -len*gx, -len*gy*GROUND_TILT, 0, 0);
+  // width axis always points screen-right so the shadow never shows her mirrored
+  let wx=-gy, wy=gx; if(wx<0||(wx===0&&wy>0)){ wx=-wx; wy=-wy; }
+  ctx.transform(wx, wy, -len*gx, -len*gy*GROUND_TILT, 0, 0);
   ctx.drawImage(soft,-AM.cw/2,-AM.foot,AM.cw,AM.ch);
   ctx.restore();
 }

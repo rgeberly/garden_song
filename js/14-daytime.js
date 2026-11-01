@@ -1,11 +1,11 @@
 /* ================================================================
    DAY CYCLE · SEASONS · SLEEP
-   One real second is one game minute, and the clock only runs while
+   Half a real second is one game minute, and the clock only runs while
    she is out in the garden (the world scene, not indoors), so menus,
    songs and battles stop time.
    ================================================================ */
 const WAKE_AT=6*60, BED_FROM=18*60, EARLY_BED=22*60, MIDNIGHT=24*60;
-const DAYS_PER_SEASON=7, SEASONS=['spring','summer','fall','winter'];
+const MS_PER_MINUTE=500, DAYS_PER_SEASON=7, SEASONS=['spring','summer','fall','winter'];
 const SEASON_NAME={spring:'Spring',summer:'Summer',fall:'Fall',winter:'Winter'};
 const seasonOf=day=>SEASONS[Math.floor((day-1)/DAYS_PER_SEASON)%SEASONS.length];
 const season=()=>seasonOf(G.day);
@@ -27,7 +27,7 @@ function currentMap(){
 /* ---------- the clock ---------- */
 function tickClock(dt){
   if(G.indoors) return;
-  G.clock+=dt/1000;
+  G.clock+=dt/MS_PER_MINUTE;
   if(G.clock>=MIDNIGHT){ G.clock=MIDNIGHT; goToSleep(true); }
 }
 function clockText(){
@@ -111,7 +111,9 @@ function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving){
   grad.addColorStop(1,'rgba('+rgb+',0)');
   c.fillStyle=grad; c.beginPath(); c.arc(0,0,rx,0,7); c.fill(); c.restore();
   /* cast shadow: height runs along the shadow direction (ground y squashed for the
-     top-down view), width across it; sprite y is negative above the feet */
+     top-down view), width across it, turned so her left and right stay on the same
+     sides (gy>=0 all day, so (gy,-gx) never mirrors her); sprite y is negative
+     above the feet */
   if(s.strength>0){
     const f=kaitlynFrame(dir,frameT,moving);
     SILG.setTransform(1,0,0,1,0,0); SILG.globalCompositeOperation='source-over';
@@ -125,7 +127,7 @@ function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving){
     const {gx,gy,len}=s;
     c.globalAlpha=0.30*s.strength; c.imageSmoothingEnabled=true;
     c.translate(fx,fy);
-    c.transform(-gy,gx,-len*gx,-len*gy*GROUND_TILT,0,0);
+    c.transform(gy,-gx,-len*gx,-len*gy*GROUND_TILT,0,0);
     c.drawImage(SOFT,-AM.cw/2,-AM.foot,AM.cw,AM.ch);
     c.imageSmoothingEnabled=false;
   }
