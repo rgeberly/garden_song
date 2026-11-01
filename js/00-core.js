@@ -146,15 +146,20 @@ function drawFluteInHand(c,cx,footY,dir){
     Math.round(-FLUTE_META.cw/2),Math.round(-FLUTE_META.ch/2),FLUTE_META.cw,FLUTE_META.ch);
   c.restore();
 }
-function drawKaitlyn(c,cx,footY,dir,frameT,swim,moving){
-  if(!animReady) return;
+/* which sheet cell she shows: shared by her sprite and her cast shadow */
+function kaitlynFrame(dir,frameT,moving){
   const [dname,flip]=DIRMAP[dir&7];
   const row=ROWOF[(moving?'walk':'idle')+'_'+dname];
   const n=ROWN[row]||1;
   const per=(moving?WALK_CYCLE:IDLE_CYCLE)/n;
   const i=Math.floor(frameT/per)%n;
+  return {sx:i*AM.cw, sy:row*AM.ch, flip};
+}
+function drawKaitlyn(c,cx,footY,dir,frameT,swim,moving){
+  if(!animReady) return;
+  const f=kaitlynFrame(dir,frameT,moving);
   // cell row AM.foot is her ground point; the rows below leave room for the back boot
-  drawDev(c,IMG_ANIM,i*AM.cw,row*AM.ch,AM.cw,AM.ch,cx,footY,1,AM.ch-AM.foot,flip);
+  drawDev(c,IMG_ANIM,f.sx,f.sy,AM.cw,AM.ch,cx,footY,1,AM.ch-AM.foot,f.flip);
 }
 /* pose 0 = battle stance, pose 1 = defeated */
 function drawPose(c,i,cx,footY){

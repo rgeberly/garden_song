@@ -44,6 +44,6 @@ function dim(){ b.globalAlpha=.76; px(b,0,0,LW,LH,'#0d1410'); b.globalAlpha=1; }
 function drawWorldStatic(){
   const cam=camera();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
-  drawMap(cam); b.restore();
+  drawMap(cam); tintView(b); b.restore();
   px(b,0,VIEW_H,LW,LH-VIEW_H,'#2b241c');
 }

@@ -2,7 +2,7 @@
    WORLD SCENE
    ================================================================ */
 function startGame(){ G.scene='world'; initMusic(); setMusic('calm');
-  say("Plant several beds — songs carry across the garden."); autoLoad(); }
+  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); autoLoad(); }
 function nearestPlot(){
   let best=null,bd=1e9;
   for(const p of plots){ if(!active(p))continue;
@@ -15,7 +15,12 @@ const nearStall=()=>Math.hypot(STALL.x-G.player.x,STALL.y+6-G.player.y)<44;
 const nearDoor=()=>Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y)<46;
 function interact(){
   if(nearStall()){ openShop(); return; }
-  if(nearDoor()){ say("The door is locked. Kaitlyn pats her pockets."); return; }
+  /* bedtime at the front door for now; later the bed inside the house */
+  if(nearDoor()){
+    if(G.clock>=BED_FROM) goToSleep(false);
+    else say("Too early for bed. Kaitlyn can turn in after 6 PM.");
+    return;
+  }
   if(G.swim){ G.player.mp=maxMp(); say("Music Points fully restored!"); return; }
   const frog=nearestFrog();
   if(frog){
@@ -66,6 +71,8 @@ function spawnPest(){
   if(sp==='hoa') say("The HOA President is inspecting your yard!");
 }
 function updateWorld(dt){
+  tickClock(dt);
+  if(G.scene!=='world') return;          /* midnight sent her to bed */
   const P=G.player;
   let dx=0,dy=0;
   if(keys['arrowleft']||keys['a']) dx-=1;
@@ -163,8 +170,7 @@ function drawWorld(){
   }});
   ents.push({y:G.player.y+9,f:()=>{
     const sx=G.player.x-cam.x, sy=G.player.y+12-cam.y;
-    if(!G.swim){ b.globalAlpha=.24; b.fillStyle='#1a2810';
-      b.beginPath(); b.ellipse(sx,sy,15,5,0,0,7); b.fill(); b.globalAlpha=1; }
+    if(!G.swim) drawKaitlynShadow(b,sx,sy,G.player.dir,G.player.animT||0,G.player.moving);
     if(G.swim){
       b.save(); b.beginPath(); b.rect(0,0,LW,sy-21); b.clip();
       drawKaitlyn(b,sx,sy,G.player.dir,G.player.animT||0,true,G.player.moving); b.restore();
@@ -174,7 +180,8 @@ function drawWorld(){
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   /* shadows drift across the ground in world space, so they stay put
      relative to the garden while the camera moves */
-  b.globalAlpha=.07; b.fillStyle='#1d3018';
+  const day=daylight();
+  b.globalAlpha=.07*day; b.fillStyle='#1d3018';
   const CP=WORLD_W+300;
   for(let i=0;i<3;i++){
     const wy=110+i*190;
@@ -192,13 +199,16 @@ function drawWorld(){
   sun.addColorStop(0,'rgba(255,244,205,0.13)');
   sun.addColorStop(0.6,'rgba(255,240,190,0.03)');
   sun.addColorStop(1,'rgba(30,50,25,0.10)');
-  b.fillStyle=sun; b.fillRect(0,0,LW,VIEW_H);
+  b.globalAlpha=day; b.fillStyle=sun; b.fillRect(0,0,LW,VIEW_H); b.globalAlpha=1;
+  tintView(b);
   b.restore();
+  drawClockBack();
   m.drawImage(buf,0,0);
+  drawClockText();
   const p=nearestPlot(),f=nearestFrog();
   let label=null;
   if(nearStall()) label="Shop";
-  else if(nearDoor()) label="Locked";
+  else if(nearDoor()) label=G.clock>=BED_FROM?"Sleep":"Home";
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
   else if(p) label=!p.sp?"Plant":(p.stage>=3?"Harvest":"Play song");

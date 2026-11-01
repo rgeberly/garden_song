@@ -11,6 +11,7 @@ const G={
   coffeeT:0, swim:false, mpTick:0, wildT:4000,
   pests:[], pestTimer:9000,
   msg:'', msgT:0, frogT:0, t:0, code:'',
+  clock:6*60, day:1, indoors:false,      /* game minutes since midnight; see 14-daytime.js */
 };
 const maxMp=()=>14+G.player.lv*2+(G.gear.cloth?8:0);
 const fluteMul=()=>G.gear.dizi?1.35:(G.gear.silver?1.15:1);
@@ -54,7 +55,7 @@ function saveObj(){
   return {v:7,p:[G.player.lv,G.player.xp,G.player.next,G.player.hp,G.player.maxhp,G.player.mp,
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
-    s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,
+    s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,t:[G.day,Math.floor(G.clock)],
     pl:plots.map(p=>[p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health)])};
 }
 function exportCode(){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(saveObj())))); }catch(e){ return ''; } }
@@ -65,6 +66,7 @@ function applySave(o){
   G.coins=o.c; [G.gardenLv,G.gardenXp,G.gardenNext,G.harvests]=o.g;
   G.seeds=o.s||{}; G.unlocked=o.u||['strawberry']; G.gear=o.ge||{}; G.yard=o.y||{};
   G.flute=o.fl||'recorder';
+  if(o.t){ [G.day,G.clock]=o.t; preloadSeasonMaps(); }
   (o.pl||[]).forEach((v,i)=>{ const p=plots[i]; if(!p)return;
     p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; });
   buildWorld(); return true;

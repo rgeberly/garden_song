@@ -68,9 +68,10 @@ function drawWild(c,w,cam){
 /* the painted map replaces the old procedurally drawn one */
 function buildWorld(){ /* nothing to build — the map is an image */ }
 function drawMap(cam){
-  if(!IMG_MAP.complete) return;
+  const map=currentMap();                /* this season's painting */
+  if(!map.complete) return;
   b.save(); b.scale(1/SC,1/SC);
-  b.drawImage(IMG_MAP,Math.round(-cam.x*SC),Math.round(-cam.y*SC));
+  b.drawImage(map,Math.round(-cam.x*SC),Math.round(-cam.y*SC),WORLD_W*SC,WORLD_H*SC);
   b.restore();
 }
 const inPool=(x,y)=> x>POOL.x+F(.02)&&x<POOL.x+POOL.w-F(.02)&&

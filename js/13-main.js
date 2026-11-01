@@ -27,7 +27,9 @@ function loop(now){
   const dt=Math.min(50,now-last); last=now; G.t+=dt;
   if(G.scene==='world') updateWorld(dt);
   else { if(sfxKey) stopSfx();
-         if(G.scene==='rhythm') updateRhythm(dt); else if(G.msgT>0) G.msgT-=dt; }
+         if(G.scene==='rhythm') updateRhythm(dt);
+         else if(G.scene==='sleep') updateSleep(dt);
+         else if(G.msgT>0) G.msgT-=dt; }
   m.clearRect(0,0,LW*SC,LH*SC);
   b.setTransform(SC,0,0,SC,0,0);
   b.clearRect(0,0,LW,LH);
@@ -38,6 +40,7 @@ function loop(now){
   else if(G.scene==='sys') drawSys();
   else if(G.scene==='rhythm') drawRhythm();
   else if(G.scene==='battle') drawBattle(dt);
+  else if(G.scene==='sleep') drawSleep();
   requestAnimationFrame(loop);
 }
 /* ---- loading screen: assets now arrive over the network ---- */
