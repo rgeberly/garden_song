@@ -99,9 +99,20 @@ const TRACK_VOL={title:0.55,calm:0.42,battle:0.5,boss:0.55};
 function initMusic(){ musicOn=true; }
 /* a track is fetched the first time it's wanted (there are a lot of them now); all
    loop but the victory fanfare */
+/* where a track starts (seconds), and loops back to, if not its very beginning */
+const TRACK_START={title:16};
 function trackFor(k){
-  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=new Audio(ASSET_MUS[k]); a.loop=k!=='victory'; a.volume=0; a.preload='auto'; TRACKS[k]=a; }catch(e){} }
+  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=new Audio(ASSET_MUS[k]); a.volume=0; a.preload='auto'; TRACKS[k]=a;
+    const st=TRACK_START[k];
+    a.loop=k!=='victory'&&!st;
+    if(st) a.addEventListener('ended',()=>{ if(curTrack===k){ a.currentTime=st; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); } });
+  }catch(e){} }
   return TRACKS[k];
+}
+/* jump a track to its starting point (once it knows its length) */
+function cueTrack(a,k){
+  const st=TRACK_START[k]||0; if(!st) return;
+  if(a.readyState>=1) a.currentTime=st; else a.addEventListener('loadedmetadata',()=>{ a.currentTime=st; },{once:true});
 }
 /* the music for where she is and the season: the garden and home (spring keeps the
    original calm theme), the village, and the mountain (one theme for spring and summer,
@@ -127,6 +138,6 @@ function setMusic(mode){
   if(old) fadeTo(old,0,()=>{ try{old.pause();}catch(e){} });
   curTrack=mode;
   const a=trackFor(mode);
-  if(a){ try{ a.volume=0; if(mode==='victory') a.currentTime=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+  if(a){ try{ a.volume=0; if(mode==='victory') a.currentTime=0; cueTrack(a,mode); const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
          fadeTo(a,TRACK_VOL[mode]||0.45); }
 }
