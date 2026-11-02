@@ -58,7 +58,8 @@ function padRepeat(dt){
   else if(d&&(padRep-=dt)<=0){ padRep=PAD_EVERY; onPress(d); }
 }
 function onTouch(x,y,id,hy){
-  if(G.scene==='title'){ if(y>376&&y<412) openSys(); else startGame(); return; }
+  if(G.scene==='title'){ if(!titleWoken){ titleMusic(); return; }
+    if(y>376&&y<412) openSys(); else startGame(); return; }
   if(G.scene==='rhythm'){ rhythmTouch(x,y,id); return; }
   if(G.scene==='battle'){ battleTouch(x,y); return; }
   if(G.scene==='menu'){ menuTouch(x,y); return; }
@@ -86,7 +87,8 @@ function onTouchEnd(id){
 function setPad(x,y){ const dx=x-PAD.cx,dy=y-PAD.cy,mm=Math.hypot(dx,dy)||1;
   padVec = mm>7?{x:dx/mm,y:dy/mm}:{x:0,y:0}; }
 function onPress(k){
-  if(G.scene==='title'&&isOk(k)) startGame();
+  if(G.scene==='title'&&!titleWoken){ initAudio(); titleMusic(); }    /* the first press wakes the music */
+  else if(G.scene==='title'&&isOk(k)) startGame();
   else if(G.scene==='world'&&(isOk(k)||k==='e')) interact();
   else if(G.scene==='world'&&k==='m') openSys();
   else if(G.scene==='menu') menuKey(k);

@@ -14,8 +14,19 @@ function initAudio(){
   }catch(e){ AC=null; }
 }
 addEventListener('pointerdown',()=>{initAudio(); initSfx(); initMusic(); loadStems();
-  if(AC&&AC.state==='suspended')AC.resume();
-  if(G.scene==='title') setMusic('title');},{passive:true});
+  if(AC&&AC.state==='suspended')AC.resume();},{passive:true});
+/* The title theme. Browsers only allow sound after a tap or key press, so it is tried
+   as soon as the game loads (some browsers allow it) and otherwise the first press on
+   the title screen starts the music instead of the game (titleWoken). */
+let titleWoken=false;
+function titleMusic(onLoad){
+  initMusic(); setMusic('title');
+  const a=TRACKS.title;
+  /* blocked earlier, it's still the current track but paused: start it now */
+  if(a&&a.paused){ try{ const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} fadeTo(a,TRACK_VOL.title||0.45); }
+  if(onLoad){ if(a) setTimeout(()=>{ if(!a.paused&&G.scene==='title') titleWoken=true; },600); return; }
+  titleWoken=true;
+}
 const hz=s=>440*Math.pow(2,(s-9)/12);
 
 /* ---- recorded stems for the rhythm game ------------------------------

@@ -20,7 +20,7 @@ function drawTitle(){
   T("Garden Song",180,106,54,'#ffcf3a','center',true);
   T("play the golden flute · grow the garden",180,134,22,'#cfe0c4','center');
   T("Load a save code",180,399,26,'#e8dcc0','center',true);
-  if(Math.floor(G.t/500)%2===0) T("TAP ANYWHERE TO BEGIN",180,444,28,'#f7f0dc','center',true);
+  if(Math.floor(G.t/500)%2===0) T(titleWoken?"TAP ANYWHERE TO BEGIN":"♪  TAP TO START  ♪",180,444,28,'#f7f0dc','center',true);
   T(IS_TOUCH?"move: stick    act: A    back: B":"move: stick / WASD    act: A / J / space    back: H / esc",
     180,464,20,'#8fae86','center');
 }
@@ -83,6 +83,7 @@ function boot(){
   if(assetsReady<IMG_TOTAL){ drawLoading(); requestAnimationFrame(boot); return; }
   booted=true;
   buildWorld();
+  titleMusic(true);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(boot);
