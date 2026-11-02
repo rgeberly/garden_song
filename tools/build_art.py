@@ -293,12 +293,16 @@ def main():
             # its bottom-centre on the first ready frame's
             pmeta[name]['stance'] = {'ax': im.shape[1] // 2, 'ay': im.shape[0] - 1 + (round(box[0].shape[0] * sc) - round(y1 * sc))}
         # the attack and spell: their first frame is the resting pose, sized and grounded like the ready loop's
+        # (a victory loop may not start from the resting pose: it's drawn at the spell's scale)
+        msc = {}
         for move in ('attack', 'spell', 'victory'):
             hit = os.path.join(SRC, 'party', name.capitalize() + '-' + move + '-spritesheet.png')
             if not os.path.exists(hit): continue
             abox = grid_frames(hit)
             ax0, ay0, ax1, ay1 = bbox(abox[0])
             asc = size / ((ay1 - ay0) if how == 'h' else (ax1 - ax0))
+            if move == 'victory': asc = msc.get('spell', msc.get('attack', asc))
+            msc[move] = asc
             for i, x in enumerate(abox): pframes.append((name + ' ' + move + ' %d' % i, shrink(x, asc)))
             pmeta[name][move] = {'n': len(abox), 'ax': round((ax0 + ax1) / 2 * asc), 'ay': round(ay1 * asc) - 1}
         face = find_pic(os.path.join(SRC, 'party', name.capitalize() + '-portrait'))
