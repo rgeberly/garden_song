@@ -1,7 +1,7 @@
 /* ================================================================
    WORLD SCENE
    ================================================================ */
-function startGame(){ G.scene='world'; initMusic(); setMusic('calm');
+function startGame(){ G.scene='world'; initMusic(); setMusic(areaMusic());
   say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); partyImg(); autoLoad(); }
 /* "near" checks take a reach factor: 1 for what A/J acts on, PROMPT_REACH for when the
    overhead prompt shows, so prompts only appear once she is right beside something */
@@ -29,7 +29,7 @@ function interact(){
   const frog=nearestFrog();
   if(frog){
     if(G.frogT<=0){ G.party.forEach(id=>member(id).hp=member(id).maxhp); G.frogT=G.gear.charm?12000:25000;
-      say("A frog croaks a healing chord. HP full!");
+      say(G.party.length>1?"A frog croaks a healing chord. Everyone's HP is full!":"A frog croaks a healing chord. HP full!");
       if(AC){flute(2,AC.currentTime,.7,.6);flute(9,AC.currentTime+.05,.8,.5);} }
     else say("The frog blinks sleepily.");
     return;
@@ -232,6 +232,8 @@ function drawWorld(){
     b.restore();
   }});
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
+  /* the front layer (tree tops and the like) goes over everyone */
+  const fr=frontImg(season()); if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,WORLD_W,WORLD_H); }
   if(G.cast) drawCastFx(cam);
   /* shadows drift across the ground in world space, so they stay put
      relative to the garden while the camera moves */

@@ -28,37 +28,43 @@ const GOODS={
   bass:       {name:"Largemouth Bass",  value:55, kind:'fish', col:'#5a8a4a', power:1.4, w:2, seasons:['summer','fall']},
   catfish:    {name:"Catfish",          value:70, kind:'fish', col:'#6a6a5a', power:1.7, w:2, seasons:['summer','fall'], night:true},
   koi:        {name:"Golden Koi",       value:180,kind:'fish', col:'#ffb02a', power:2.1, w:0.4},
+  /* food and drink bought in town or at the stall: kept until used (not sold back).
+     use: hp/mp for whoever has it, hpAll/mpAll for the whole party, coffee: ms of speed */
+  coffee:     {name:"Coffee",           value:0,  kind:'food', col:'#6a3a1a', use:{coffee:120000}},
+  tea:        {name:"Herbal Tea",       value:0,  kind:'food', col:'#8ac86a', use:{mpAll:10}},
+  bun:        {name:"Honey Bun",        value:0,  kind:'food', col:'#e8b04a', use:{hpAll:20}},
 };
 const goodsList=()=>Object.keys(GOODS).filter(k=>G.goods[k]>0);
+const sellGoods=()=>goodsList().filter(k=>GOODS[k].kind!=='food');
+const addGood=(k,n)=>{ G.goods[k]=(G.goods[k]||0)+(n||1); };
 const goodsPrice=k=>Math.round(GOODS[k].value*(G.yard.arch?1.15:1));
 
 /* ---------- the places ----------
    ground/path colours; rects [x,y,w,h]; houses {x,y,w,h,roof,name}; exits back home;
    people {name,x,y,col,hair,lines,shop}; gather spots [x,y]; pond {x,y,rx,ry}. */
 const PLACES={
+  /* the town follows its paintings (maps/town_<season>): blocks are what she can't walk
+     through (buildings, trees, hedges, flower beds) as [x,y,w,h] */
   town:{name:"Willowbrook", ground:'#8fbf6a', path:'#d8c8a0',
-    paths:[[300,330,120,330],[0,350,720,60],[620,560,100,60],[640,410,60,200]],
-    plaza:{x:360,y:380,r:96}, fountain:{x:360,y:380,r:28},
-    houses:[{x:150,y:150,w:130,h:110,roof:'#b85a3a',name:"Café"},
-            {x:300,y:120,w:120,h:120,roof:'#4a7ab8',name:"General Store"},
-            {x:450,y:150,w:130,h:110,roof:'#6a6a7a',name:"Tool Shop"},
-            {x:70,y:480,w:110,h:90,roof:'#a86a8a',name:""},{x:200,y:560,w:110,h:90,roof:'#8a7a4a',name:""},
-            {x:470,y:470,w:120,h:70,roof:'#e8c84a',name:"Market",tent:true}],
-    trees:[[40,60],[90,40],[620,70],[680,130],[40,300],[30,640],[120,680],[400,670],[520,660],[690,300]],
-    exits:[{x:680,y:590,r:40,to:'garden',label:"Back to the garden"}],
-    arrive:{garden:{x:650,y:590,dir:6}},
+    paths:[[180,280,360,260],[440,520,120,200]], plaza:{x:360,y:400,r:150}, fountain:{x:362,y:374,r:40},
+    houses:[], trees:[],
+    blocks:[[0,0,190,245],[175,0,170,190],[345,0,110,105],[495,30,160,200],[650,0,70,250],[610,255,95,65],
+            [0,245,100,260],[585,470,135,150],[0,560,330,160],[0,500,60,60],[240,530,120,60],[370,630,110,90],
+            [620,620,100,100],[660,330,60,140]],
+    exits:[{x:505,y:705,r:40,to:'garden',label:"Back to the garden"}],
+    arrive:{garden:{x:505,y:672,dir:0}},
     people:[
-      {name:"Mabel",x:215,y:282,col:'#c8584a',hair:'#e8e0d0',shop:'cafe',
+      {name:"Mabel",x:132,y:262,col:'#c8584a',hair:'#e8e0d0',shop:'cafe',
        lines:["Welcome to the café, dear! Something warm for the road?"]},
-      {name:"Rosa",x:360,y:262,col:'#4a8ad8',hair:'#3a2418',shop:'store',
+      {name:"Rosa",x:276,y:206,col:'#4a8ad8',hair:'#3a2418',shop:'store',
        lines:["Seeds, seeds and more seeds! What are you growing this season?"]},
-      {name:"Mr. Hollis",x:515,y:282,col:'#6a6a6a',hair:'#8a8a8a',shop:'tools',
+      {name:"Mr. Hollis",x:548,y:246,col:'#6a6a6a',hair:'#8a8a8a',shop:'tools',
        lines:["Good tools make good gardeners. Have a look."]},
-      {name:"Juniper",x:530,y:560,col:'#e8a03a',hair:'#a85a2a',shop:'market',
+      {name:"Juniper",x:596,y:338,col:'#e8a03a',hair:'#a85a2a',shop:'market',
        lines:["I'll buy anything you forage or catch up on the mountain!"]},
-      {name:"Old Pete",x:300,y:420,col:'#7a6a5a',hair:'#d8d8d8',
+      {name:"Old Pete",x:286,y:450,col:'#7a6a5a',hair:'#d8d8d8',
        lines:["The mountain path is north of your garden, you know.","Mushrooms come up in the fall. The good ones are orange."]},
-      {name:"Milo",x:430,y:460,col:'#5aa85a',hair:'#e8c84a',
+      {name:"Milo",x:452,y:478,col:'#5aa85a',hair:'#e8c84a',
        lines:["Have you seen a snake with a gold ring around its neck? That'd be so cool!"]},
     ]},
   mountain:{name:"Bramble Peak", ground:'#7aa85a', path:'#c8b48a',
@@ -94,6 +100,7 @@ function placeSolid(x,y){
   if(P.fountain&&Math.hypot(x-P.fountain.x,y-P.fountain.y)<P.fountain.r+6) return true;
   if(P.pond&&(((x-P.pond.x)/(P.pond.rx))**2+((y-P.pond.y)/(P.pond.ry))**2<1)) return true;
   if((P.houses||[]).some(h=>x>h.x-6&&x<h.x+h.w+6&&y>h.y&&y<h.y+h.h+8)) return true;
+  if((P.blocks||[]).some(([bx,by,bw,bh])=>x>bx&&x<bx+bw&&y>by&&y<by+bh)) return true;
   if(P.trees.some(([tx,ty])=>Math.hypot(x-tx,y-ty)<16)) return true;
   return (P.people||[]).some(p=>Math.hypot(x-p.x,y-p.y)<10);
 }
@@ -153,6 +160,14 @@ function updatePlace(dt){
 
 /* ---------- painting a place (until it has a real picture) ---------- */
 const PLACE_CANVAS={}, PLACE_PX=1.5;        /* canvas px per garden px */
+/* a place's painting for this season (maps/<place>_<season>), once it has loaded */
+const PLACE_IMG={};
+function placeImg(area){
+  const s=season(), key=area+'_'+s;
+  if(typeof PLACE_MAPS==='undefined'||!(PLACE_MAPS[area]||[]).includes(s)) return null;
+  if(!PLACE_IMG[key]){ PLACE_IMG[key]=new Image(); PLACE_IMG[key].src='assets/places/'+key+'.jpg'; }
+  return PLACE_IMG[key].complete&&PLACE_IMG[key].naturalWidth?PLACE_IMG[key]:null;
+}
 function placeCanvas(area){
   const key=area+'|'+season();
   if(PLACE_CANVAS[key]) return PLACE_CANVAS[key];
@@ -210,7 +225,7 @@ function drawPlace(){
   const cam=camera(), P=curPlace();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);
-  b.imageSmoothingEnabled=true; b.drawImage(placeCanvas(G.area),-cam.x,-cam.y,WORLD_W,WORLD_H);
+  b.imageSmoothingEnabled=true; b.drawImage(placeImg(G.area)||placeCanvas(G.area),-cam.x,-cam.y,WORLD_W,WORLD_H);
   const ents=[];
   (P.people||[]).forEach(p=>ents.push({y:p.y,f:()=>drawPerson(b,{...p,x:p.x-cam.x,y:p.y-cam.y})}));
   if(P.gather) P.gather.forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
@@ -243,22 +258,20 @@ function drawPlace(){
    They open after the shopkeeper's lines, in a blue window like the menu. */
 const TOWN_SHOPS={
   cafe:{title:"Mabel's Café", items:()=>[
-    {name:"Coffee",cost:30,desc:"Walk 50% faster for 2 minutes.",buy:()=>{ G.coffeeT=120000; }},
-    {name:"Herbal Tea",cost:24,desc:"Restores 10 MP to everyone in the party.",
-     buy:()=>G.party.forEach(id=>{ const M=member(id); M.mp=Math.min(memberMaxMp(id),M.mp+10); })},
-    {name:"Honey Bun",cost:28,desc:"Restores 20 HP to everyone in the party.",
-     buy:()=>G.party.forEach(id=>{ const M=member(id); M.hp=Math.min(M.maxhp,M.hp+20); })}]},
+    {name:"Coffee",cost:30,desc:"Walk 50% faster for 2 minutes. Goes in your bag.",buy:()=>addGood('coffee')},
+    {name:"Herbal Tea",cost:24,desc:"Restores 10 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('tea')},
+    {name:"Honey Bun",cost:28,desc:"Restores 20 HP to everyone in the party. Goes in your bag.",buy:()=>addGood('bun')}]},
   store:{title:"Rosa's General Store", items:()=>UNLOCK_ORDER.filter(s=>G.unlocked.includes(s)).map(s=>({
     name:SPECIES[s].name+" seed",cost:SPECIES[s].cost,desc:"Needs "+SPECIES[s].grow+" growth · best in "+SEASON_NAME[SPECIES[s].best]+". You have "+(G.seeds[s]||0)+".",
     buy:()=>{ G.seeds[s]=(G.seeds[s]||0)+1; }}))},
   tools:{title:"Hollis Tools", items:()=>GEAR.filter(g=>!G.gear[g.id]).map(g=>({name:g.name,cost:g.cost,desc:cap(g.desc)+".",
     buy:()=>{ G.gear[g.id]=1; }}))},
   market:{title:"Juniper's Market", sell:true, items:()=>{
-    const L=goodsList().map(k=>({name:GOODS[k].name+"  x"+G.goods[k],cost:goodsPrice(k),desc:"Sell one for "+goodsPrice(k)+"c.",
+    const L=sellGoods().map(k=>({name:GOODS[k].name+"  x"+G.goods[k],cost:goodsPrice(k),desc:"Sell one for "+goodsPrice(k)+"c.",
       buy:()=>{ G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k]; G.coins+=goodsPrice(k); }}));
-    if(L.length){ const tot=goodsList().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
+    if(L.length){ const tot=sellGoods().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
       L.push({name:"Sell everything",cost:tot,desc:"Sell all your forage and fish for "+tot+"c.",
-        buy:()=>{ G.coins+=tot; goodsList().forEach(k=>delete G.goods[k]); }}); }
+        buy:()=>{ G.coins+=tot; sellGoods().forEach(k=>delete G.goods[k]); }}); }
     return L; }},
 };
 let tshop=null;
@@ -322,10 +335,34 @@ function drawGoodIcon(c,k,cx,cy,box){
   }
   c.restore();
 }
-function eatGood(k){
-  const g=GOODS[k]; if(!g.eat){ say("Better to sell the "+g.name+"."); blip(150,.08,.2); return; }
-  const M=G.player; G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k];
-  if(g.eat.hp) M.hp=Math.min(M.maxhp,M.hp+g.eat.hp);
-  if(g.eat.mp) M.mp=Math.min(maxMp(),M.mp+g.eat.mp);
-  say("Ate the "+g.name+"."); blip(620,0.06,0.1,'sine'); autoSave();
+/* what eating or drinking a good does (forage: eat, food: use), in words */
+const goodEffect=k=>GOODS[k].eat||GOODS[k].use;
+function effText(e){
+  if(!e) return "";
+  return [e.hp&&"+"+e.hp+" HP",e.mp&&"+"+e.mp+" MP",e.hpAll&&"+"+e.hpAll+" HP to everyone",
+          e.mpAll&&"+"+e.mpAll+" MP to everyone",e.coffee&&"walk faster for "+Math.round(e.coffee/60000)+" min"].filter(Boolean).join(", ");
 }
+/* use one good: its HP/MP go to member id, party-wide ones to everyone out with her */
+function useGood(k,id){
+  const e=goodEffect(k), M=member(id||'kaitlyn');
+  G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k];
+  if(e.hp) M.hp=Math.min(M.maxhp,M.hp+e.hp);
+  if(e.mp) M.mp=Math.min(memberMaxMp(id||'kaitlyn'),M.mp+e.mp);
+  G.party.forEach(p=>{ const N=member(p); if(e.hpAll) N.hp=Math.min(N.maxhp,N.hp+e.hpAll); if(e.mpAll) N.mp=Math.min(memberMaxMp(p),N.mp+e.mpAll); });
+  if(e.coffee) G.coffeeT=Math.max(G.coffeeT,e.coffee);
+  return effText(e);
+}
+function eatGood(k){
+  const g=GOODS[k]; if(!goodEffect(k)){ say("Better to sell the "+g.name+"."); blip(150,.08,.2); return; }
+  say((g.kind==='food'?"Had the ":"Ate the ")+g.name+": "+useGood(k)+"."); blip(620,0.06,0.1,'sine'); autoSave();
+}
+/* what can be eaten or drunk in battle: crops (by species) and goods ('g:'+key) that heal */
+function battleItems(){
+  return cropList().filter(sp=>EAT[sp]&&(EAT[sp].hp||EAT[sp].mp)).concat(
+    goodsList().filter(k=>{ const e=goodEffect(k); return e&&(e.hp||e.mp||e.hpAll||e.mpAll); }).map(k=>'g:'+k));
+}
+const isGoodKey=k=>k.startsWith('g:');
+const itemName=k=>isGoodKey(k)?GOODS[k.slice(2)].name:SPECIES[k].name;
+const itemCount=k=>isGoodKey(k)?G.goods[k.slice(2)]:G.crops[k];
+const itemText=k=>isGoodKey(k)?effText(goodEffect(k.slice(2))):eatText(k);
+const useItem=(k,id)=>isGoodKey(k)?useGood(k.slice(2),id):applyFood(k,id);

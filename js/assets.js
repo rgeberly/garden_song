@@ -25,7 +25,18 @@ const ASSET_MUS={
  "title": "assets/audio/music_title.m4a",
  "calm": "assets/audio/music_calm.m4a",
  "battle": "assets/audio/music_battle.m4a",
- "boss": "assets/audio/music_boss.m4a"
+ "boss": "assets/audio/music_boss.m4a",
+ "boss2": "assets/audio/music_boss_2.mp3",
+ "victory": "assets/audio/music_victory.mp3",
+ "summer_garden": "assets/audio/music_summer_garden.mp3",
+ "fall_garden": "assets/audio/music_fall_garden.mp3",
+ "winter_garden": "assets/audio/music_winter_garden.mp3",
+ "spring_village": "assets/audio/music_spring_village.mp3",
+ "summer_village": "assets/audio/music_summer_village.mp3",
+ "fall_village": "assets/audio/music_fall_village.mp3",
+ "winter_village": "assets/audio/music_winter_village.mp3",
+ "springsummer_mountain": "assets/audio/music_springsummer_mountain.mp3",
+ "fallwinter_mountain": "assets/audio/music_fallwinter_mountain.mp3"
 };
 const ANIM_META={"cw": 85, "ch": 192, "foot": 173, "dirs": ["up", "northeast", "east", "southeast", "down"], "rows": [{"dir": "up", "anim": "idle", "n": 8}, {"dir": "up", "anim": "walk", "n": 24}, {"dir": "northeast", "anim": "idle", "n": 8}, {"dir": "northeast", "anim": "walk", "n": 24}, {"dir": "east", "anim": "idle", "n": 8}, {"dir": "east", "anim": "walk", "n": 24}, {"dir": "southeast", "anim": "idle", "n": 8}, {"dir": "southeast", "anim": "walk", "n": 24}, {"dir": "down", "anim": "idle", "n": 8}, {"dir": "down", "anim": "walk", "n": 24}]};
 const BATL_META={"cw": 190, "ch": 196, "rows": [{"name": "kick", "n": 14}, {"name": "kick2", "n": 14}, {"name": "flute", "n": 14}, {"name": "victory", "n": 14}]};

@@ -183,14 +183,14 @@ function cancelRhythm(){
   stopStemPlayback();
   const bc=R_.battle;
   if(musicGain) musicGain.gain.value=0.34;
-  if(bc&&bc.practice){ R_=null; G.scene='world'; setMusic('calm'); say("You put the flute down. (Practice again any time today.)"); return; }
+  if(bc&&bc.practice){ R_=null; G.scene='world'; setMusic(areaMusic()); say("You put the flute down. (Practice again any time today.)"); return; }
   R_=null;
   if(bc){                                   /* give the Music Points back */
     G.player.mp=Math.min(maxMp(),G.player.mp+(bc.mp||0));
     G.scene='battle'; if(B){ B.turn='player'; B.log="Kaitlyn lowers the flute."; }
     setMusic(B&&B.boss?'boss':'battle');
   } else {
-    G.scene='world'; setMusic('calm'); say("Song cancelled.");
+    G.scene='world'; setMusic(areaMusic()); say("Song cancelled.");
   }
 }
 function rhythmTouch(x,y,id){
@@ -263,7 +263,7 @@ const rhythmAcc=()=>{ const tot=R_.perfect+R_.good+R_.miss||1;
 function finishRhythm(){
   stopStemPlayback();
   const acc=rhythmAcc();
-  setMusic(B?'battle':'calm');
+  setMusic(B?(B.boss?'boss':'battle'):areaMusic());
   if(R_.battle){ const cb=R_.battle.cb; R_=null; cb(acc); return; }
   const plot=R_.plot,S=SPECIES[plot.sp];
   plot.sungDay=G.day;
@@ -299,9 +299,27 @@ function rhythmPlant(c,x,base,grow,pulse){
   if(grow>0.35){ px(c,x-4,base-h-4,7,7,pulse?'#ffe08a':'#e8c34a'); px(c,x-2,base-h-2,3,3,'#fff3c0'); }
   if(grow>0.7){ px(c,x-9,base-h+7,5,5,'#e8433f'); px(c,x+6,base-h+11,5,5,'#e8433f'); }
 }
+/* the painted background (rhythm/background) and note gems (rhythm/notes), when there */
+let RHY_BG=null, RHY_GEMS=null;
+function rhythmArt(){
+  if(!RHY_BG&&typeof RHYTHM_BG!=='undefined'&&RHYTHM_BG){ RHY_BG=new Image(); RHY_BG.src='assets/scenes/rhythm_bg.jpg'; }
+  if(!RHY_GEMS&&typeof NOTE_ART!=='undefined'&&NOTE_ART.length){ RHY_GEMS=new Image(); RHY_GEMS.src='assets/sprites/notes.png'; }
+  const ok=im=>im&&im.complete&&im.naturalWidth?im:null;
+  return {bg:ok(RHY_BG),gems:ok(RHY_GEMS)};
+}
+/* a lane's gem, size px across, centred on x,y */
+function drawGem(gems,lane,x,y,size){
+  const [sx,sy,w,h]=NOTE_ART[lane%NOTE_ART.length], k=size/Math.max(w,h);
+  b.save(); b.imageSmoothingEnabled=true; b.drawImage(gems,sx,sy,w,h,x-w*k/2,y-h*k/2,w*k,h*k); b.restore();
+}
 function drawRhythm(){
-  const grow=clamp(R_.combo/14,0,1);
+  const grow=clamp(R_.combo/14,0,1), art=rhythmArt();
   const T0=BAND_TOP(), T1=BAND_BOT(), TH=T1-T0;     /* the full screen, on tall phones too */
+  if(art.bg){
+    const im=art.bg, r=im.naturalWidth/im.naturalHeight, h=Math.max(TH,LW/r), w=h*r;
+    b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,(LW-w)/2,T0+(TH-h)/2,w,h); b.restore();
+    b.globalAlpha=.18; px(b,0,T0,LW,TH,'#0a1020'); b.globalAlpha=1;
+  } else {
   const sky=b.createLinearGradient(0,0,0,LH);
   sky.addColorStop(0,'#1b2f46'); sky.addColorStop(0.34,'#3a5a72');
   sky.addColorStop(0.62,'#6a7f6a'); sky.addColorStop(1,'#25341f');
@@ -338,8 +356,11 @@ function drawRhythm(){
     b.globalAlpha=.35+0.35*Math.sin(G.t/300+i*1.7);
     px(b,Math.round(fx),Math.round(fy),3,3,'#f7f0a0'); b.globalAlpha=1;
   }
+  }
+  /* the lanes: see-through rails over a painted background, solid over the drawn one */
   for(let i=0;i<LANES;i++){ const x=LANE_X0+i*LANE_W;
-    b.globalAlpha=.72; px(b,x,T0,LANE_W-3,TH,(i%2)?'#1e2731':'#222c37'); b.globalAlpha=1;
+    b.globalAlpha=art.bg?.34:.72; px(b,x,T0,LANE_W-3,TH,(i%2)?'#1e2731':'#222c37'); b.globalAlpha=1;
+    if(art.bg){ b.globalAlpha=.35; px(b,x,T0,1,TH,'#fff6d8'); px(b,x+LANE_W-4,T0,1,TH,'#fff6d8'); b.globalAlpha=1; }
     if(R_.flash[i]>0){ b.globalAlpha=R_.flash[i]/500; px(b,x,T0,LANE_W-3,TH,'#5ea8d8'); b.globalAlpha=1; } }
   /* carved wooden frame down both margins */
   for(const fx of [0,LW-21]){
@@ -388,6 +409,7 @@ function drawRhythm(){
       const y=HITLINE-((n.t-R_.time)/FALL)*HITLINE;
       if(y<T0-20||y>T1)continue;
       const x=LANE_X0+n.lane*LANE_W;
+      if(art.gems){ drawGem(art.gems,n.lane,x+LANE_W/2-1.5,y,30); continue; }
       px(b,x+7,Math.round(y)-8,LANE_W-17,16,'#2b1c12');
       px(b,x+9,Math.round(y)-6,LANE_W-21,12,'#f2701c');
       px(b,x+9,Math.round(y)-6,LANE_W-21,4,'#ffcf3a');
@@ -406,8 +428,9 @@ function drawRhythm(){
       }
       const yh=HITLINE-((n.t-R_.time)/FALL)*HITLINE;
       if(yh>T0-16&&yh<T1){ const x=LANE_X0+n.lane*LANE_W;
-        px(b,x+6,Math.round(yh)-10,LANE_W-15,20,'#2b1c12');
-        px(b,x+9,Math.round(yh)-7,LANE_W-21,14,'#ffcf3a');
+        if(art.gems) drawGem(art.gems,n.lane,x+LANE_W/2-1.5,yh,34);
+        else { px(b,x+6,Math.round(yh)-10,LANE_W-15,20,'#2b1c12');
+        px(b,x+9,Math.round(yh)-7,LANE_W-21,14,'#ffcf3a'); }
         holdLabels.push({x:x+LANE_W/2-2,y:Math.round(yh)+5}); }
       if(act){
         const gx=LANE_X0+n.reqLane*LANE_W+LANE_W/2, pulse=3+Math.sin(G.t/90)*2;

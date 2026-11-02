@@ -109,7 +109,6 @@ function eatCrop(sp){
   autoSave();
 }
 
-const eatText2=e=>[e.hp?"+"+e.hp+" HP":"",e.mp?"+"+e.mp+" MP":""].filter(Boolean).join(", ");
 /* ---------- the menu ----------
    Classic blue windows: the open tab's page on the left, the tabs stacked down the
    right with the purse, day and time under them. The cursor starts on the tabs
@@ -162,7 +161,7 @@ function sysActivate(i){
     if(i===0){ try{navigator.clipboard.writeText(G.code);}catch(e){}
       say("Save code copied to clipboard."); G.scene='world'; }
     else if(i===1){ const s=prompt("Paste your save code:");
-      if(s){ if(importCode(s)){ say("Game loaded!"); G.scene='world'; setMusic('calm'); }
+      if(s){ if(importCode(s)){ say("Game loaded!"); G.scene='world'; setMusic(areaMusic()); }
              else say("That code didn't work."); } }
     else { autoSave(); say("Saved in this browser."); G.scene='world'; }
   }
@@ -203,7 +202,8 @@ function sysFoot(){
     return known?[s.name+(s.mp?"  ·  "+s.mp+" MP":""),s.desc+(s.field?(fieldUsable(s)?"  (A to play)":"  (spent today)"):"")]
                 :["????","Learned at level "+s.lv+"."]; }
   if(t==='Items'&&R.good){ const g=GOODS[R.good];
-    return [g.name+"  x"+G.goods[R.good],(g.eat?"Eat (A): "+eatText2(g.eat)+" · ":"")+"sells "+goodsPrice(R.good)+"c at the stall or market"]; }
+    const e=goodEffect(R.good);
+    return [g.name+"  x"+G.goods[R.good],(e?(g.kind==='food'?"Use (A): ":"Eat (A): ")+effText(e):"")+(g.kind==='food'?"":(e?" · ":"")+"sells "+goodsPrice(R.good)+"c at the stall or market")]; }
   if(t==='Items') return R.crop?[SPECIES[R.crop].name+"  x"+G.crops[R.crop],"Eat (A): "+eatText(R.crop)+" · sells "+sellPrice(R.crop)+"c"]
                                :[SPECIES[R.seed].name+" seed  x"+G.seeds[R.seed],"Plant it in an empty garden spot."];
   if(t==='Gear') return R.flute?[FLUTE_INFO[R.flute].name,"Songs x"+FLUTE_INFO[R.flute].mul.toFixed(2)+(fluteOwned(R.flute)?(G.flute===R.flute?" · equipped":" · A to equip"):" · not owned yet")]

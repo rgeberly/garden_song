@@ -90,7 +90,7 @@ function afterAction(){
 /* ---------- what each member can pick ---------- */
 const skillList=id=>id==='kaitlyn'?moveList().filter(mv=>mv.id!=='kick'):(ALLY_SKILLS[id]||[]).filter(s=>s.lv<=member(id).lv);
 /* harvested crops that restore HP or MP */
-const battleFood=()=>cropList().filter(sp=>EAT[sp]&&(EAT[sp].hp||EAT[sp].mp));
+const battleFood=()=>battleItems();             /* crops and goods that heal (17-places.js) */
 const subList=()=>B.menu==='items'?battleFood():skillList(actor());
 function cmdName(c,id){
   return {attack:"Attack",skills:PARTY_INFO[id].skills,meditate:"Meditate",items:"Items",flee:"Flee"}[c];
@@ -114,7 +114,7 @@ function cmdInfo(c,id){
 }
 function subInfo(x){
   if(!x) return B.menu==='items'?["Items","Harvest crops to eat them in battle"]:["Skills","None learned yet"];
-  if(B.menu==='items') return [SPECIES[x].name,eatText(x)];
+  if(B.menu==='items') return [itemName(x),itemText(x)];
   if(x.notes) return [x.name,moveDesc(x)+" · "+x.mp+" MP"];
   return [x.name,x.desc+" · "+x.mp+" MP"];
 }
@@ -179,6 +179,7 @@ function tryFlee(){
 function hitEnemy(dmg,label){
   B.hp=Math.max(0,B.hp-dmg); B.shake=340; B.flash=200;
   pop("-"+dmg,EX,EY-10,'#ffd24a'); thud(); B.log=label;
+  if(B.foe.sleep&&Math.random()<0.4){ B.foe.sleep=0; B.log+="  It wakes up!"; }   /* a hit may wake it */
 }
 /* Blind members miss half their attacks */
 function missed(id){ if(has(id,'blind')&&Math.random()<0.5){ B.log=PARTY_INFO[id].name+" can't see and misses!"; return true; } return false; }
@@ -236,7 +237,13 @@ function useSkill(sk){
   const id=actor(), M=member(id), name=PARTY_INFO[id].name;
   if(M.mp<sk.mp){ B.log="Not enough MP!"; blip(150,0.08,0.2); return; }
   M.mp-=sk.mp; B.turn='busy'; B.menu='cmd';
-  anim(sk.heal?'meditate':'lunge',1000,()=>{
+  const spell=PARTY_ART[id]&&PARTY_ART[id].spell;      /* their own spell animation, when they have one */
+  anim(spell?'spell':sk.heal?'meditate':'lunge',spell?1400:1000,()=>{
+    if(sk.sleep){      /* Hypnosis: the foe nods off for a few turns (a boss shrugs it off more often) */
+      if(Math.random()<sk.sleep*(B.boss?0.5:1)){ B.foe.sleep=2+ri(0,1); B.log=name+"'s "+sk.name+" sends the "+B.name+" to sleep!"; }
+      else B.log="The "+B.name+" shakes off "+name+"'s "+sk.name+".";
+      return;
+    }
     if(sk.heal){
       const h=Math.round(M.maxhp*sk.heal), s=slotOf(id);
       M.hp=Math.min(M.maxhp,M.hp+h); pop("+"+h,s.x,headOf(id),'#8fe07a');
@@ -248,7 +255,7 @@ function useSkill(sk){
     const dmg=soften(statOf(id,'int')*1.5*sk.pow*mul*weakMul(id)*rnd(0.9,1.1),foeDef(),true);
     hitEnemy(dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(mul>1?"  The venom bursts!":""));
     if(sk.bind&&Math.random()<sk.bind){ B.foe.bound=1; B.log+="  It's held fast!"; }
-  });
+  },{heal:!!sk.heal});
 }
 /* half damage from the next attack, and 5-10% of HP and MP back */
 function doMeditate(){
@@ -267,9 +274,9 @@ function eatInBattle(sp){
   const id=actor(), name=PARTY_INFO[id].name;
   B.turn='busy'; B.menu='cmd';
   anim('eat',800,()=>{
-    const text=applyFood(sp,id), s=slotOf(id), e=EAT[sp];
-    if(e.hp) pop("+"+e.hp,s.x,headOf(id),'#8fe07a');
-    B.log=name+" eats a "+SPECIES[sp].name+": "+text+".";
+    const before=member(id).hp, item=itemName(sp), text=useItem(sp,id), gain=member(id).hp-before, s=slotOf(id);
+    if(gain>0) pop("+"+gain,s.x,headOf(id),'#8fe07a');
+    B.log=name+" has the "+item+": "+text+".";
     if(AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
   });
 }
@@ -283,6 +290,7 @@ function foeTurn(){
     B.log="The "+B.name+" takes "+d+" from poison."; if(--F.poison.n<=0) F.poison=null;
     if(B.hp<=0){ setTimeout(winFight,700); return; } }
   if(F.bound>0){ F.bound--; B.log="The "+B.name+" struggles but can't move!"; setTimeout(nextActor,1000); return; }
+  if(F.sleep>0){ F.sleep--; B.log="The "+B.name+" is fast asleep..."; setTimeout(nextActor,1000); return; }
   if(F.weak>0) F.weak--;
   const charged=F.charge; F.charge=0;
   /* a charged-up pest always lets loose with its strongest hit */
@@ -334,9 +342,11 @@ function foeHits(sk,targets,charged){
 
 /* ---------- victory: rewards are given at once, the screen then shows them ---------- */
 const SEED_LOOT=0.10, WIN_DELAY=250, WIN_FILL=900, WIN_GUARD=350;
+/* the victory window: the rewards, then a row (name, level, EXP bar) for each one standing */
+const VW={y:214,h:236,row0:76,step:38};
 function winFight(){
   if(B.over) return;
-  B.over='win'; B.log="The "+B.name+" flees the garden!"; playOne('victory',0.6); winRewards();
+  B.over='win'; B.log="The "+B.name+" flees the garden!"; setMusic('victory'); winRewards();
 }
 /* Luck (the luckiest one standing) helps find seeds and sometimes bonus coins */
 function winRewards(){
@@ -345,17 +355,18 @@ function winRewards(){
   const seed=Math.random()<SEED_LOOT+luck*0.004&&G.unlocked.length?G.unlocked[ri(0,G.unlocked.length-1)]:null;
   const bonus=Math.random()<luck*0.015;
   const coins=Math.round(P.coin*(bonus?1.5:1));
-  B.win={xp:P.xp,coins,bonus,seed,from:{lv:pl.lv,xp:pl.xp,next:pl.next},t:0};
+  const from={}; up.forEach(id=>{ const M=member(id); from[id]={lv:M.lv,xp:M.xp,next:M.next}; });
+  B.win={xp:P.xp,coins,bonus,seed,from,who:up,t:0};
   G.coins+=coins; if(seed) G.seeds[seed]=(G.seeds[seed]||0)+1;
   G.pests=G.pests.filter(p=>p!==B.pest);
   up.forEach(id=>addXpTo(id,P.xp));          /* everyone still standing learns from it */
 }
 /* a moment's pause so the key that won the fight doesn't also close the screen */
 const winGuard=()=>B.over==='win'&&B.win&&B.win.t<WIN_GUARD;
-/* the XP bar as it fills, levelling up the same way addXp does */
-function xpShown(){
-  const w=B.win, k=clamp((w.t-WIN_DELAY)/WIN_FILL,0,1);
-  let lv=w.from.lv, xp=w.from.xp+w.xp*k, next=w.from.next;
+/* a member's EXP bar as it fills, levelling up the same way addXpTo does */
+function xpShown(id){
+  const w=B.win, k=clamp((w.t-WIN_DELAY)/WIN_FILL,0,1), f=w.from[id||'kaitlyn'];
+  let lv=f.lv, xp=f.xp+w.xp*k, next=f.next;
   while(xp>=next){ xp-=next; lv++; next=xpNeed(lv); }
   return {lv,xp:Math.floor(xp),next,k};
 }
@@ -373,7 +384,7 @@ function endBattle(){
   const hurt=B.party.filter(id=>id!=='kaitlyn'&&!standing(id));
   hurt.forEach(id=>{ const A=G.allies[id]; A.hurtUntil=G.day+HURT_DAYS; A.hp=0; G.party=G.party.filter(x=>x!==id); });
   if(hurt.length) say(hurt.map(id=>PARTY_INFO[id].name).join(" and ")+" got hurt and went home to rest (back in "+HURT_DAYS+" days).");
-  B=null; G.scene='world'; setMusic('calm'); autoSave();
+  B=null; G.scene='world'; setMusic(areaMusic()); autoSave();
 }
 
 /* ---------- drawing the party ----------
@@ -415,6 +426,13 @@ function drawMember(id,x,y,k){
     if(SONG_FX.includes(kind)){ const n=BRN[BROW.flute]||1; drawBattleRow(b,'flute',Math.floor(k*n),x,y); return; }
   }
   if(!standing(id)){ b.globalAlpha=.45; drawStance(id,x,y); b.globalAlpha=1; return; }
+  /* a win: their victory loop, or until they have one, a happy bounce on their spell's
+     coiled-up frames */
+  if(B.over==='win'){ const A=PARTY_ART[id]||{}, v=A.victory||A.spell;
+    if(v){ const f=A.victory?v.f:v.f.slice(4,7), i=Math.floor(G.t/(A.victory?80:160))%f.length;
+      partyFrame(f[i],v.ax,v.ay,x,y-(A.victory?0:Math.abs(Math.sin(G.t/240))*5)); return; } }
+  if(kind==='spell'){ const a=PARTY_ART[id].spell;
+    partyFrame(a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y); return; }
   if(kind==='lunge'){ const a=PARTY_ART[id]&&PARTY_ART[id].attack;
     if(a) partyFrame(a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y);
     else drawReady(id,x,y,B.anim.t+1500);                       /* the strike part of the loop */
@@ -471,9 +489,6 @@ function drawSpellFx(kind,k,ax,ay){
     const bo=Math.abs(Math.sin(G.t/180))*4;
     drawFrog(b,ax+34,ay-26-bo,G.t,0);
   } else if(kind==='kick'||kind==='lunge'){
-    if(k<0.5) for(let i=0;i<5;i++){
-      const dx=ax+k*2*92-i*13;
-      px(b,Math.round(dx),Math.round(ay-3-(i%2)*5),5,3,'#c9b48a'); }
     if(k>0.48&&k<0.72){
       const s=(k-0.48)/0.24;
       for(let i=0;i<11;i++){
@@ -495,6 +510,16 @@ function drawSpellFx(kind,k,ax,ay){
       const y=ay-((k*120+i*14)%120), x=ax+Math.sin(i*1.7+G.t/300)*26;
       b.globalAlpha=Math.min(1,(ay-y)/30)*0.9; px(b,Math.round(x),Math.round(y),3,3,i%2?'#e8fff0':'#bfe8ff'); }
     b.globalAlpha=1;
+  } else if(kind==='spell'){
+    /* venom magic: purple motes gather round them, then (for an attack) fly at the foe */
+    const heal=B.anim&&B.anim.heal;
+    for(let i=0;i<10;i++){ const a=i*0.63+G.t/250, r=18+Math.sin(G.t/200+i)*6;
+      b.globalAlpha=Math.sin(Math.min(1,k*1.4)*Math.PI)*0.85;
+      px(b,Math.round(ax+Math.cos(a)*r),Math.round(ay-14+Math.sin(a)*r*0.5),3,3,heal?(i%2?'#c8f0b0':'#e8fff0'):(i%2?'#b06ae0':'#e0b0ff')); }
+    b.globalAlpha=1;
+    if(!heal&&k>0.45&&k<0.75){ const q=(k-0.45)/0.3;
+      for(let i=0;i<5;i++){ const x=ax+(EX-ax)*q+Math.sin(i*1.7+q*6)*6, y=ay-14+(EY+20-ay+14)*q-Math.sin(q*Math.PI)*24+i*3;
+        b.fillStyle='#8a3ac8'; b.beginPath(); b.arc(x,y,3.4,0,7); b.fill(); b.fillStyle='#e0b0ff'; b.beginPath(); b.arc(x-1,y-1,1.4,0,7); b.fill(); } }
   } else if(kind==='eat'){
     for(let i=0;i<7;i++){
       const y=ay-60-k*50-i*6, x=ax+Math.sin(i*2.1)*22;
@@ -553,8 +578,26 @@ function TS(t,x,y,size,col,align,bold){ T(t,x+0.8,y+0.8,size,'#0a0f2a',align,bol
 function TO(t,x,y,size,col,align,bold,w){ const o=w||1.2;
   for(const [dx,dy] of [[-o,0],[o,0],[0,-o],[0,o],[-o,-o],[o,o],[-o,o],[o,-o]]) T(t,x+dx,y+dy,size,'#1a1430',align,bold);
   T(t,x,y,size,col,align,bold); }
+/* The season's painted backdrop (backdrops/<season>), placed so where its lawn begins
+   (BACK_HORIZON, a share of its height) lines up with HORIZON, and big enough to
+   cover the whole scene. Until it loads, a drawn one stands in. */
+const BACK_HORIZON={spring:0.50,summer:0.53,fall:0.53,winter:0.57}, BACK_IMG={};
+function backdropImg(){
+  const s=season(); if(typeof BACKDROPS==='undefined'||!BACKDROPS.includes(s)) return null;
+  if(!BACK_IMG[s]){ BACK_IMG[s]=new Image(); BACK_IMG[s].src='assets/scenes/backdrop_'+s+'.jpg'; }
+  return BACK_IMG[s].complete&&BACK_IMG[s].naturalWidth?BACK_IMG[s]:null;
+}
 function drawBattleBackdrop(dt){
-  const P=BACKDROP[season()]||BACKDROP.spring, T0=BAND_TOP(), T1=BAND_BOT();
+  const P=BACKDROP[season()]||BACKDROP.spring, T0=BAND_TOP(), T1=BAND_BOT(), im=backdropImg();
+  if(im){
+    const f=BACK_HORIZON[season()]||0.5, r=im.naturalWidth/im.naturalHeight;
+    const h=Math.max((T1-HORIZON)/(1-f),(HORIZON-T0)/f,LW/r), w=h*r;
+    b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,(LW-w)/2,HORIZON-f*h,w,h); b.restore();
+  } else drawnBackdrop(P,T0,T1);
+  backdropLife(P,T0,T1,dt);
+}
+/* the stand-in: sky, clouds, trees, hedge and a striped lawn */
+function drawnBackdrop(P,T0,T1){
   const sky=b.createLinearGradient(0,T0,0,HORIZON);
   sky.addColorStop(0,P.sky[0]); sky.addColorStop(1,P.sky[1]);
   b.fillStyle=sky; b.fillRect(0,T0,LW,HORIZON-T0);
@@ -575,6 +618,9 @@ function drawBattleBackdrop(dt){
   b.fillStyle=gr; b.fillRect(0,HORIZON+8,LW,T1-HORIZON-8);
   b.fillStyle='rgba(255,255,255,.05)';
   for(let i=0,y=HORIZON+10;y<T1;i++){ const hgt=4+i*3; if(i%2===0) b.fillRect(0,y,LW,hgt); y+=hgt; }
+}
+/* over either backdrop: light where everyone stands, drifting petals/leaves/snow, the hour */
+function backdropLife(P,T0,T1,dt){
   /* light pools where the pest and each of the party stand */
   b.fillStyle='rgba(255,255,240,.16)';
   b.beginPath(); b.ellipse(EX,EY+54,62,14,0,0,7); b.fill();
@@ -669,7 +715,7 @@ function drawStatusTags(){
     if(L.length) tag(s.x,s.y-(id==='kaitlyn'?138:58),L); });
   const F=B.foe, L=[];
   if(F.poison) L.push(["PSN",STATUS.poison.col]); if(F.bound) L.push(["BND",STATUS.bound.col]);
-  if(F.weak) L.push(["WK",STATUS.weak.col]); if(F.guard) L.push(["GRD",'#3a8a5a']); if(F.charge) L.push(["!!",'#d84a3a']);
+  if(F.weak) L.push(["WK",STATUS.weak.col]); if(F.sleep) L.push(["SLP",STATUS.sleep.col]); if(F.guard) L.push(["GRD",'#3a8a5a']); if(F.charge) L.push(["!!",'#d84a3a']);
   if(L.length&&!B.over) tag(EX,EY-58,L);
 }
 function drawBattle(dt){
@@ -697,14 +743,10 @@ function drawBattle(dt){
   drawEnemyArt(b,B.species,EX+sh+eL,EY+52+bob+eY-(night?8:0),1);
   b.globalAlpha=1;
   if(B.flash>0){ b.globalAlpha=B.flash/600; px(b,EX-52,EY-40,104,96,'#ffffff'); b.globalAlpha=1; }
-  /* the party, back to front; whoever is acting steps toward the pest */
+  /* the party, back to front, each in place playing their own animations */
   let who=null;
   const placed=B.party.map(id=>{ const s=slotOf(id); let x=s.x;
     if(B.anim&&B.anim.who===id){
-      if(B.anim.kind==='kick'||B.anim.kind==='lunge'){
-        const run=k<0.5?(k/0.5):1-((k-0.5)/0.5);
-        x=s.x+Math.pow(run,0.8)*Math.max(30,132-s.x);
-      } else if(B.anim.kind!=='enemy') x=s.x+Math.sin(k*Math.PI)*8;
       who={id,x,y:s.y};
     }
     return {id,x,y:s.y}; }).sort((a,z)=>a.y-z.y);
@@ -720,7 +762,7 @@ function drawBattle(dt){
   else if(B.anim&&who) drawSpellFx(B.anim.kind,k,who.x,who.y);
   drawStatusTags();
   if(B.shout){ B.shout.t-=dt; if(B.shout.t<=0) B.shout=null; }
-  const won=B.over==='win'&&B.win, xs=won?xpShown():null;
+  const won=B.over==='win'&&B.win, xs=won?xpShown(B.win.who[0]):null;
   /* victory sparkles */
   if(won&&B.win.t<1600&&Math.random()<dt/40)
     B.fx.push({x:rnd(30,330),y:rnd(40,200),vx:rnd(-0.02,0.02),vy:rnd(-0.06,-0.01),t:700,col:Math.random()<0.5?'#ffe08a':'#ffffff',g:0.00005});
@@ -745,9 +787,9 @@ function drawBattle(dt){
       if(pick) winCursor(W.cmd.x+6,cmdTop(W)+B.idx*CMD_ROW,W.cmd.w-12,CMD_ROW-2);
     }
   } else if(won){
-    rpgWin({x:20,y:250+dn,w:320,h:190});
-    gauge(40,334+dn,280,9,xs.xp,xs.next,'#f0c84a','#fff0b0');
-    if(B.win.seed) drawShopPic(SPECIES[B.win.seed].name.toLowerCase()+" seed",52,392+dn,18,24);
+    rpgWin({x:20,y:VW.y+dn,w:320,h:VW.h});
+    B.win.who.forEach((id,i)=>{ const x=xpShown(id); gauge(40,VW.y+dn+VW.row0+i*VW.step+20,280,8,x.xp,x.next,'#f0c84a','#fff0b0'); });
+    if(B.win.seed) drawShopPic(SPECIES[B.win.seed].name.toLowerCase()+" seed",52,VW.y+dn+VW.h-22,18,24);
   } else rpgWin({x:60,y:300+dn,w:240,h:84});
   blit();
 
@@ -763,9 +805,9 @@ function drawBattle(dt){
         R.x+R.w/2,R.y+SUB_Y0+30,17,'#aab6e8','center');
       L.slice(B.top,B.top+SUB_ROWS).forEach((x,j)=>{ const i=B.top+j, y=R.y+SUB_Y0+j*SUB_ROW+16.5, sel=i===B.sub;
         if(B.menu==='items'){
-          TS(SPECIES[x].name,R.x+40,y,21,'#f4f6ff',null,sel);
-          TS(eatText(x),R.x+200,y,16,'#b8f0a0');
-          TS("x"+G.crops[x],R.x+R.w-12,y,18,'#f4f6ff','right');
+          TS(itemName(x),R.x+40,y,21,'#f4f6ff',null,sel);
+          TS(itemText(x),R.x+200,y,16,'#b8f0a0');
+          TS("x"+itemCount(x),R.x+R.w-12,y,18,'#f4f6ff','right');
         } else { const ok=member(id).mp>=x.mp;
           TS(x.name,R.x+40,y,21,ok?'#f4f6ff':'#7c84b0',null,sel);
           TS(x.mp+" MP",R.x+R.w-12,y,18,ok?'#a8d8ff':'#7c84b0','right'); } });
@@ -805,20 +847,22 @@ function drawBattle(dt){
     m.globalAlpha=1;
   }
   if(won){
-    const w=B.win, up=xs.lv>w.from.lv, pop=clamp(w.t/280,0,1);
+    const w=B.win, pop=clamp(w.t/280,0,1);
     /* the banner drops in and settles */
     const size=Math.round(58+(1-pop)*30), by=96-(1-pop)*20;
     m.globalAlpha=pop; TO("VICTORY!",180,by,size,'#ffd24a','center',true,2.2);
     T("VICTORY!",180,by-size*0.04,size,'rgba(255,250,210,.35)','center',true); m.globalAlpha=1;
-    TS("EXP",40,278+dn,20,'#c8d4ff',null,true); TS("+"+Math.round(w.xp*xs.k),320,278+dn,22,'#ffe08a','right',true);
-    TS("Coins",40,300+dn,20,'#c8d4ff',null,true); TS("+"+Math.round(w.coins*xs.k)+"c",320,300+dn,22,'#ffe08a','right',true);
-    TS("Kaitlyn  Lv."+xs.lv,40,327+dn,20,'#f4f6ff',null,true);
-    if(up&&Math.floor(G.t/240)%2===0) TS("LEVEL UP!",168,327+dn,19,'#ffb04a',null,true);
-    TS(xs.xp+" / "+xs.next,320,327+dn,17,'#c8d4ff','right');
-    TS((xs.next-xs.xp)+" EXP to the next level",180,358+dn,17,'#aab6e8','center');
-    if(w.seed) TS("Found: "+SPECIES[w.seed].name+" seed!",70,397+dn,20,'#b8f0a0',null,true);
-    else TS("No seeds this time.",180,397+dn,18,'#8a94c4','center');
-    if(!winGuard()&&Math.floor(G.t/500)%2===0) TS(IS_TOUCH?"tap or press A to continue":"J / tap to continue",180,428+dn,17,'#c8d4ff','center');
+    const y0=VW.y+dn;
+    TS("EXP",40,y0+24,20,'#c8d4ff',null,true); TS("+"+Math.round(w.xp*xs.k)+" each",320,y0+24,20,'#ffe08a','right',true);
+    TS("Coins",40,y0+46,20,'#c8d4ff',null,true); TS((w.bonus?"lucky!  ":"")+"+"+Math.round(w.coins*xs.k)+"c",320,y0+46,20,'#ffe08a','right',true);
+    TS("You have "+(G.coins-w.coins+Math.round(w.coins*xs.k))+"c",320,y0+64,16,'#aab6e8','right');
+    w.who.forEach((id,i)=>{ const x=xpShown(id), f=w.from[id], y=y0+VW.row0+i*VW.step+14;
+      TS(PARTY_INFO[id].name+"  Lv."+x.lv,40,y,19,'#f4f6ff',null,true);
+      if(x.lv>f.lv&&Math.floor(G.t/240)%2===0) TS("LEVEL UP!",175,y,17,'#ffb04a',null,true);
+      TS(x.xp+" / "+x.next,320,y,15,'#c8d4ff','right'); });
+    if(w.seed) TS("Found: "+SPECIES[w.seed].name+" seed!",70,y0+VW.h-16,19,'#b8f0a0',null,true);
+    else TS("No seeds this time.",180,y0+VW.h-16,17,'#8a94c4','center');
+    if(!winGuard()&&Math.floor(G.t/500)%2===0) TS(IS_TOUCH?"tap or press A to continue":"J / tap to continue",180,y0+VW.h+20,17,'#c8d4ff','center');
     return;
   }
   if(B.over){

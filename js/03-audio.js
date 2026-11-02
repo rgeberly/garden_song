@@ -96,12 +96,21 @@ const THEME={prog:[[2,6,9],[-5,-1,2],[-1,2,6],[-3,1,4]]};
 /* recorded themes, cross-faded */
 const TRACKS={}; let curTrack=null, musicOn=false;
 const TRACK_VOL={title:0.55,calm:0.42,battle:0.5,boss:0.55};
-function initMusic(){
-  if(musicOn) return; musicOn=true;
-  for(const k in ASSET_MUS){
-    try{ const a=new Audio(ASSET_MUS[k]); a.loop=true; a.volume=0; a.preload='auto'; TRACKS[k]=a; }
-    catch(e){}
-  }
+function initMusic(){ musicOn=true; }
+/* a track is fetched the first time it's wanted (there are a lot of them now); all
+   loop but the victory fanfare */
+function trackFor(k){
+  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=new Audio(ASSET_MUS[k]); a.loop=k!=='victory'; a.volume=0; a.preload='auto'; TRACKS[k]=a; }catch(e){} }
+  return TRACKS[k];
+}
+/* the music for where she is and the season: the garden and home (spring keeps the
+   original calm theme), the village, and the mountain (one theme for spring and summer,
+   one for fall and winter) */
+function areaMusic(){
+  const s=season();
+  if(G.area==='town') return s+'_village';
+  if(G.area==='mountain') return s==='spring'||s==='summer'?'springsummer_mountain':'fallwinter_mountain';
+  return s==='spring'?'calm':s+'_garden';
 }
 function fadeTo(a,target,done){
   if(!a) return;
@@ -117,7 +126,7 @@ function setMusic(mode){
   const old=TRACKS[curTrack];
   if(old) fadeTo(old,0,()=>{ try{old.pause();}catch(e){} });
   curTrack=mode;
-  const a=TRACKS[mode];
-  if(a){ try{ a.volume=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+  const a=trackFor(mode);
+  if(a){ try{ a.volume=0; if(mode==='victory') a.currentTime=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
          fadeTo(a,TRACK_VOL[mode]||0.45); }
 }

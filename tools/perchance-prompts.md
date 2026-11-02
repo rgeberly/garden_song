@@ -2,6 +2,7 @@
 
 Generator: https://perchance.org/neonewgenerator. Save each image under the name shown, inside the
 art folder (`kaitlyns-garden-song-art`). I'll run `tools/build_art.py` and wire them in.
+JPEG is fine too: `Baby radish.jpeg` works just like `Baby radish.png`.
 
 ## New crops: Art Style **No style**, Shape **Square**
 

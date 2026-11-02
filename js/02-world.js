@@ -101,6 +101,14 @@ function plantHeight(p){
   const a=CROP_ART[p.stage===0?'sprout':CROP_STAGE[p.stage]+' '+SPECIES[p.sp].name.toLowerCase()];
   return a?a.ay*CROP_STAGE_SCALE[p.stage]/SC:14;
 }
+/* Front layers (maps/<season>_front, maps/house_front): transparent pictures of the parts of
+   a map she walks behind, drawn over her; each loads the first time it's wanted. */
+const FRONT_IMG={};
+function frontImg(key){
+  if(typeof FRONT_LAYERS==='undefined'||!FRONT_LAYERS.includes(key)) return null;
+  if(!FRONT_IMG[key]){ FRONT_IMG[key]=new Image(); FRONT_IMG[key].src='assets/sprites/front_'+key+'.webp'; }
+  return FRONT_IMG[key].complete&&FRONT_IMG[key].naturalWidth?FRONT_IMG[key]:null;
+}
 /* a soft golden glow that breathes behind a plant that has had its song today */
 function drawSungGlow(c,p,x,y){
   const h=Math.max(14,plantHeight(p)), cy=y-h*0.45, r=h*0.62+8, a=0.32+Math.sin(G.t/520+p.x)*0.1;

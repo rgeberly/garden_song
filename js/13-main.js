@@ -24,6 +24,7 @@ function drawTitle(){
   T(IS_TOUCH?"move: stick    act: A    back: B":"move: stick / WASD    act: A / J / space    back: H / esc",
     180,464,20,'#8fae86','center');
 }
+const AREA_SCENES=['world','sys','shop','menu','tshop','ask','fishing','story','levelup'];
 let last=performance.now();
 function loop(now){
   const dt=Math.min(50,now-last); last=now; G.t+=dt;
@@ -36,6 +37,8 @@ function loop(now){
   if(G.scene==='world'||G.scene==='story') updateBling(dt);
   if(G.scene==='world'&&LV_UPS.length){ G.scene='levelup'; lvT=0; padVec={x:0,y:0}; padId=null; }
   padRepeat(dt);
+  /* out and about (and in the menus over it), the music follows the place and season */
+  if(musicOn&&AREA_SCENES.includes(G.scene)) setMusic(areaMusic());
   /* the garden scenes use the whole screen; the others sit centred in it */
   const off=sceneOff();
   m.setTransform(1,0,0,1,0,0); m.fillStyle='#141c14'; m.fillRect(0,0,LW*SC,SCREEN_H*SC);

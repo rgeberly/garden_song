@@ -33,7 +33,18 @@ const HOUSE_SOLID=[
 ];
 /* where the music stand stands (feet, painting px) */
 const HOUSE_STAND={x:320,y:512};
+/* the walls as a mask (maps/house_collision: black = blocked, for her feet), once loaded;
+   until then the rectangles above */
+let HOUSE_COL=null;
+if(typeof HOUSE_MASK!=='undefined'&&HOUSE_MASK){ const im=new Image();
+  im.onload=()=>{ const c=document.createElement('canvas'); c.width=HOUSE.w; c.height=HOUSE.h;
+    const g=c.getContext('2d'); g.drawImage(im,0,0,HOUSE.w,HOUSE.h);
+    const d=g.getImageData(0,0,HOUSE.w,HOUSE.h).data; HOUSE_COL=new Uint8Array(HOUSE.w*HOUSE.h);
+    for(let i=0;i<HOUSE_COL.length;i++) HOUSE_COL[i]=d[i*4]>128?0:1; };
+  im.src='assets/sprites/house_collision.png'; }
 function houseSolid(x,y){
+  if(HOUSE_COL){ const xi=x|0, yi=y|0;
+    return xi<0||yi<0||xi>=HOUSE.w||yi>=HOUSE.h||HOUSE_COL[yi*HOUSE.w+xi]===1; }
   const F=HOUSE_FLOOR;
   if(x<F.x0||x>F.x1||y<F.y0) return true;
   if(y>F.y1&&Math.abs(x-HOUSE.door.x)>28) return true;     /* the front wall, but for the doorway */
@@ -118,6 +129,7 @@ function drawHouse(){
   const bl=blingHere();
   if(bl&&bl.inside) ents.push({y:bl.y,f:()=>drawBlingMap(b,bl.x*k,cam.top+(bl.y-cam.y)*k,BLING_W*HOUSE_KAIT,bl.mood,false,false)});
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
+  const fr=frontImg('house'); if(fr) b.drawImage(fr,0,cam.top-cam.y*k,LW,HOUSE.h*k);   /* what she walks behind */
   b.restore();
   drawClockBack(); drawBuffsBack();
   blit();

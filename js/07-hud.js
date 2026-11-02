@@ -13,24 +13,16 @@ function drawHUD(){
   b.save(); b.translate(0,EXTRA); m.save(); m.translate(0,EXTRA*SC);
   px(b,0,HUD_Y,LW,LH-HUD_Y,'#2b241c'); px(b,0,HUD_Y,LW,3,'#4a3d2e');
   px(b,0,357,LW,2,'#4a3d2e');
-  bar(57,HUD_Y+9,96,10,G.player.hp,G.player.maxhp,'#e04a4a','#5a2828');
-  bar(57,HUD_Y+25,96,9,G.player.mp,maxMp(),'#4aa8e0','#20415a');
-  bar(57,HUD_Y+40,96,7,G.player.xp,G.player.next,'#e8c34a','#5a4a20');
   px(b,SYS.x,SYS.y,SYS.w,SYS.h,'#4a3d2e');
   for(let i=0;i<3;i++) px(b,SYS.x+9,SYS.y+7+i*6,18,3,'#cdbfa6');
   blit();
   drawControls();
   if(G.msgT>0){ m.fillStyle='#1c1610'; m.fillRect(6*SC,366*SC,(LW-12)*SC,22*SC); }
-  T("Lv."+G.player.lv,9,HUD_Y+19,28,'#f0e6d2');
-  T("HP",46,HUD_Y+19,22,'#f0a0a0','right');
-  T("MP",46,HUD_Y+34,22,'#8fd0f0','right');
-  T("XP",46,HUD_Y+47,22,'#e8c34a','right');
-  T(G.player.hp+"/"+G.player.maxhp,159,HUD_Y+19,22,'#cdbfa6');
-  T(G.player.mp+"/"+maxMp(),159,HUD_Y+34,22,'#8fd0f0');
-  T("Garden "+G.gardenLv,225,HUD_Y+19,25,'#f0e6d2');
-  T(G.coins+"c",225,HUD_Y+37,28,'#e8c34a',null,true);
+  /* party HP, MP and EXP live in the menu; out here just the garden and the purse */
+  T("Garden lvl "+G.gardenLv,14,HUD_Y+21,26,'#f0e6d2',null,true);
+  T(G.coins+"c",14,HUD_Y+45,28,'#e8c34a',null,true);
   const h=harmony();
-  if(h>1.001) T("Harmony x"+h.toFixed(2),225,HUD_Y+50,20,'#8fe07a');
+  if(h>1.001) T("Harmony x"+h.toFixed(2),170,HUD_Y+21,22,'#8fe07a');
   if(G.msgT>0){ m.globalAlpha=Math.min(1,G.msgT/400);
     T(G.msg,14,381,23,'#f7f0dc'); m.globalAlpha=1; }
   b.restore(); m.restore();

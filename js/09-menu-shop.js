@@ -10,7 +10,7 @@ let shop={tab:0,idx:0,page:0,confirm:null};
 /* opens on Sell when she is carrying a harvest */
 function openShop(){
   shopArtImg();
-  shop={tab:cropList().length||goodsList().length?3:0,idx:0,page:0,confirm:null}; G.scene='shop';
+  shop={tab:cropList().length||sellGoods().length?3:0,idx:0,page:0,confirm:null}; G.scene='shop';
 }
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
@@ -29,14 +29,14 @@ function shopItems(){
       desc:"Sells for "+sellPrice(sp)+"c each. Or eat it: "+eatText(sp)+".",
       note:"you have x"+n,btn:"Sell 1  ·  "+sellPrice(sp)+"c"}; })
     /* forage and fish (GOODS) sell here too */
-    .concat(goodsList().map(k=>({type:'good',id:k,sell:true,name:GOODS[k].name,cost:goodsPrice(k),art:{good:k},
+    .concat(sellGoods().map(k=>({type:'good',id:k,sell:true,name:GOODS[k].name,cost:goodsPrice(k),art:{good:k},
       desc:"Sells for "+goodsPrice(k)+"c each."+(GOODS[k].eat?" Or eat it.":""),note:"you have x"+G.goods[k],btn:"Sell 1  ·  "+goodsPrice(k)+"c"})));
-  if(l.length){ const n=cropList().reduce((a,sp)=>a+G.crops[sp],0)+goodsList().reduce((a,k)=>a+G.goods[k],0), total=sellAllTotal();
+  if(l.length){ const n=cropList().reduce((a,sp)=>a+G.crops[sp],0)+sellGoods().reduce((a,k)=>a+G.goods[k],0), total=sellAllTotal();
     l.push({type:'sellall',sell:true,name:"Sell all",cost:total,art:{shop:'harvest basket'},
       desc:"Sell all "+n+" things you are carrying.",btn:"Sell all  ·  "+total+"c"}); }
   return l;
 }
-const sellAllTotal=()=>cropList().reduce((a,sp)=>a+sellPrice(sp)*G.crops[sp],0)+goodsList().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
+const sellAllTotal=()=>cropList().reduce((a,sp)=>a+sellPrice(sp)*G.crops[sp],0)+sellGoods().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
 function sellCrop(sp,n){
   const k=Math.min(n,G.crops[sp]||0); if(!k) return 0;
   G.crops[sp]-=k; if(G.crops[sp]<=0) delete G.crops[sp];
@@ -44,7 +44,7 @@ function sellCrop(sp,n){
 }
 function sellAll(){
   let got=0, n=0; cropList().forEach(sp=>{ n+=G.crops[sp]; got+=sellCrop(sp,G.crops[sp]); });
-  goodsList().forEach(k=>{ const v=goodsPrice(k)*G.goods[k]; n+=G.goods[k]; got+=v; G.coins+=v; delete G.goods[k]; });
+  sellGoods().forEach(k=>{ const v=goodsPrice(k)*G.goods[k]; n+=G.goods[k]; got+=v; G.coins+=v; delete G.goods[k]; });
   say("Sold "+n+" things for "+got+"c!"); coinChime(); autoSave();
 }
 function coinChime(){ if(AC){ flute(14,AC.currentTime,.18,.5); flute(19,AC.currentTime+.08,.3,.5); } }
@@ -71,7 +71,7 @@ function doBuy(){
   if(!it||G.coins<it.cost) return;
   G.coins-=it.cost;
   if(it.type==='seed'){ G.seeds[it.id]=(G.seeds[it.id]||0)+1; say("Bought a "+SPECIES[it.id].name+" seed."); }
-  else if(it.type==='coffee'){ G.coffeeT=120000; say("Coffee! Speed boost for 2 minutes."); }
+  else if(it.type==='coffee'){ addGood('coffee'); say("Coffee's in your bag. Drink it from the menu's Items."); }
   else if(it.type==='gear'){ G.gear[it.id]=true; say(it.name+" — "+it.desc);
     if(it.id==='cloth') G.player.mp=maxMp();
     if(it.id==='silver'&&G.flute==='recorder') G.flute='silver';

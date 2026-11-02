@@ -15,7 +15,8 @@ where the full-size originals live) holds
     party/<Name>-attack-spritesheet.png  their attack, same layout
     party/<Name>-portrait.png            their face for menus and conversations
     scenes/<name>.png                    full pictures shown in story scenes
-Pictures may have a white background: white touching the edge of the picture is
+Pictures can be PNG or JPEG (animation sheets must be PNG, for their transparency) and
+may have a white background: white touching the edge of the picture is
 removed (light grey shadows on it become see-through shadows). Each picture is
 trimmed, shrunk to game size and packed into
     assets/sprites/crops.png        crops, soil and the stand
@@ -65,6 +66,22 @@ ENEMIES = {'dung beetle': ('beetle', 190), 'paper wasp': ('wasp', 220), 'garden 
 PORTRAIT_H = 312        # Kaitlyn's portrait.png height, in px
 STANCE_HOLE = 400       # white showing through a coil of a battle stance is background too
 SCENE_W = 1080          # story pictures fill the 360-wide screen at 3 device px each
+
+
+PIC_EXT = ('.png', '.jpg', '.jpeg')
+
+
+def pics(folder):
+    """Every picture (PNG or JPEG) in a folder of the art folder."""
+    return sorted(f for f in glob.glob(os.path.join(SRC, folder, '*.*'))
+                  if os.path.splitext(f)[1].lower() in PIC_EXT and '-spritesheet' not in f.lower())
+
+
+def find_pic(base):
+    """base + .png/.jpg/.jpeg, whichever exists (or None)."""
+    for e in PIC_EXT:
+        if os.path.exists(base + e): return base + e
+    return None
 
 
 def load(path):
@@ -205,7 +222,7 @@ def main():
         im = shrink(trim(remove_white(a, CROP_HOLE if group in CROP_GROUPS else 0)), s)
         ax, ay = foot(im)
         crops.append((key, im)); meta[key] = {'ax': ax, 'ay': ay}
-    for f in sorted(glob.glob(os.path.join(SRC, 'crops', '*.png'))):
+    for f in pics('crops'):
         base = os.path.splitext(os.path.basename(f))[0].lower()
         if base == 'sprout': add('sprout', f, 'sprout')
         elif base == 'damaged plant': add('damaged', f, 'damaged')
@@ -218,7 +235,7 @@ def main():
         p = os.path.join(SRC, name)
         if os.path.exists(p): add(key, p, group)
     for key, (item, h) in DECOR.items():
-        hits = [f for f in glob.glob(os.path.join(SRC, 'shop items', '*.png'))
+        hits = [f for f in pics('shop items')
                 if os.path.splitext(os.path.basename(f))[0].strip().lower() == item]
         if not hits: continue
         im = trim(remove_white(load(hits[0]), SHOP_HOLES.get(item, 0)))
@@ -229,7 +246,7 @@ def main():
     for k in meta: meta[k]['r'] = pos[k]
 
     shop, smeta = [], {}
-    for f in sorted(glob.glob(os.path.join(SRC, 'shop items', '*.png'))):
+    for f in pics('shop items'):
         name = os.path.splitext(os.path.basename(f))[0].strip().lower()
         im = trim(remove_white(load(f), SHOP_HOLES.get(name, 0)))
         im = shrink(im, SHOP_BOX / max(im.shape[:2]))
@@ -268,23 +285,24 @@ def main():
         for i, x in enumerate(box): pframes.append((name + ' %d' % i, shrink(x, sc)))
         ax, ay = round((x0 + x1) / 2 * sc), round(box[0].shape[0] * sc) - 1
         pmeta[name] = {'n': len(box), 'ax': ax, 'ay': ay}
-        still = os.path.join(SRC, 'party', name.capitalize() + '-battle.png')
-        if os.path.exists(still):
+        still = find_pic(os.path.join(SRC, 'party', name.capitalize() + '-battle'))
+        if still:
             im = trim(remove_white(load(still), STANCE_HOLE), 0)
             im = shrink(im, (x1 - x0) * sc / im.shape[1])
             pframes.append((name + ' stance', im))
             # its bottom-centre on the first ready frame's
             pmeta[name]['stance'] = {'ax': im.shape[1] // 2, 'ay': im.shape[0] - 1 + (round(box[0].shape[0] * sc) - round(y1 * sc))}
-        # the attack: its first frame is the resting pose, sized and grounded like the ready loop's
-        hit = os.path.join(SRC, 'party', name.capitalize() + '-attack-spritesheet.png')
-        if os.path.exists(hit):
+        # the attack and spell: their first frame is the resting pose, sized and grounded like the ready loop's
+        for move in ('attack', 'spell', 'victory'):
+            hit = os.path.join(SRC, 'party', name.capitalize() + '-' + move + '-spritesheet.png')
+            if not os.path.exists(hit): continue
             abox = grid_frames(hit)
             ax0, ay0, ax1, ay1 = bbox(abox[0])
             asc = size / ((ay1 - ay0) if how == 'h' else (ax1 - ax0))
-            for i, x in enumerate(abox): pframes.append((name + ' attack %d' % i, shrink(x, asc)))
-            pmeta[name]['attack'] = {'n': len(abox), 'ax': round((ax0 + ax1) / 2 * asc), 'ay': round(ay1 * asc) - 1}
-        face = os.path.join(SRC, 'party', name.capitalize() + '-portrait.png')
-        if os.path.exists(face):
+            for i, x in enumerate(abox): pframes.append((name + ' ' + move + ' %d' % i, shrink(x, asc)))
+            pmeta[name][move] = {'n': len(abox), 'ax': round((ax0 + ax1) / 2 * asc), 'ay': round(ay1 * asc) - 1}
+        face = find_pic(os.path.join(SRC, 'party', name.capitalize() + '-portrait'))
+        if face:
             im = trim(remove_white(load(face)), 0)
             cv2.imwrite(os.path.join(OUT, 'portrait_' + name + '.png'), shrink(im, PORTRAIT_H / im.shape[0]),
                         [cv2.IMWRITE_PNG_COMPRESSION, 9])
@@ -295,11 +313,12 @@ def main():
         for n, d in pmeta.items():
             d['ready'] = [ppos['%s %d' % (n, i)] for i in range(d.pop('n'))]
             if 'stance' in d: d['stance']['r'] = ppos[n + ' stance']
-            if 'attack' in d: d['attack']['f'] = [ppos['%s attack %d' % (n, i)] for i in range(d['attack'].pop('n'))]
+            for move in ('attack', 'spell', 'victory'):
+                if move in d: d[move]['f'] = [ppos['%s %s %d' % (n, move, i)] for i in range(d[move].pop('n'))]
 
     # enemies: background cleared, trimmed and sized for battle, standing on their bottom
     eframes, emeta = [], {}
-    for f in sorted(glob.glob(os.path.join(SRC, 'enemies', '*.*'))):
+    for f in pics('enemies'):
         name = os.path.splitext(os.path.basename(f))[0].strip().lower()
         if name not in ENEMIES: continue
         key, h = ENEMIES[name]
@@ -317,9 +336,66 @@ def main():
         for k in emeta: emeta[k]['r'] = epos[k]
         print('enemies.webp', esheet.shape[1], 'x', esheet.shape[0], '-', ', '.join(sorted(emeta)))
 
+    # battle backdrops (backdrops/<season>), the rhythm game's background and its four
+    # note gems (rhythm/background, rhythm/notes), and maps of other places
+    # (maps/<place>_<season>): JPEGs for the game, no wider than the screen needs
+    def save_jpg(src, out, maxw=SCENE_W):
+        a = load(src); s = min(1.0, maxw / a.shape[1])
+        im = shrink(a, s) if s < 1 else a
+        al = im[..., 3:4] / 255.0
+        cv2.imwrite(out, (im[..., :3] * al).astype(np.uint8), [cv2.IMWRITE_JPEG_QUALITY, 88])
+    os.makedirs(os.path.join(ROOT, 'assets', 'scenes'), exist_ok=True)
+    os.makedirs(os.path.join(ROOT, 'assets', 'places'), exist_ok=True)
+    backs = []
+    for f in pics('backdrops'):
+        k = os.path.splitext(os.path.basename(f))[0].lower(); backs.append(k)
+        save_jpg(f, os.path.join(ROOT, 'assets', 'scenes', 'backdrop_' + k + '.jpg'))
+    bg = find_pic(os.path.join(SRC, 'rhythm', 'background'))
+    if bg: save_jpg(bg, os.path.join(ROOT, 'assets', 'scenes', 'rhythm_bg.jpg'))
+    nmeta = []
+    gems = find_pic(os.path.join(SRC, 'rhythm', 'notes'))
+    if gems:
+        a = remove_white(load(gems), 0)
+        n, lab, st, _ = cv2.connectedComponentsWithStats((a[..., 3] > 128).astype(np.uint8), connectivity=8)
+        big = sorted(range(1, n), key=lambda i: -st[i, 4])[:4]
+        cells = []
+        for i in sorted(big, key=lambda i: st[i, 0]):           # left to right: one per lane
+            x, y, w, h = st[i, :4]
+            g = a[max(0, y - 2):y + h + 2, max(0, x - 2):x + w + 2]
+            cells.append(shrink(g, 96 / max(g.shape[:2])))
+        gsheet, gpos = pack([('gem %d' % i, c) for i, c in enumerate(cells)], width=512)
+        cv2.imwrite(os.path.join(OUT, 'notes.png'), gsheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        nmeta = [gpos['gem %d' % i] for i in range(len(cells))]
+    # walls: maps/garden_collision and maps/house_collision (black = blocked, white = open;
+    # any size, scaled to the game's masks)
+    gcol = find_pic(os.path.join(SRC, 'maps', 'garden_collision'))
+    if gcol:
+        m = cv2.imread(gcol, cv2.IMREAD_GRAYSCALE)
+        cv2.imwrite(os.path.join(OUT, 'map_collision.png'), np.where(cv2.resize(m, (360, 360), interpolation=cv2.INTER_AREA) > 128, 255, 0).astype(np.uint8))
+    hcol = find_pic(os.path.join(SRC, 'maps', 'house_collision'))
+    if hcol:
+        m = cv2.imread(hcol, cv2.IMREAD_GRAYSCALE)
+        cv2.imwrite(os.path.join(OUT, 'house_collision.png'), np.where(cv2.resize(m, (512, 768), interpolation=cv2.INTER_NEAREST) > 128, 255, 0).astype(np.uint8))
+    # front layers: maps/<season>_front and maps/house_front, transparent pictures of what
+    # Kaitlyn walks behind (tree tops, the roof...), drawn over her
+    fronts = []
+    for key in ('spring', 'summer', 'fall', 'winter', 'house'):
+        f = find_pic(os.path.join(SRC, 'maps', key + '_front'))
+        if not f: continue
+        a = load(f)
+        cv2.imwrite(os.path.join(OUT, 'front_' + key + '.webp'), a, [cv2.IMWRITE_WEBP_QUALITY, 90])
+        fronts.append(key)
+    pmaps = {}
+    for f in pics('maps'):
+        base = os.path.splitext(os.path.basename(f))[0].lower()
+        if '_' not in base or base.endswith(('_collision', '_front', '_draft')): continue
+        where, when = base.split('_', 1)
+        save_jpg(f, os.path.join(ROOT, 'assets', 'places', base + '.jpg'), 2160)
+        pmaps.setdefault(where, []).append(when)
+
     # story pictures: flattened onto black and saved as JPEG at screen width
     os.makedirs(os.path.join(ROOT, 'assets', 'scenes'), exist_ok=True)
-    for f in sorted(glob.glob(os.path.join(SRC, 'scenes', '*.png'))):
+    for f in pics('scenes'):
         a = load(f); s = SCENE_W / a.shape[1]
         im = shrink(a, s); al = im[..., 3:4] / 255.0
         flat = (im[..., :3] * al).astype(np.uint8)
@@ -336,6 +412,12 @@ def main():
         fh.write('const FX_ART=' + json.dumps({n: v for n, v in cmeta.items() if kind[n] == 'fx'}, separators=(',', ':')) + ';\n')
         fh.write('const PARTY_ART=' + json.dumps(pmeta, separators=(',', ':')) + ';\n')
         fh.write('const ENEMY_ART=' + json.dumps(emeta, separators=(',', ':')) + ';\n')
+        fh.write('const NOTE_ART=' + json.dumps(nmeta, separators=(',', ':')) + ';\n')
+        fh.write('const PLACE_MAPS=' + json.dumps(pmaps, separators=(',', ':')) + ';\n')
+        fh.write('const BACKDROPS=' + json.dumps(sorted(backs)) + ';\n')
+        fh.write('const RHYTHM_BG=' + ('true' if bg else 'false') + ';\n')
+        fh.write('const FRONT_LAYERS=' + json.dumps(fronts) + ';\n')
+        fh.write('const HOUSE_MASK=' + ('true' if hcol else 'false') + ';\n')
     print('crops.png', sheet.shape[1], 'x', sheet.shape[0], '-', len(crops), 'pictures:', ', '.join(sorted(meta)))
     print('shop_items.png', ssheet.shape[1], 'x', ssheet.shape[0], '-', len(shop), 'pictures')
     print('creatures.png', ', '.join('%s %d frames' % (n, len(v)) for n, v in cmeta.items()))

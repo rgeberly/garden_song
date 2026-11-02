@@ -159,6 +159,7 @@ const ALLY_SKILLS={
     {id:'constrict',name:"Constrict",  lv:3, mp:3, pow:0.9, bind:0.6, desc:"Squeeze for damage; may hold the foe still a turn"},
     {id:'shed',     name:"Shed Skin",  lv:6, mp:4, heal:0.4, cure:true, desc:"Heals 40% of HP and cures poison, blindness, weakness"},
     {id:'burst',    name:"Venom Burst",lv:9, mp:6, pow:1.1, burst:true, desc:"Strong strike; triple damage to a poisoned foe"},
+    {id:'hypno',    name:"Hypnosis",   lv:11,mp:5, sleep:0.75, desc:"Swaying eyes put the foe to sleep for 2-3 turns"},
   ],
 };
 const FIELD=[
