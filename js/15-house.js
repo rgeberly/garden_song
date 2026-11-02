@@ -85,6 +85,10 @@ function startPractice(){
 /* a little wooden music stand with a page of music on it */
 function drawStand(x,y,k){
   const s=k*2.4;
+  /* its picture (shop items/Music Stand), when there is one */
+  if(typeof SHOP_ART!=='undefined'&&SHOP_ART['music stand']){
+    b.fillStyle='rgba(20,12,4,.3)'; b.beginPath(); b.ellipse(x,y,9*s,3*s,0,0,7); b.fill();
+    if(drawShopPic('music stand',x,y-18*s,28*s,38*s)) return; }
   b.fillStyle='rgba(20,12,4,.3)'; b.beginPath(); b.ellipse(x,y,9*s,3*s,0,0,7); b.fill();
   b.strokeStyle='#5a3a1e'; b.lineWidth=1.6*s;
   b.beginPath(); b.moveTo(x,y-20*s); b.lineTo(x,y); b.moveTo(x-7*s,y); b.lineTo(x,y-6*s); b.lineTo(x+7*s,y); b.stroke();

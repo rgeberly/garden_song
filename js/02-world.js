@@ -14,7 +14,7 @@ const HOUSE_DOOR={x:F(.735),y:F(.245)};
 /* yard decorations once bought: fountain below the pool, lantern by the house's
    south-east corner, arch and bird bath on the lawn north of the stone rings */
 const DECOR_SPOT={fountain:[F(.479),F(.983)],lantern:[F(.906),F(.286)],
-                  arch:[F(.597),F(.344)],bath:[F(.736),F(.364)]};
+                  arch:[F(.475),F(.322)],bath:[F(.736),F(.364)]};   /* the arch frames the gap between the two bushes */
 /* their solid footprints: [dx,dy,radius] circles around the spot (the arch's two posts) */
 const DECOR_SOLID={fountain:[[0,-4,24]],lantern:[[0,0,10]],arch:[[-38,0,7],[38,0,7]],bath:[[0,0,9]]};
 const FROGS=[{x:F(.20),y:F(.76),k:0},{x:F(.78),y:F(.76),k:1},

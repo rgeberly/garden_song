@@ -12,6 +12,7 @@ function initAudio(){
     const n=AC.sampleRate*0.5; noiseBuf=AC.createBuffer(1,n,AC.sampleRate);
     const d=noiseBuf.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
   }catch(e){ AC=null; }
+  loadStems();               /* a key press counts too, not just a tap */
 }
 addEventListener('pointerdown',()=>{initAudio(); initSfx(); initMusic(); loadStems();
   if(AC&&AC.state==='suspended')AC.resume();},{passive:true});
@@ -120,6 +121,9 @@ function trackFor(k){
   }catch(e){} }
   return TRACKS[k];
 }
+/* The battle theme picks up where it left off from fight to fight, but starts over after
+   travelling somewhere new or a night's sleep; boss themes always start from the top. */
+function restartTrack(k){ const a=TRACKS[k]; if(a&&curTrack!==k){ try{ a.currentTime=0; }catch(e){} } }
 /* jump a track to its starting point (once it knows its length) */
 function cueTrack(a,k){
   const st=TRACK_START[k]||0; if(!st) return;
@@ -149,6 +153,6 @@ function setMusic(mode){
   if(old) fadeTo(old,0,()=>{ try{old.pause();}catch(e){} });
   curTrack=mode;
   const a=trackFor(mode);
-  if(a){ try{ a.volume=0; if(mode==='victory') a.currentTime=0; cueTrack(a,mode); const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+  if(a){ try{ a.volume=0; if(mode==='victory'||mode==='boss'||mode==='boss2') a.currentTime=0; cueTrack(a,mode); const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
          fadeTo(a,TRACK_VOL[mode]||0.45); }
 }

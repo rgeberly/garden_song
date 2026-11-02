@@ -93,7 +93,7 @@ function drawPopup(text,who){
 /* going from one place to another: footsteps over a fade to black and back (~2 s) */
 const TRAVEL_MS=1000;
 function travel(arrive){
-  playStory([{run:()=>playOne('walk_down',0.55)},{fade:'out',ms:TRAVEL_MS},{run:arrive},
+  playStory([{run:()=>playOne('walk_down',0.55)},{fade:'out',ms:TRAVEL_MS},{run:()=>{ arrive(); restartTrack('battle'); }},
              {fade:'in',ms:TRAVEL_MS},{run:()=>stopOne('walk_down')}]);
 }
 function place(x,y,dir){ const P=G.player; P.x=x; P.y=y; P.dir=dir; P.moving=false; P.walkT=0; G.swim=false; }

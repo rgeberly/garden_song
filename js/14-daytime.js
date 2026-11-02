@@ -39,34 +39,36 @@ function clockText(){
   const mins=Math.floor(G.clock)%MIDNIGHT, h=Math.floor(mins/60), mm=mins%60;
   return {h:((h+11)%12)+1, mm:String(mm).padStart(2,'0'), ap:h<12?'AM':'PM'};
 }
-/* a little cream tag in the bottom-right of the garden view */
-const CLOCK={w:84,h:27,x:LW-84-5};
+/* a cream tag in the bottom-right of the garden view, drawn at CK times its first size */
+const CK=1.5, CLOCK={w:84*CK,h:27*CK,x:LW-84*CK-5};
 const clockY=()=>VIEW_H-CLOCK.h-5;          /* bottom-right corner of the garden view */
 function drawClockBack(){
   const {x,w,h}=CLOCK, y=clockY();
   b.fillStyle='rgba(20,14,8,.35)';
-  b.beginPath(); b.roundRect(x+1,y+2,w,h,9); b.fill();
-  b.fillStyle='#2b1c12'; b.beginPath(); b.roundRect(x,y,w,h,9); b.fill();
-  b.fillStyle='#f3ead2'; b.beginPath(); b.roundRect(x+1.5,y+1.5,w-3,h-3,7.5); b.fill();
-  const hr=G.clock/60, cx=x+12, cy=y+h/2;
+  b.beginPath(); b.roundRect(x+1,y+2,w,h,9*CK); b.fill();
+  b.fillStyle='#2b1c12'; b.beginPath(); b.roundRect(x,y,w,h,9*CK); b.fill();
+  b.fillStyle='#f3ead2'; b.beginPath(); b.roundRect(x+1.5,y+1.5,w-3,h-3,7.5*CK); b.fill();
+  const hr=G.clock/60, cx=x+12*CK, cy=y+h/2;
+  b.save(); b.translate(cx,cy); b.scale(CK,CK);
   if(hr>=SUNRISE&&hr<SUNSET){                        /* sun */
     b.strokeStyle='#e8a03a'; b.lineWidth=1.2;
     for(let i=0;i<8;i++){ const a=i*Math.PI/4;
-      b.beginPath(); b.moveTo(cx+Math.cos(a)*5.5,cy+Math.sin(a)*5.5);
-      b.lineTo(cx+Math.cos(a)*7.5,cy+Math.sin(a)*7.5); b.stroke(); }
-    b.fillStyle='#f2c84b'; b.beginPath(); b.arc(cx,cy,4.2,0,7); b.fill();
+      b.beginPath(); b.moveTo(Math.cos(a)*5.5,Math.sin(a)*5.5);
+      b.lineTo(Math.cos(a)*7.5,Math.sin(a)*7.5); b.stroke(); }
+    b.fillStyle='#f2c84b'; b.beginPath(); b.arc(0,0,4.2,0,7); b.fill();
   } else {                                            /* crescent moon */
-    b.fillStyle='#7d8cc8'; b.beginPath(); b.arc(cx,cy,5.5,0,7); b.fill();
-    b.fillStyle='#f3ead2'; b.beginPath(); b.arc(cx+2.6,cy-1.8,4.6,0,7); b.fill();
+    b.fillStyle='#7d8cc8'; b.beginPath(); b.arc(0,0,5.5,0,7); b.fill();
+    b.fillStyle='#f3ead2'; b.beginPath(); b.arc(2.6,-1.8,4.6,0,7); b.fill();
   }
+  b.restore();
 }
 function drawClockText(){
   const {x}=CLOCK, y=clockY(), t=clockText();
   // the colon blinks once a game minute
   const colon=Math.floor(G.clock*2)%2===0||G.scene!=='world'?':':' ';
-  T(t.h+colon+t.mm,x+52,y+14,27,'#3a2a1a','right',true);
-  T(t.ap,x+54,y+14,17,'#7a6a4a','left',true);
-  T(SEASON_NAME[season()]+' · Day '+G.day,x+48,y+24,15,'#8a7a5a','center');
+  T(t.h+colon+t.mm,x+52*CK,y+14*CK,27*CK,'#3a2a1a','right',true);
+  T(t.ap,x+54*CK,y+14*CK,17*CK,'#7a6a4a','left',true);
+  T(SEASON_NAME[season()]+' · Day '+G.day,x+48*CK,y+24*CK,15*CK,'#8a7a5a','center');
 }
 
 /* ---------- sun, shadow and colour of the hour ---------- */
@@ -195,7 +197,7 @@ function doorstep(){
 }
 function wakeUp(){
   const before=season();
-  G.day++; G.clock=WAKE_AT; ripenPlants();
+  G.day++; G.clock=WAKE_AT; ripenPlants(); restartTrack('battle');   /* a new day's first fight starts its theme fresh */
   /* a night's sleep: everyone rested, and the pests have wandered off */
   G.party.forEach(id=>{ const M=member(id); M.hp=M.maxhp; M.mp=memberMaxMp(id); });
   G.pests=[];

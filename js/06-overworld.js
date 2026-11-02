@@ -28,7 +28,7 @@ function interact(){
   if(G.swim){ G.party.forEach(id=>member(id).mp=memberMaxMp(id)); say("Music Points fully restored!"); return; }
   const frog=nearestFrog();
   if(frog){
-    if(G.frogT<=0){ G.party.forEach(id=>member(id).hp=member(id).maxhp); G.frogT=G.gear.charm?12000:25000;
+    if(G.frogT<=0){ G.party.forEach(id=>member(id).hp=member(id).maxhp); G.frogT=gearOn('charm')?12000:25000;
       say(G.party.length>1?"A frog croaks a healing chord. Everyone's HP is full!":"A frog croaks a healing chord. HP full!");
       if(AC){flute(2,AC.currentTime,.7,.6);flute(9,AC.currentTime+.05,.8,.5);} }
     else say("The frog blinks sleepily.");
@@ -56,7 +56,7 @@ function harvestOne(plot){
 }
 function harvest(plot){
   let xp=0,n=0; const name=SPECIES[plot.sp].name;
-  if(G.gear.basket){
+  if(gearOn('basket')){
     plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage>=3&&plotArea(p)===plotArea(plot)){ xp+=harvestOne(p); n++; } });
   } else { xp=harvestOne(plot); n=1; }
   G.player.mp=Math.min(maxMp(),G.player.mp+2*n);
@@ -64,14 +64,15 @@ function harvest(plot){
   if(AC){flute(6,AC.currentTime,.3,.6);flute(11,AC.currentTime+.1,.35,.6);flute(14,AC.currentTime+.2,.5,.6);}
   autoSave();
 }
+/* the pests that can turn up now (ghosts only come out after dark) */
+const pestPool=()=>Object.keys(PESTS).filter(k=>!PESTS[k].boss&&PESTS[k].min<=G.gardenLv&&(!PESTS[k].night||isNight()));
 function spawnPest(){
   if(G.pests.length>=(G.lureT>0?5:3)) return;
   /* with nothing growing, pests still turn up now and then and just wander, so
      there is always a way to earn a few coins */
   const planted=plots.filter(p=>active(p)&&p.sp);
   if(!planted.length&&Math.random()>WANDER_SPAWN) return;
-  /* ghosts only come out after dark */
-  let pool=Object.keys(PESTS).filter(k=>!PESTS[k].boss&&PESTS[k].min<=G.gardenLv&&(!PESTS[k].night||isNight()));
+  const pool=pestPool();
   let sp=pool[ri(0,pool.length-1)];
   if(G.gardenLv>=5&&Math.random()<0.07) sp='hoa';
 
@@ -80,10 +81,12 @@ function spawnPest(){
       x=e===0?F(.12):e===1?F(.88):ri(F(.12),F(.88));
       y=e===2?F(.30):e===3?F(.72):ri(F(.30),F(.72));
   } while(solidAt(x,y)&&guard++<40);
-  G.pests.push({species:sp,x,y,target:planted.length?planted[ri(0,planted.length-1)]:null,hp:PESTS[sp].hp,chew:0});
+  const lv=pestLevel(sp);
+  G.pests.push({species:sp,lv,x,y,target:planted.length?planted[ri(0,planted.length-1)]:null,hp:pestStats(sp,lv).hp,chew:0});
   if(sp==='hoa') say("The HOA President is inspecting your yard!");
 }
-const WANDER_SPAWN=0.35;   /* chance a pest still comes when nothing is planted */
+const WANDER_SPAWN=0.35;
+const TIMID_GAP=3, TIMID_NEAR=90;   /* see updateWorld */   /* chance a pest still comes when nothing is planted */
 function wanderSpot(){
   let x,y,guard=0;
   do{ x=ri(F(.15),F(.85)); y=ri(F(.28),F(.72)); } while(solidAt(x,y)&&guard++<30);
@@ -102,7 +105,10 @@ function walk(dt,speed,blocked){
   const mm=Math.hypot(dx,dy);
   if(mm>0.15){
     dx/=mm; dy/=mm;
-    const mul=(G.gear.boots?1.35:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1)*(G.swim?0.62:1);
+    /* boosts (boots, coffee, a snack); on the touch pad they grow with how far it's pushed */
+    const boost=(gearOn('boots')?1.35:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1);
+    const onPad=padId!==null&&!(keys['w']||keys['a']||keys['s']||keys['d']||keys['arrowup']||keys['arrowdown']||keys['arrowleft']||keys['arrowright']);
+    const mul=(onPad?1+(boost-1)*padAmp:boost)*(G.swim?0.62:1);
     const sp=speed*mul*dt;
     const nx=P.x+dx*sp, ny=P.y+dy*sp;
     if(!blocked(nx,P.y)) P.x=nx;
@@ -140,8 +146,16 @@ function updateWorld(dt){
   const pestMul=(G.yard.lantern?1.4:1)*(G.calmT>0?2:1)*(G.lureT>0?0.5:1);
   G.pestTimer-=dt;
   if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul; spawnPest(); }
+  const meanLv=G.party.reduce((a,id)=>a+member(id).lv,0)/G.party.length;
   for(const p of G.pests){
     if(Math.hypot(p.x-P.x,p.y-(P.y+6))<20){ startBattle(p); return; }
+    /* a pest well below the party (more than TIMID_GAP levels) turns tail when she comes near */
+    const near=Math.hypot(p.x-P.x,p.y-P.y);
+    p.flee=!PESTS[p.species].boss&&(p.lv||PESTS[p.species].lv)<meanLv-TIMID_GAP&&near<TIMID_NEAR;
+    if(p.flee){ const fx=(p.x-P.x)/(near||1), fy=(p.y-P.y)/(near||1), sp=0.05*dt;
+      const nx=clamp(p.x+fx*sp,F(.06),F(.94)), ny=clamp(p.y+fy*sp,F(.2),F(.8));
+      if(!solidAt(nx,p.y)) p.x=nx; if(!solidAt(p.x,ny)) p.y=ny;
+      p.face=fx>0; p.roam=null; continue; }
     if(!p.target||!p.target.sp||!active(p.target)){
       const growing=plots.filter(q=>active(q)&&q.sp);
       p.target=growing.length?growing[ri(0,growing.length-1)]:null;
@@ -150,7 +164,7 @@ function updateWorld(dt){
     if(!p.target&&(!p.roam||Math.hypot(p.roam.x-p.x,p.roam.y-p.y)<6)) p.roam=wanderSpot();
     const goal=p.target||p.roam, ddx=goal.x-p.x, ddy=goal.y-p.y, d=Math.hypot(ddx,ddy)||1;
     const spd=(p.species==='hoa'?0.017:0.024)*(p.slow||1)*(p.target?1:0.6);
-    if(d>9||!p.target){ p.x+=ddx/d*spd*dt; p.y+=ddy/d*spd*dt; }
+    if(d>9||!p.target){ p.x+=ddx/d*spd*dt; p.y+=ddy/d*spd*dt; p.face=false; }
     else if(p.target.sp){
       p.chew+=dt;
       if(p.chew>1600){ p.chew=0;
@@ -172,9 +186,9 @@ function updateWorld(dt){
 /* The camera works in world px; the view shows LW/WORLD_ZOOM by VIEW_H/WORLD_ZOOM of
    them (VIEW_H grows on tall screens). */
 const VIEW_WW=LW/WORLD_ZOOM;
-function camera(){ const vh=VIEW_H/WORLD_ZOOM;
-  return {x:clamp(Math.round(G.player.x-VIEW_WW/2),0,WORLD_W-VIEW_WW),
-          y:clamp(Math.round(G.player.y-vh/2+15),0,WORLD_H-vh)}; }
+function camera(){ const vh=VIEW_H/WORLD_ZOOM, [W,H]=areaSize();
+  return {x:clamp(Math.round(G.player.x-VIEW_WW/2),0,W-VIEW_WW),
+          y:clamp(Math.round(G.player.y-vh/2+15),0,H-vh)}; }
 /* where a world point lands in the garden view, in logical screen px */
 const toView=(wx,wy,cam)=>[(wx-cam.x)*WORLD_ZOOM,(wy-cam.y)*WORLD_ZOOM];
 function drawWorld(){
@@ -202,7 +216,7 @@ function drawWorld(){
   Object.keys(DECOR_SPOT).forEach(id=>{ if(!G.yard[id])return;
     const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>drawDecor(b,id,x-cam.x,y-cam.y,G.t)}); });
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k)}));
-  G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t)}));
+  G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face)}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
   /* Bling, at her own size like Kaitlyn (the zoom undone around her) */
   const bl=blingHere();

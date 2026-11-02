@@ -15,16 +15,18 @@ function drawHUD(){
   px(b,0,357,LW,2,'#4a3d2e');
   px(b,SYS.x,SYS.y,SYS.w,SYS.h,'#4a3d2e');
   for(let i=0;i<3;i++) px(b,SYS.x+9,SYS.y+7+i*6,18,3,'#cdbfa6');
+  /* messages (EXP from practice, a harvest...) pop up in a blue box along the top */
+  const MB={x:6,y:HUD_Y+5,w:SYS.x-12,h:30}, ma=G.msgT>0?Math.min(1,G.msgT/400):0;
+  if(ma>0){ b.globalAlpha=ma; rpgWin(MB); b.globalAlpha=1; }
   blit();
   drawControls();
-  if(G.msgT>0){ m.fillStyle='#1c1610'; m.fillRect(6*SC,366*SC,(LW-12)*SC,22*SC); }
   /* party HP, MP and EXP live in the menu; out here just the garden and the purse */
-  T("Garden lvl "+G.gardenLv,14,HUD_Y+21,26,'#f0e6d2',null,true);
-  T(G.coins+"c",14,HUD_Y+45,28,'#e8c34a',null,true);
+  T("Garden lvl "+G.gardenLv,14,HUD_Y+51,24,'#f0e6d2',null,true);
+  T(G.coins+"c",150,HUD_Y+51,26,'#e8c34a',null,true);
   const h=harmony();
-  if(h>1.001) T("Harmony x"+h.toFixed(2),170,HUD_Y+21,22,'#8fe07a');
-  if(G.msgT>0){ m.globalAlpha=Math.min(1,G.msgT/400);
-    T(G.msg,14,381,23,'#f7f0dc'); m.globalAlpha=1; }
+  if(h>1.001) T("Harmony x"+h.toFixed(2),222,HUD_Y+51,20,'#8fe07a');
+  if(ma>0){ m.globalAlpha=ma; const L=wrapLines(G.msg,19,MB.w-14).slice(0,2);
+    L.forEach((ln,i)=>TS(ln,MB.x+8,MB.y+(L.length>1?13:19)+i*12,19,'#ffffff')); m.globalAlpha=1; }
   b.restore(); m.restore();
 }
 /* ---------- the pad and the A/B buttons ----------

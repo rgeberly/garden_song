@@ -1,61 +1,87 @@
 /* ================================================================
    BATTLE
-   The party (Kaitlyn and up to two friends, G.party) against one pest. Every
-   round, everyone still standing acts once, quickest (Agility) first: party
-   members pick Attack, Songs (Skills for the others), Meditate, Items or Flee;
-   the pest uses one of its skills (PESTS). Poison, sleep and the like (STATUS)
-   tick at the start of each turn. If Kaitlyn falls the fight is lost; a friend
-   who falls goes home hurt for a couple of days.
+   The party (Kaitlyn and up to two friends, G.party) against a pest and maybe a few
+   of its friends (B.foes, never more than the party). Every round, everyone still
+   standing acts once, quickest (Agility) first: party members pick Attack, Skills,
+   Meditate, Items or Flee, then who it's for when there's a choice; each pest uses
+   one of its skills (PESTS). Poison, sleep and the like (STATUS) tick at the start
+   of each turn. If Kaitlyn falls the fight is lost; a friend who falls goes home
+   hurt for a couple of days.
    ================================================================ */
-const EX=228, EY=110;
-/* where the party stands (feet), by party size: a staggered line on the left */
+/* the foe in focus (being hit, or acting): about its middle; see focus() */
+let EX=262, EY=210;
+/* where the party stands (feet), by party size: a staggered line on the left; the
+   foes mirror it on the right, a little smaller when there are more of them */
 const FORMATION={1:[[80,262]],2:[[102,236],[58,300]],3:[[112,208],[80,262],[48,318]]};
+const FOE_FORM={1:[[262,262]],2:[[250,236],[300,300]],3:[[300,206],[238,258],[306,316]]};   /* three zigzag so none hides another */
+const FOE_SCALE={1:1,2:0.9,3:0.8}, FLY_LIFT=30;          /* flyers hover this high over their shadow */
 const CMDS=['attack','skills','meditate','items','flee'];
 const KILL_CHANCE=0.10;              /* Bling's venom can finish a (non-boss) foe outright */
+const KARATE_SHOUTS=["Hi-YAH!","KIAI!","Hwaa-CHA!","Feel the flower power!"];
 let B=null;
+const listAnd=L=>L.length<2?L.join(''):L.slice(0,-1).join(", ")+" and "+L[L.length-1];
 function startBattle(pest){
-  const P=PESTS[pest.species];
   padVec={x:0,y:0}; padId=null; btnHeld=false;        /* a held pad must not scroll the menu */
-  B={pest,species:pest.species,name:P.name,hp:pest.hp,maxhp:P.hp,boss:!!P.boss,
-     party:G.party.filter(id=>!isHurt(id)), act:0, menu:'cmd', idx:0, sub:0, top:0, readyT:0,
+  const party=G.party.filter(id=>!isHurt(id)), boss=!!PESTS[pest.species].boss;
+  /* friends of the pest may tag along: one more for each extra member, half the time */
+  const kinds=[pest.species];
+  if(!boss) for(let i=1;i<party.length;i++) if(Math.random()<0.5){ const pool=pestPool(); kinds.push(pool[ri(0,pool.length-1)]); }
+  const foes=kinds.map((sp,i)=>{ const lv=i?pestLevel(sp):(pest.lv||PESTS[sp].lv), S=pestStats(sp,lv);
+    return {sp,lv,...S,maxhp:S.hp,hp:i?S.hp:Math.min(S.hp,pest.hp||S.hp),name:PESTS[sp].name,boss:!!PESTS[sp].boss,
+            slot:i,st:{},fade:0,flash:0,shake:0}; });
+  /* two of a kind get letters */
+  foes.forEach(f=>{ const same=foes.filter(g=>g.sp===f.sp); if(same.length>1) f.name+=" "+"ABC"[same.indexOf(f)]; });
+  B={pest,foes,boss,party, act:0, menu:'cmd', idx:0, sub:0, top:0, readyT:0,
      guard:{},                       /* members braced by Meditate */
      st:{},                          /* members' troubles: st[id][status]=turns left */
-     foe:{},                         /* the pest's: poison {n,dmg}, bound, weak, guard, charge */
-     order:[], turn:'busy', log:(P.boss?"The HOA President demands a word!":"A "+P.name+" blocks your path!"),
-     shake:0,over:null,pops:[],fx:[],anim:null,flash:0,shout:null};
+     order:[], turn:'busy', tgt:null, inspect:null, prep:null, banner:null, lastFoe:foes[0],
+     log:boss?"The HOA President demands a word!":foes.length===1?"A "+foes[0].name+" blocks your path!"
+        :listAnd(foes.map(f=>f.name))+" block your path!",
+     over:null,pops:[],fx:[],anim:null,shout:null};
   B.party.forEach(id=>B.st[id]={});
-  G.scene='battle'; setMusic(P.boss?'boss':'battle'); blip(220,0.1,0.2); partyImg();
+  G.scene='battle'; setMusic(boss?'boss':'battle'); blip(220,0.1,0.2); partyImg();
   setTimeout(nextActor,900);
 }
 const standing=id=>member(id).hp>0;
 const actor=()=>B.party[B.act];
+const liveFoes=()=>B.foes.filter(f=>f.hp>0);
+const allDown=()=>!B.foes.some(f=>f.hp>0);
 /* just over a member's head, for numbers that pop up */
 const headOf=id=>slotOf(id).y-(id==='kaitlyn'?110:36);
 function slotOf(id){ const [x,y]=FORMATION[B.party.length][Math.max(0,B.party.indexOf(id))]; return {x,y}; }
+/* where a foe stands: feet, size and how high it hovers */
+function foeSpot(f){ const n=B.foes.length, [x,y]=FOE_FORM[n][f.slot];
+  return {x,y,s:FOE_SCALE[n],lift:PESTS[f.sp].fly?FLY_LIFT:0}; }
+/* point EX,EY (where hits and effects land) at a foe */
+function focus(f){ if(!f) return; const p=foeSpot(f); EX=p.x; EY=p.y-p.lift-52*p.s; }
+/* a foe's picture, as a box (taps, tags and the target pointer) */
+function foeBox(f){ const p=foeSpot(f), a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[f.sp], k=p.s/SC;
+  const w=a?a.r[2]*k:60*p.s, h=a?a.r[3]*k:60*p.s;
+  return {x:p.x-(a?a.ax*k:w/2),y:p.y-p.lift-(a?a.ay*k:h),w,h}; }
 function pop(txt,x,y,col){ B.pops.push({txt,x,y,t:1100,col}); }
 function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++)
   B.fx.push({x,y,vx:rnd(-1,1)*(spd||0.13),vy:rnd(-0.19,0.03),t:520,col,g:0.001}); }
 function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:kind==='enemy'?null:actor(),...extra}; }
 const has=(id,s)=>B.st[id]&&B.st[id][s]>0;
 function addStatus(id,s){ if(!B.st[id]) B.st[id]={}; B.st[id][s]=STATUS[s].turns+(s==='sleep'?ri(0,1):0); }
-const foeDef=()=>PESTS[B.species].def*(B.foe.guard?2:1);
+const foeDef=f=>f.def*(f.st.guard?2:1);
 /* damage after the target's Defense softens it (magic only half minds it) */
 const soften=(raw,def,magic)=>Math.max(1,Math.round(raw*16/(16+def*(magic?0.5:1))));
 
 /* ---------- turn order ---------- */
 function newRound(){
-  const P=PESTS[B.species];
   const L=B.party.filter(standing).map(id=>({id,a:statOf(id,'agi')+rnd(0,4)}));
-  L.push({id:'foe',a:P.agi+rnd(0,4)});
+  B.foes.forEach((f,i)=>{ if(f.hp>0) L.push({id:i,a:f.agi+rnd(0,4)}); });
   B.order=L.sort((x,y)=>y.a-x.a).map(o=>o.id);
 }
-/* whoever is next acts: a party member gets the menu, the pest takes its turn */
+/* whoever is next acts: a party member gets the menu, a pest (by number) takes its turn */
 function nextActor(){
   if(!B||B.over) return;
-  if(B.hp<=0){ winFight(); return; }
+  if(allDown()){ winFight(); return; }
   if(!B.order.length) newRound();
   const id=B.order.shift();
-  if(id==='foe'){ B.turn='enemy'; setTimeout(foeTurn,500); return; }
+  if(typeof id==='number'){ const f=B.foes[id]; if(f.hp<=0){ nextActor(); return; }
+    B.turn='enemy'; setTimeout(()=>foeTurn(f),500); return; }
   if(!standing(id)){ nextActor(); return; }
   B.act=B.party.indexOf(id);
   const why=memberTicks(id);
@@ -63,7 +89,7 @@ function nextActor(){
   if(why){ B.turn='busy'; B.log=why; setTimeout(nextActor,1100); return; }
   startTurn();
 }
-function startTurn(){ B.turn='player'; B.menu='cmd'; B.idx=0; B.readyT=0; }
+function startTurn(){ B.turn='player'; B.menu='cmd'; B.idx=0; B.readyT=0; B.tgt=null; }
 /* a member's troubles at the start of their turn; returns why they can't act, if so */
 function memberTicks(id){
   const S=B.st[id], M=member(id), name=PARTY_INFO[id].name, s=slotOf(id);
@@ -83,15 +109,24 @@ function downed(id){
 /* the next one acts (or the fight is over); called when a move's animation ends */
 function afterAction(){
   if(!B||B.over) return;
-  if(B.hp<=0){ winFight(); return; }
+  if(allDown()){ winFight(); return; }
   setTimeout(nextActor,250); B.turn='busy';
 }
 
 /* ---------- what each member can pick ---------- */
 const skillList=id=>id==='kaitlyn'?moveList().filter(mv=>mv.id!=='kick'):(ALLY_SKILLS[id]||[]).filter(s=>s.lv<=member(id).lv);
-/* harvested crops that restore HP or MP */
 const battleFood=()=>battleItems();             /* crops and goods that heal (17-places.js) */
 const subList=()=>B.menu==='items'?battleFood():skillList(actor());
+/* Karate Kick and the like cost a share of max HP instead of MP */
+const hpCostOf=(sk,id)=>Math.max(1,Math.ceil(member(id).maxhp*sk.hpCost));
+const canPay=(sk,id)=>sk.hpCost?member(id).hp>hpCostOf(sk,id):member(id).mp>=sk.mp;
+const costText=(sk,id)=>sk.hpCost?hpCostOf(sk,id)+" HP":sk.mp+" MP";
+/* the chance to get away: better the quicker the party is than the pests */
+function fleeChance(){
+  const avg=L=>L.reduce((a,v)=>a+v,0)/Math.max(1,L.length);
+  const pa=avg(B.party.filter(standing).map(id=>statOf(id,'agi'))), fa=avg(liveFoes().map(f=>f.agi));
+  return clamp(0.5+(pa-fa)*0.04,0.15,0.95);
+}
 function cmdName(c,id){
   return {attack:"Attack",skills:PARTY_INFO[id].skills,meditate:"Meditate",items:"Items",flee:"Flee"}[c];
 }
@@ -106,17 +141,46 @@ function cmdInfo(c,id){
   const I=PARTY_INFO[id];
   if(c==='attack') return id==='kaitlyn'?[I.attack,"Free · power from Strength"]
                                         :[I.attack,"Free · always poisons · may finish the foe"];
-  if(c==='skills') return skillList(id).length?[I.skills,id==='kaitlyn'?"Play a flute song · uses MP":"Use a skill · uses MP"]
+  if(c==='skills') return skillList(id).length?[I.skills,id==='kaitlyn'?"Flute songs (♪) and moves":"Use a skill · uses MP"]
                                               :[I.skills,"None learned yet"];
   if(c==='meditate') return ["Meditate","Next hit halved · restores 5–10% HP/MP"];
   if(c==='items') return battleFood().length?["Items","Eat something from your basket"]:["Items","No healing food in your basket"];
-  return B.boss?["Flee","You can't run from the HOA President!"]:["Flee","Run back to the garden · 55% chance"];
+  return B.boss?["Flee","You can't run from the HOA President!"]
+               :["Flee","Run back to the garden · "+Math.round(fleeChance()*100)+"% chance"];
 }
 function subInfo(x){
   if(!x) return B.menu==='items'?["Items","Harvest crops to eat them in battle"]:["Skills","None learned yet"];
   if(B.menu==='items') return [itemName(x),itemText(x)];
-  if(x.notes) return [x.name,moveDesc(x)+" · "+x.mp+" MP"];
-  return [x.name,x.desc+" · "+x.mp+" MP"];
+  const id=actor();
+  if(id==='kaitlyn') return [(x.song?"♪ ":"")+x.name,moveDesc(x)+" · "+costText(x,id)];
+  return [x.name,x.desc+" · "+costText(x,id)];
+}
+
+/* ---------- picking who a move is for ----------
+   With more than one to choose from the menu waits (B.menu 'target', B.tgt) for a
+   pick: arrows and A, or a tap on them; back returns to where it came from. */
+function chooseFoe(then){
+  const L=liveFoes(); if(L.length===1){ then(L[0]); return; }
+  B.tgt={kind:'foe',list:L,i:Math.max(0,L.indexOf(B.lastFoe)),then,back:B.menu}; B.menu='target';
+  blip(520,0.04,0.08,'triangle');
+}
+function chooseAlly(then){
+  const L=B.party.filter(standing); if(L.length===1){ then(L[0]); return; }
+  B.tgt={kind:'ally',list:L,i:Math.max(0,L.indexOf(actor())),then,back:B.menu}; B.menu='target';
+  blip(520,0.04,0.08,'triangle');
+}
+function pickTarget(i){
+  const t=B.tgt, x=t.list[i]; B.tgt=null; B.menu='cmd';
+  if(t.kind==='foe') B.lastFoe=x;
+  t.then(x);
+}
+function cancelTarget(){ B.menu=B.tgt.back; B.tgt=null; blip(330,0.04,0.08,'triangle'); }
+/* the foe or member drawn at x,y, if any */
+function whoAt(x,y){
+  for(const f of liveFoes()){ const r=foeBox(f); if(x>=r.x-6&&x<=r.x+r.w+6&&y>=r.y-6&&y<=r.y+r.h+6) return f; }
+  for(const id of B.party){ const s=slotOf(id), h=id==='kaitlyn'?104:52;
+    if(Math.abs(x-s.x)<=26&&y>=s.y-h&&y<=s.y+8) return id; }
+  return null;
 }
 
 /* ---------- input ---------- */
@@ -126,8 +190,15 @@ function openSub(kind){ B.menu=kind; B.sub=0; B.top=0; blip(520,0.04,0.08,'trian
 function battleKey(k){
   if(!B)return;
   if(B.over){ if(!winGuard()) endBattle(); return; }
+  if(B.inspect){ B.inspect=null; return; }
   if(B.turn!=='player')return;
-  if(B.menu==='cmd'){
+  if(B.menu==='target'){
+    const n=B.tgt.list.length;
+    if(isUp(k)||isLeft(k)) B.tgt.i=(B.tgt.i+n-1)%n;
+    if(isDown(k)||isRight(k)) B.tgt.i=(B.tgt.i+1)%n;
+    if(isOk(k)) pickTarget(B.tgt.i);
+    else if(isBack(k)) cancelTarget();
+  } else if(B.menu==='cmd'){
     const n=CMDS.length, flee=CMDS.indexOf('flee');
     if(isUp(k)) B.idx=(B.idx+n-1)%n;
     if(isDown(k)) B.idx=(B.idx+1)%n;
@@ -142,12 +213,23 @@ function battleKey(k){
     else if(isBack(k)||isOk(k)) B.menu='cmd';
   }
 }
+const inRect=(r,x,y)=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h;
 function battleTouch(x,y){
   if(!B)return;
   if(B.over){ if(!winGuard()) endBattle(); return; }
+  if(B.inspect){ B.inspect=null; return; }
+  const W=battleWins(), who=whoAt(x,y);
+  if(B.turn==='player'&&B.menu==='target'){
+    const i=who?B.tgt.list.indexOf(who):-1;
+    if(i>=0) pickTarget(i); else cancelTarget();
+    return;
+  }
+  const list=B.menu==='skills'||B.menu==='items';
+  const onWin=B.turn==='player'&&(list?inRect(W.list,x,y)||inRect(W.linfo,x,y):inRect(W.cmd,x,y)||inRect(W.party,x,y)||inRect(W.info,x,y));
+  /* a tap on anyone in the scene: what they're like and what's troubling them */
+  if(who&&!onWin){ B.inspect=who; blip(620,0.04,0.08,'triangle'); return; }
   if(B.turn!=='player')return;
-  const W=battleWins();
-  if(B.menu==='cmd'){
+  if(!list){
     /* a tap on a command uses it straight away */
     const C=W.cmd; if(x<C.x||x>C.x+C.w) return;
     const i=Math.floor((y-cmdTop(W))/CMD_ROW);
@@ -155,66 +237,89 @@ function battleTouch(x,y){
   } else {
     /* a tap on a row uses it; anywhere outside the list goes back */
     const L=W.list;
-    if(x<L.x||x>L.x+L.w||y<L.y||y>L.y+L.h){ B.menu='cmd'; return; }
-    const j=Math.floor((y-L.y-SUB_Y0)/SUB_ROW), list=subList(), i=B.top+j;
-    if(j>=0&&j<SUB_ROWS&&i<list.length){ setSub(i); useSub(list[i]); }
+    if(!inRect(L,x,y)){ B.menu='cmd'; return; }
+    const j=Math.floor((y-L.y-SUB_Y0)/SUB_ROW), sl=subList(), i=B.top+j;
+    if(j>=0&&j<SUB_ROWS&&i<sl.length){ setSub(i); useSub(sl[i]); }
   }
 }
 function pickCmd(c){
-  if(c==='attack') doAttack();
+  if(c==='attack') chooseFoe(doAttack);
   else if(c==='skills') openSub('skills');
   else if(c==='meditate') doMeditate();
   else if(c==='items') openSub('items');
   else tryFlee();
 }
-function useSub(x){ if(B.menu==='items') eatInBattle(x); else if(x.notes) useSong(x); else useSkill(x); }
+/* a skill, song or item from the list: check it can be paid for, then who it's for */
+function useSub(x){
+  const id=actor();
+  if(B.menu==='items'){
+    const e=isGoodKey(x)?goodEffect(x.slice(2)):null;
+    if(e&&(e.hpAll||e.mpAll)) eatInBattle(x,id); else chooseAlly(to=>eatInBattle(x,to));
+    return;
+  }
+  if(!canPay(x,id)){ B.log=x.hpCost?"Too worn out for that!":id==='kaitlyn'?"Not enough Music Points!":"Not enough MP!"; blip(150,0.08,0.2); return; }
+  if(x.hpCost) chooseFoe(f=>useKarate(x,f));
+  else if(x.notes){ if(x.pow>0) chooseFoe(f=>useSong(x,f)); else useSong(x,null); }
+  else if(x.heal) useSkill(x,null);
+  else chooseFoe(f=>useSkill(x,f));
+}
 
 /* ---------- the party's moves ---------- */
 function tryFlee(){
   B.turn='busy';
   if(B.boss){ B.log="The HOA President blocks the gate!"; afterAction(); return; }
-  if(Math.random()<0.55){ B.over='flee'; B.log="You slipped away."; }
+  if(Math.random()<fleeChance()){ B.over='flee'; B.log="You slipped away."; }
   else { B.log="Couldn't get away!"; afterAction(); }
 }
-function hitEnemy(dmg,label){
-  B.hp=Math.max(0,B.hp-dmg); B.shake=340; B.flash=200;
+function hitFoe(f,dmg,label){
+  f.hp=Math.max(0,f.hp-dmg); f.shake=340; f.flash=200; focus(f);
   pop("-"+dmg,EX,EY-10,'#ffd24a'); thud(); B.log=label;
-  if(B.foe.sleep&&Math.random()<0.4){ B.foe.sleep=0; B.log+="  It wakes up!"; }   /* a hit may wake it */
+  if(f.hp>0&&f.st.sleep&&Math.random()<0.4){ f.st.sleep=0; B.log+="  It wakes up!"; }   /* a hit may wake it */
+  if(f.hp<=0&&liveFoes().length) B.log+="  The "+f.name+" runs off!";
 }
 /* Blind members miss half their attacks */
 function missed(id){ if(has(id,'blind')&&Math.random()<0.5){ B.log=PARTY_INFO[id].name+" can't see and misses!"; return true; } return false; }
 const weakMul=id=>has(id,'weak')?0.6:1;
-function doAttack(){
+const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(gearOn('kickers')?1.6:1);
+/* Kaitlyn's kicks: the battle row (battle.png) plays, the hit lands partway through */
+function kick(f,pow,name,row,shouts){
+  B.shout={txt:shouts[ri(0,shouts.length-1)],t:1500};
+  B.kickVar=row; playOne('kick',0.55);
+  anim('kick',1100,()=>{
+    if(missed('kaitlyn')) return;
+    focus(f); const dmg=soften(kickPower(pow)*rnd(0.85,1.15),foeDef(f));
+    burst(EX-20,EY+16,'#ffe6a0',16,0.19); burst(EX-30,EY+34,'#d8c49a',12,0.13);
+    hitFoe(f,dmg,name+" lands for "+dmg+"!");
+  },{tgt:f});
+}
+function doAttack(f){
   const id=actor(), I=PARTY_INFO[id];
   B.turn='busy';
-  const power=statOf(id,'str')*1.5*I.pow*weakMul(id)*(id==='kaitlyn'&&G.gear.kickers?1.6:1);
-  if(id==='kaitlyn'){
-    B.shout={txt:KICK_SHOUTS[ri(0,KICK_SHOUTS.length-1)],t:1500};
-    B.kickVar=Math.random()<0.5?'kick':'kick2';
-    playOne('kick',0.55);
-    anim('kick',1100,()=>{
-      if(missed(id)) return;
-      const dmg=soften(power*rnd(0.85,1.15),foeDef());
-      burst(EX-20,EY+16,'#ffe6a0',16,0.19); burst(EX-30,EY+34,'#d8c49a',12,0.13);
-      hitEnemy(dmg,"Quick Kick lands for "+dmg+"!");
-    });
-    return;
-  }
+  if(id==='kaitlyn'){ kick(f,I.pow,"Quick Kick",Math.random()<0.5?'kick':'kick2',KICK_SHOUTS); return; }
   /* Bling: a weak bite, but the venom always takes, and now and then it's too much */
   anim('lunge',900,()=>{
     if(missed(id)) return;
-    const dmg=soften(power*rnd(0.85,1.15),foeDef());
+    focus(f); const power=statOf(id,'str')*1.5*I.pow*weakMul(id);
+    const dmg=soften(power*rnd(0.85,1.15),foeDef(f));
     burst(EX-20,EY+20,'#ffe6a0',14,0.17);
-    hitEnemy(dmg,I.name+"'s "+I.attack+" hits for "+dmg+"!");
-    B.foe.poison={n:STATUS.poison.turns,dmg:Math.round(2+statOf(id,'int')*0.5)};
+    hitFoe(f,dmg,I.name+"'s "+I.attack+" hits for "+dmg+"!");
+    if(f.hp<=0) return;
+    f.st.poison={n:STATUS.poison.turns,dmg:Math.round(2+statOf(id,'int')*0.5)};
     burst(EX,EY+10,'#b06ae0',12,0.12);
-    if(!B.boss&&B.hp>0&&Math.random()<KILL_CHANCE){ B.hp=0; B.log="Bling's venom overwhelms the "+B.name+"!"; }
+    if(!f.boss&&Math.random()<KILL_CHANCE){ f.hp=0; B.log="Bling's venom overwhelms the "+f.name+"!"; }
     else B.log+="  It's poisoned!";
-  });
+  },{tgt:f});
 }
-const songPower=()=>statOf('kaitlyn','int')*1.3*(G.gear.polish?1.3:1)*fluteMul()*weakMul('kaitlyn');
-function useSong(mv){
-  if(G.player.mp<mv.mp){ B.log="Not enough Music Points!"; blip(150,0.08,0.2); return; }
+/* Karate Kick: twice a Quick Kick, paid for with a little of her HP (its own battle row
+   when battle.png has one) */
+function useKarate(mv,f){
+  const id=actor(), M=member(id), c=hpCostOf(mv,id), s=slotOf(id);
+  M.hp=Math.max(1,M.hp-c); pop("-"+c,s.x,headOf(id),'#ffb0a8');
+  B.turn='busy'; B.menu='cmd';
+  kick(f,mv.pow,mv.name,BROW.karate!==undefined?'karate':'kick',KARATE_SHOUTS);
+}
+const songPower=()=>statOf('kaitlyn','int')*1.3*(gearOn('polish')?1.3:1)*fluteMul()*weakMul('kaitlyn');
+function useSong(mv,f){
   G.player.mp-=mv.mp; B.turn='busy';
   startRhythm(null,{notes:mv.notes,name:mv.name,mp:mv.mp,cb:(acc)=>{
     G.scene='battle'; B.menu='cmd'; playOne('flute',0.5);
@@ -224,24 +329,23 @@ function useSong(mv){
         B.party.filter(standing).forEach(id=>{ const M=member(id), s=slotOf(id);
           M.hp=Math.min(M.maxhp,M.hp+h); pop("+"+h,s.x,headOf(id),'#8fe07a'); });
       }
-      if(mv.pow>0){
-        const dmg=soften(songPower()*mv.pow*(0.35+acc*1.1),foeDef(),true);
-        hitEnemy(dmg,mv.name+" hits for "+dmg+"!  ("+Math.round(acc*100)+"%)");
+      if(mv.pow>0&&f){
+        const dmg=soften(songPower()*mv.pow*(0.35+acc*1.1),foeDef(f),true);
+        hitFoe(f,dmg,mv.name+" hits for "+dmg+"!  ("+Math.round(acc*100)+"%)");
+        if(mv.weaken&&f.hp>0){ f.st.weak=STATUS.weak.turns; B.log+="  Its attack drops!"; }
       } else B.log=mv.name+" heals the party.";
-      if(mv.weaken){ B.foe.weak=STATUS.weak.turns; B.log+="  Its attack drops!"; }
-    });
+    },{tgt:f});
   }});
 }
-/* a friend's skill (ALLY_SKILLS) */
-function useSkill(sk){
+/* a friend's skill (ALLY_SKILLS); f is the foe it's aimed at */
+function useSkill(sk,f){
   const id=actor(), M=member(id), name=PARTY_INFO[id].name;
-  if(M.mp<sk.mp){ B.log="Not enough MP!"; blip(150,0.08,0.2); return; }
   M.mp-=sk.mp; B.turn='busy'; B.menu='cmd';
   const spell=PARTY_ART[id]&&PARTY_ART[id].spell;      /* their own spell animation, when they have one */
   anim(spell?'spell':sk.heal?'meditate':'lunge',spell?1400:1000,()=>{
     if(sk.sleep){      /* Hypnosis: the foe nods off for a few turns (a boss shrugs it off more often) */
-      if(Math.random()<sk.sleep*(B.boss?0.5:1)){ B.foe.sleep=2+ri(0,1); B.log=name+"'s "+sk.name+" sends the "+B.name+" to sleep!"; }
-      else B.log="The "+B.name+" shakes off "+name+"'s "+sk.name+".";
+      if(Math.random()<sk.sleep*(f.boss?0.5:1)){ f.st.sleep=2+ri(0,1); B.log=name+"'s "+sk.name+" sends the "+f.name+" to sleep!"; }
+      else B.log="The "+f.name+" shakes off "+name+"'s "+sk.name+".";
       return;
     }
     if(sk.heal){
@@ -251,11 +355,11 @@ function useSkill(sk){
       B.log=name+" uses "+sk.name+": +"+h+" HP"+(sk.cure?" and feels clean":"")+".";
       return;
     }
-    let mul=1; if(sk.burst&&B.foe.poison){ mul=3; B.foe.poison=null; }
-    const dmg=soften(statOf(id,'int')*1.5*sk.pow*mul*weakMul(id)*rnd(0.9,1.1),foeDef(),true);
-    hitEnemy(dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(mul>1?"  The venom bursts!":""));
-    if(sk.bind&&Math.random()<sk.bind){ B.foe.bound=1; B.log+="  It's held fast!"; }
-  },{heal:!!sk.heal});
+    let mul=1; if(sk.burst&&f.st.poison){ mul=3; f.st.poison=null; }
+    const dmg=soften(statOf(id,'int')*1.5*sk.pow*mul*weakMul(id)*rnd(0.9,1.1),foeDef(f),true);
+    hitFoe(f,dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(mul>1?"  The venom bursts!":""));
+    if(f.hp>0&&sk.bind&&Math.random()<sk.bind){ f.st.bound=1; B.log+="  It's held fast!"; }
+  },{heal:!!sk.heal,tgt:f});
 }
 /* half damage from the next attack, and 5-10% of HP and MP back */
 function doMeditate(){
@@ -270,27 +374,32 @@ function doMeditate(){
     if(AC){ flute(9,AC.currentTime,.5,.35); flute(13,AC.currentTime+.18,.6,.3); }
   });
 }
-function eatInBattle(sp){
+/* the one whose turn it is eats, or hands it to `to` */
+function eatInBattle(sp,to){
   const id=actor(), name=PARTY_INFO[id].name;
+  to=to||id;
   B.turn='busy'; B.menu='cmd';
   anim('eat',800,()=>{
-    const before=member(id).hp, item=itemName(sp), text=useItem(sp,id), gain=member(id).hp-before, s=slotOf(id);
-    if(gain>0) pop("+"+gain,s.x,headOf(id),'#8fe07a');
-    B.log=name+" has the "+item+": "+text+".";
+    const before=member(to).hp, item=itemName(sp), text=useItem(sp,to), gain=member(to).hp-before, s=slotOf(to);
+    if(gain>0) pop("+"+gain,s.x,headOf(to),'#8fe07a');
+    B.log=(to===id?name+" has the ":name+" gives "+PARTY_INFO[to].name+" the ")+item+": "+text+".";
     if(AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
-  });
+  },{eater:to});
 }
 
-/* ---------- the pest's turn ---------- */
-function foeTurn(){
+/* ---------- a pest's turn ----------
+   Anything but its plain first skill is a special move: it flashes and the move's
+   name shows (B.prep, B.banner) a moment before it lets loose. */
+const PREP_MS=700;
+function foeTurn(f){
   if(!B||B.over) return;
-  const P=PESTS[B.species], F=B.foe;
-  F.guard=0;
-  if(F.poison){ const d=F.poison.dmg; B.hp=Math.max(0,B.hp-d); pop("-"+d,EX,EY-10,'#c88ae0'); burst(EX,EY+10,'#b06ae0',8,0.1);
-    B.log="The "+B.name+" takes "+d+" from poison."; if(--F.poison.n<=0) F.poison=null;
-    if(B.hp<=0){ setTimeout(winFight,700); return; } }
-  if(F.bound>0){ F.bound--; B.log="The "+B.name+" struggles but can't move!"; setTimeout(nextActor,1000); return; }
-  if(F.sleep>0){ F.sleep--; B.log="The "+B.name+" is fast asleep..."; setTimeout(nextActor,1000); return; }
+  const P=PESTS[f.sp], F=f.st;
+  F.guard=0; focus(f);
+  if(F.poison){ const d=F.poison.dmg; f.hp=Math.max(0,f.hp-d); pop("-"+d,EX,EY-10,'#c88ae0'); burst(EX,EY+10,'#b06ae0',8,0.1);
+    B.log="The "+f.name+" takes "+d+" from poison."; if(--F.poison.n<=0) F.poison=null;
+    if(f.hp<=0){ B.log+="  It runs off!"; setTimeout(()=>{ if(!B||B.over) return; if(allDown()) winFight(); else nextActor(); },900); return; } }
+  if(F.bound>0){ F.bound--; B.log="The "+f.name+" struggles but can't move!"; setTimeout(nextActor,1000); return; }
+  if(F.sleep>0){ F.sleep--; B.log="The "+f.name+" is fast asleep..."; setTimeout(nextActor,1000); return; }
   if(F.weak>0) F.weak--;
   const charged=F.charge; F.charge=0;
   /* a charged-up pest always lets loose with its strongest hit */
@@ -298,24 +407,30 @@ function foeTurn(){
   const live=B.party.filter(standing);
   const targets=sk.kind==='all'?live:sk.kind==='multi'?Array.from({length:sk.hits},()=>live[ri(0,live.length-1)])
                :sk.kind==='hit'||sk.kind==='steal'?[live[ri(0,live.length-1)]]:[];
-  B.log="The "+B.name+" uses "+sk.name+"!";
-  anim('enemy',sk.kind==='multi'?1300:900,()=>foeHits(sk,targets,charged),{fx:sk.fx,targets,self:!targets.length});
+  const go=()=>{ if(!B||B.over) return; B.prep=null;
+    B.log="The "+f.name+" uses "+sk.name+"!";
+    anim('enemy',sk.kind==='multi'?1300:900,()=>foeHits(f,sk,targets,charged),{fx:sk.fx,targets,self:!targets.length,foe:f}); };
+  if(sk!==P.skills[0]||charged){
+    B.prep={f,t:0}; B.banner={txt:sk.name,f,t:PREP_MS+1100};
+    B.log="The "+f.name+" is up to something...";
+    blip(740,0.05,0.12,'triangle'); setTimeout(go,PREP_MS);
+  } else go();
 }
 function pickWeighted(list){ let t=list.reduce((a,s)=>a+s.w,0)*Math.random();
   for(const s of list){ t-=s.w; if(t<=0) return s; } return list[0]; }
-function foeHits(sk,targets,charged){
+function foeHits(f,sk,targets,charged){
   if(!B||B.over) return;
-  const P=PESTS[B.species], F=B.foe;
-  if(sk.kind==='guard'){ F.guard=1; B.log="The "+B.name+" uses "+sk.name+". Hits on it are halved!"; return; }
-  if(sk.kind==='charge'){ F.charge=1; B.log="The "+B.name+" gathers its strength..."; return; }
-  if(sk.kind==='heal'){ const h=Math.round(B.maxhp*sk.heal); B.hp=Math.min(B.maxhp,B.hp+h);
-    pop("+"+h,EX,EY-10,'#8fe07a'); B.log="The "+B.name+" uses "+sk.name+" and recovers "+h+" HP."; return; }
+  const F=f.st; focus(f);
+  if(sk.kind==='guard'){ F.guard=1; B.log="The "+f.name+" uses "+sk.name+". Hits on it are halved!"; return; }
+  if(sk.kind==='charge'){ F.charge=1; B.log="The "+f.name+" gathers its strength..."; return; }
+  if(sk.kind==='heal'){ const h=Math.round(f.maxhp*sk.heal); f.hp=Math.min(f.maxhp,f.hp+h);
+    pop("+"+h,EX,EY-10,'#8fe07a'); B.log="The "+f.name+" uses "+sk.name+" and recovers "+h+" HP."; return; }
   if(sk.kind==='steal'){
     const id=targets[0], luck=statOf(id,'luk');
     if(Math.random()<luck*0.02){ B.log=PARTY_INFO[id].name+" keeps a tight grip on the coin purse!"; return; }
-    const n=Math.min(G.coins,Math.round(P.atk*1.5+ri(0,6))); G.coins-=n;
+    const n=Math.min(G.coins,Math.round(f.atk*1.5+ri(0,6))); G.coins-=n;
     const s=slotOf(id); pop("-"+n+"c",s.x,headOf(id),'#ffd24a');
-    B.log="The "+B.name+" uses "+sk.name+" and makes off with "+n+"c!"; return;
+    B.log="The "+f.name+" uses "+sk.name+" and makes off with "+n+"c!"; return;
   }
   const lines=[];
   targets.forEach(id=>{
@@ -324,42 +439,46 @@ function foeHits(sk,targets,charged){
     if(sk.miss&&Math.random()<sk.miss){ pop("miss",s.x,headOf(id),'#e8eef8'); lines.push("It misses "+name+"."); return; }
     if(sk.pow>0){
       const braced=B.guard[id]; B.guard[id]=false;
-      const raw=P.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*(braced?0.5:1);
+      const raw=f.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*(braced?0.5:1);
       const dmg=soften(raw,statOf(id,'def'));
       M.hp=Math.max(0,M.hp-dmg); if(B.st[id]) B.st[id].sleep=0;            /* a hit wakes you */
       pop("-"+dmg,s.x,headOf(id),'#ff8a8a'); burst(s.x,s.y-80,'#ff9a8a',8);
-      if(sk.drain){ const h=Math.round(dmg*sk.drain); B.hp=Math.min(B.maxhp,B.hp+h); pop("+"+h,EX,EY-10,'#8fe07a'); }
+      if(sk.drain){ const h=Math.round(dmg*sk.drain); f.hp=Math.min(f.maxhp,f.hp+h); pop("+"+h,EX,EY-10,'#8fe07a'); }
       if(targets.length===1) lines.push("It hits "+name+" for "+dmg+"!"+(braced?" (braced)":"")+(charged?" A huge blow!":""));
     }
     if(standing(id)&&sk.st&&Math.random()<sk.p){ addStatus(id,sk.st); lines.push(name+" is "+STATUS[sk.st].name.toLowerCase()+"!"); }
     if(!standing(id)){ lines.push(name+" is down!"); if(id==='kaitlyn'){ B.over='lose'; } }
   });
-  if(targets.length>1&&sk.pow>0) lines.unshift("It hits the whole party!".replace("the whole party",sk.kind==='multi'?"again and again":"the whole party"));
-  B.log="The "+B.name+" uses "+sk.name+"!  "+lines.join("  ");
+  if(targets.length>1&&sk.pow>0) lines.unshift(sk.kind==='multi'?"It hits again and again!":"It hits the whole party!");
+  B.log="The "+f.name+" uses "+sk.name+"!  "+lines.join("  ");
   blip(180,0.09,0.2);
   if(B.over==='lose') B.log="Kaitlyn is worn out...";
 }
 
 /* ---------- victory: rewards are given at once, the screen then shows them ---------- */
 const SEED_LOOT=0.10, WIN_DELAY=250, WIN_FILL=900, WIN_GUARD=350;
-/* the victory window: the rewards, then a row (name, level, EXP bar) for each one standing */
-const VW={y:214,h:236,row0:76,step:38};
+/* the victory window, along the bottom under the party: the rewards, then a row (name,
+   level, EXP bar) for each one standing */
+const VW={top:26,step:30,foot:22};
+const vwHeight=n=>VW.top+n*VW.step+VW.foot;
 function winFight(){
   if(B.over) return;
-  B.over='win'; B.log="The "+B.name+" flees the garden!"; setMusic('victory'); winRewards();
+  B.over='win'; B.log=B.foes.length>1?"The pests flee the garden!":"The "+B.foes[0].name+" flees the garden!";
+  setMusic('victory'); winRewards();
 }
 /* Luck (the luckiest one standing) helps find seeds and sometimes bonus coins */
 function winRewards(){
-  const P=PESTS[B.species], pl=G.player, up=B.party.filter(standing);
+  const up=B.party.filter(standing);
   const luck=Math.max(...up.map(id=>statOf(id,'luk')));
   const seed=Math.random()<SEED_LOOT+luck*0.004&&G.unlocked.length?G.unlocked[ri(0,G.unlocked.length-1)]:null;
   const bonus=Math.random()<luck*0.015;
-  const coins=Math.round(P.coin*(bonus?1.5:1));
+  const xp=B.foes.reduce((a,f)=>a+f.xp,0);
+  const coins=Math.round(B.foes.reduce((a,f)=>a+f.coin,0)*(bonus?1.5:1));
   const from={}; up.forEach(id=>{ const M=member(id); from[id]={lv:M.lv,xp:M.xp,next:M.next}; });
-  B.win={xp:P.xp,coins,bonus,seed,from,who:up,t:0};
+  B.win={xp,coins,bonus,seed,from,who:up,t:0};
   G.coins+=coins; if(seed) G.seeds[seed]=(G.seeds[seed]||0)+1;
   G.pests=G.pests.filter(p=>p!==B.pest);
-  up.forEach(id=>addXpTo(id,P.xp));          /* everyone still standing learns from it */
+  up.forEach(id=>addXpTo(id,xp));          /* everyone still standing learns from it */
 }
 /* a moment's pause so the key that won the fight doesn't also close the screen */
 const winGuard=()=>B.over==='win'&&B.win&&B.win.t<WIN_GUARD;
@@ -371,9 +490,8 @@ function xpShown(id){
   return {lv,xp:Math.floor(xp),next,k};
 }
 function endBattle(){
-  const P=PESTS[B.species];
   if(B.over==='win'){ const w=B.win;      /* rewards were given when the fight was won */
-    say((P.boss?"The HOA President retreats! ":"Won!  ")+"+"+w.coins+"c"+(w.bonus?" (lucky!)":"")+"  +"+w.xp+"xp"+(w.seed?"  + a seed":"")); }
+    say((B.boss?"The HOA President retreats! ":"Won!  ")+"+"+w.coins+"c"+(w.bonus?" (lucky!)":"")+"  +"+w.xp+"xp"+(w.seed?"  + a seed":"")); }
   else if(B.over==='lose'){
     G.player.hp=Math.max(4,Math.floor(G.player.maxhp*0.4));
     G.pests=G.pests.filter(p=>p!==B.pest); G.player.x=338; G.player.y=396; G.indoors=false; G.area='garden';
@@ -390,7 +508,8 @@ function endBattle(){
 /* ---------- drawing the party ----------
    Out of turn a member holds their battle stance (Kaitlyn's is pose.png, the others'
    come from party.webp); on their turn they ease into their ready loop. Kaitlyn's
-   kick, flute and victory rows come from battle.png. */
+   kick, flute and victory rows come from battle.png. Each draws onto c (the scene, or
+   the silhouette canvas for shadows and flashes). */
 let IMG_PARTY=null;
 function partyImg(){
   if(!IMG_PARTY){ IMG_PARTY=new Image(); IMG_PARTY.src=ASSET_PARTY; }
@@ -398,49 +517,76 @@ function partyImg(){
 }
 const READY_MS={kaitlyn:70,bling:50}, READY_FADE=220;
 /* a party.webp frame at 2 device px per sheet px, its ax,ay on the given feet */
-function partyFrame(r,ax,ay,x,y){
+function partyFrame(c,r,ax,ay,x,y){
   const img=partyImg(); if(!img||!r) return false;
   const [sx,sy,w,h]=r;
-  b.save(); b.translate(x,y); b.scale(2/SC,2/SC);
-  b.drawImage(img,sx,sy,w,h,-ax,-ay,w,h); b.restore(); return true;
+  c.save(); c.translate(x,y); c.scale(2/SC,2/SC);
+  c.drawImage(img,sx,sy,w,h,-ax,-ay,w,h); c.restore(); return true;
 }
-function drawStance(id,x,y){
-  if(id==='kaitlyn'){ drawPose(b,0,x,y); return; }
+function drawStance(c,id,x,y){
+  if(id==='kaitlyn'){ drawPose(c,0,x,y); return; }
   const A=PARTY_ART[id], s=A&&A.stance;
-  if(s) partyFrame(s.r,s.ax,s.ay,x,y);
-  else if(A) partyFrame(A.ready[0],A.ax,A.ay,x,y);
+  if(s) partyFrame(c,s.r,s.ax,s.ay,x,y);
+  else if(A) partyFrame(c,A.ready[0],A.ax,A.ay,x,y);
 }
-function drawReady(id,x,y,t){
+function drawReady(c,id,x,y,t){
   const A=PARTY_ART[id];
-  if(!A){ drawStance(id,x,y); return; }
+  if(!A){ drawStance(c,id,x,y); return; }
   const i=Math.floor(t/(READY_MS[id]||60))%A.ready.length;
-  partyFrame(A.ready[i],A.ax,A.ay,x,y);
+  partyFrame(c,A.ready[i],A.ax,A.ay,x,y);
 }
 const SONG_FX=['sprout','lull','waltz','req','thorn','hymn'];
-function drawMember(id,x,y,k){
+function drawMember(c,id,x,y,k){
   const mine=B.anim&&B.anim.who===id, kind=mine?B.anim.kind:null;
   if(id==='kaitlyn'){
-    if(B.over==='lose'||!standing(id)){ drawPose(b,1,x,y); return; }
-    if(B.over==='win'){ const n=BRN[BROW.victory]||1; drawBattleRow(b,'victory',Math.floor(G.t/85)%n,x,y); return; }
-    if(kind==='kick'){ const v=B.kickVar||'kick', n=BRN[BROW[v]]||1; drawBattleRow(b,v,Math.floor(k*n),x,y); return; }
-    if(SONG_FX.includes(kind)){ const n=BRN[BROW.flute]||1; drawBattleRow(b,'flute',Math.floor(k*n),x,y); return; }
+    if(B.over==='lose'||!standing(id)){ drawPose(c,1,x,y); return; }
+    if(B.over==='win'){ const n=BRN[BROW.victory]||1; drawBattleRow(c,'victory',Math.floor(G.t/85)%n,x,y); return; }
+    if(kind==='kick'){ const v=B.kickVar||'kick', n=BRN[BROW[v]]||1; drawBattleRow(c,v,Math.floor(k*n),x,y); return; }
+    if(SONG_FX.includes(kind)){ const n=BRN[BROW.flute]||1; drawBattleRow(c,'flute',Math.floor(k*n),x,y); return; }
   }
-  if(!standing(id)){ b.globalAlpha=.45; drawStance(id,x,y); b.globalAlpha=1; return; }
+  if(!standing(id)){ c.globalAlpha=.45; drawStance(c,id,x,y); c.globalAlpha=1; return; }
   /* a win: their victory loop, or until they have one, a happy bounce on their spell's
      coiled-up frames */
   if(B.over==='win'){ const A=PARTY_ART[id]||{}, v=A.victory||A.spell;
     if(v){ const f=A.victory?v.f:v.f.slice(4,7), i=Math.floor(G.t/(A.victory?80:160))%f.length;
-      partyFrame(f[i],v.ax,v.ay,x,y-(A.victory?0:Math.abs(Math.sin(G.t/240))*5)); return; } }
+      partyFrame(c,f[i],v.ax,v.ay,x,y-(A.victory?0:Math.abs(Math.sin(G.t/240))*5)); return; } }
   if(kind==='spell'){ const a=PARTY_ART[id].spell;
-    partyFrame(a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y); return; }
+    partyFrame(c,a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y); return; }
   if(kind==='lunge'){ const a=PARTY_ART[id]&&PARTY_ART[id].attack;
-    if(a) partyFrame(a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y);
-    else drawReady(id,x,y,B.anim.t+1500);                       /* the strike part of the loop */
+    if(a) partyFrame(c,a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y);
+    else drawReady(c,id,x,y,B.anim.t+1500);                       /* the strike part of the loop */
     return; }
   const ready=B.turn==='player'&&!B.over&&actor()===id;
   const f=ready?clamp(B.readyT/READY_FADE,0,1):0;
-  if(f<1) drawStance(id,x,y);
-  if(f>0){ b.globalAlpha=f; drawReady(id,x,y,B.readyT); b.globalAlpha=1; }
+  if(f<1) drawStance(c,id,x,y);
+  if(f>0){ c.globalAlpha=f; drawReady(c,id,x,y,B.readyT); c.globalAlpha=1; }
+}
+/* ---------- shadows and flashes ----------
+   A sprite drawn (feet at 0,0) into a spare canvas and filled with one colour: laid
+   flat on the ground for its shadow (the light is up and to the left, so it falls
+   down and to the right), or over the sprite for a white flash. */
+const SHAPE=document.createElement('canvas'), shapeC=SHAPE.getContext('2d'), SHAPE_W=200, SHAPE_H=170, SHAPE_FX=100, SHAPE_FY=160;
+function silhouette(draw,col){
+  if(SHAPE.width!==SHAPE_W*SC){ SHAPE.width=SHAPE_W*SC; SHAPE.height=SHAPE_H*SC; }
+  shapeC.setTransform(1,0,0,1,0,0); shapeC.globalCompositeOperation='source-over'; shapeC.globalAlpha=1;
+  shapeC.clearRect(0,0,SHAPE.width,SHAPE.height);
+  shapeC.setTransform(SC,0,0,SC,SHAPE_FX*SC,SHAPE_FY*SC); draw(shapeC);
+  shapeC.setTransform(1,0,0,1,0,0); shapeC.globalAlpha=1; shapeC.globalCompositeOperation='source-in';
+  shapeC.fillStyle=col; shapeC.fillRect(0,0,SHAPE.width,SHAPE.height); shapeC.globalCompositeOperation='source-over';
+  return SHAPE;
+}
+/* its shadow on the ground at x,y; lift: how high it hovers (the shadow drops further
+   away and fainter) */
+function castShadow(draw,x,y,lift,a){
+  const S=silhouette(draw,'#14200c'), l=lift||0;
+  b.save(); b.globalAlpha=a*(l?0.75:1);
+  b.translate(x+l*0.45,y+l*0.12); b.transform(1,0,-0.55,-0.26*(l?0.8:1),0,0);
+  b.drawImage(S,-SHAPE_FX,-SHAPE_FY,SHAPE_W,SHAPE_H); b.restore();
+}
+function flashOver(draw,x,y,a){
+  if(a<=0) return;
+  const S=silhouette(draw,'#ffffff');
+  b.save(); b.globalAlpha=Math.min(1,a); b.drawImage(S,x-SHAPE_FX,y-SHAPE_FY,SHAPE_W,SHAPE_H); b.restore();
 }
 
 function wrapT(text,x,y,w,size,col){
@@ -529,13 +675,13 @@ function drawSpellFx(kind,k,ax,ay){
 }
 /* ---------------- the battle screen ----------------
    A painted garden backdrop for the season and hour, and classic RPG windows:
-   message along the top with the pest's name and HP below it; along the bottom the
+   message along the top with each pest's name, level and HP below it; along the bottom the
    commands, the party (room for three) and what the highlighted choice does. The
    Songs / Skills / Items lists open over the commands and the party. */
-const BWIN={msg:{x:8,y:8,w:344,h:34}, foe:{x:8,y:48,w:176,h:38},
+const BWIN={msg:{x:8,y:8,w:344,h:40}, foe:{x:8,y:54,w:196,h:32},
             cmd:{x:8,y:322,w:128,h:152}, party:{x:142,y:322,w:210,h:100}, info:{x:142,y:428,w:210,h:46},
             list:{x:8,y:322,w:344,h:100}, linfo:{x:8,y:428,w:344,h:46}};
-const CMD_ROW=26, HORIZON=150, PARTY_ROW=30;
+const CMD_ROW=26, HORIZON=150, PARTY_ROW=30, FOE_ROW=24;
 /* The top windows sit at the top of the scene and the bottom ones at its bottom edge,
    so on tall screens the fight fills the space (above the deck on touch screens). */
 function battleWins(){
@@ -621,9 +767,9 @@ function drawnBackdrop(P,T0,T1){
 }
 /* over either backdrop: light where everyone stands, drifting petals/leaves/snow, the hour */
 function backdropLife(P,T0,T1,dt){
-  /* light pools where the pest and each of the party stand */
+  /* light pools where the pests and each of the party stand */
   b.fillStyle='rgba(255,255,240,.16)';
-  b.beginPath(); b.ellipse(EX,EY+54,62,14,0,0,7); b.fill();
+  B.foes.forEach(f=>{ if(f.fade>=1) return; const p=foeSpot(f); b.beginPath(); b.ellipse(p.x,p.y+2,56*p.s,13*p.s,0,0,7); b.fill(); });
   B.party.forEach(id=>{ const s=slotOf(id), big=id==='kaitlyn'; b.beginPath(); b.ellipse(s.x+(big?6:0),s.y+2,big?48:28,big?11:7,0,0,7); b.fill(); });
   /* petals, leaves or snow drifting across */
   if(P.drift){
@@ -703,24 +849,67 @@ function drawFoeFx(fx,k,targets){
   }
 }
 /* little tags over anyone with a status (and over a pest that's guarding or charging) */
-function drawStatusTags(){
-  const tag=(x,y,list)=>{ list.forEach(([t,col],i)=>{ const w=t.length*4.2+6, xx=x-(list.length*(w+2))/2+i*(w+2);
-    b.fillStyle='#0a0f2a'; b.beginPath(); b.roundRect(xx-0.5,y-0.5,w+1,9,3); b.fill();
-    b.fillStyle=col; b.beginPath(); b.roundRect(xx,y,w,8,2.5); b.fill();
-    b.fillStyle='#ffffff'; b.font='bold 6px '+FONT; b.textAlign='center'; b.fillText(t,xx+w/2,y+6.3); });
-    b.textAlign='left'; };
-  B.party.forEach(id=>{ if(!standing(id)) return; const s=slotOf(id), S=B.st[id]||{};
-    const L=Object.keys(STATUS).filter(k=>S[k]>0).map(k=>[STATUS[k].tag,STATUS[k].col]);
-    if(B.guard[id]) L.push(["GRD",'#3a8a5a']);
-    if(L.length) tag(s.x,s.y-(id==='kaitlyn'?138:58),L); });
-  const F=B.foe, L=[];
+function foeTags(f){ const F=f.st, L=[];
   if(F.poison) L.push(["PSN",STATUS.poison.col]); if(F.bound) L.push(["BND",STATUS.bound.col]);
-  if(F.weak) L.push(["WK",STATUS.weak.col]); if(F.sleep) L.push(["SLP",STATUS.sleep.col]); if(F.guard) L.push(["GRD",'#3a8a5a']); if(F.charge) L.push(["!!",'#d84a3a']);
-  if(L.length&&!B.over) tag(EX,EY-58,L);
+  if(F.weak) L.push(["WK",STATUS.weak.col]); if(F.sleep) L.push(["SLP",STATUS.sleep.col]);
+  if(F.guard) L.push(["GRD",'#3a8a5a']); if(F.charge) L.push(["!!",'#d84a3a']);
+  return L; }
+function memberTags(id){ const S=B.st[id]||{};
+  const L=Object.keys(STATUS).filter(k=>S[k]>0).map(k=>[STATUS[k].tag,STATUS[k].col]);
+  if(B.guard[id]) L.push(["GRD",'#3a8a5a']);
+  return L; }
+function drawStatusTags(){
+  const tag=(x,y,list)=>{ list.forEach(([t,col],i)=>{ const w=t.length*4.6+7, xx=x-(list.length*(w+2))/2+i*(w+2);
+    b.fillStyle='#0a0f2a'; b.beginPath(); b.roundRect(xx-0.5,y-0.5,w+1,10,3); b.fill();
+    b.fillStyle=col; b.beginPath(); b.roundRect(xx,y,w,9,2.5); b.fill();
+    b.fillStyle='#ffffff'; b.font='bold 6.5px '+FONT; b.textAlign='center'; b.fillText(t,xx+w/2,y+7); });
+    b.textAlign='left'; };
+  if(B.over==='win') return;
+  B.party.forEach(id=>{ if(!standing(id)) return; const s=slotOf(id), L=memberTags(id);
+    if(L.length) tag(s.x,s.y-(id==='kaitlyn'?138:58),L); });
+  if(!B.over) liveFoes().forEach(f=>{ const L=foeTags(f), r=foeBox(f); if(L.length) tag(r.x+r.w/2,Math.max(BAND_TOP()+4,r.y-12),L); });
+}
+/* what a tap on someone shows: who they are, how they're doing, and what each of their
+   troubles does */
+const ST_DESC={poison:"loses a little HP every turn",blind:"attacks miss half the time",
+  sleep:"can't act (a hit may wake them)",weak:"hits do 40% less damage",scared:"half the time too scared to move",
+  bound:"held fast: loses a turn",guard:"braced: hits on it are halved",charge:"its next hit is twice as hard",
+  braced:"braced: the next hit is halved"};
+function inspectInfo(x){
+  const out={lines:[]}, add=(t,col,size,bold)=>out.lines.push({t,col:col||'#c8d4ff',size:size||17,bold});
+  const trouble=(name,col,what,left)=>add("• "+name+": "+what+(left?" ("+left+" turn"+(left===1?"":"s")+" left)":"")+".",col,17);
+  if(typeof x==='object'){ const f=x, P=PESTS[f.sp], F=f.st;
+    out.title=f.name+(f.boss?"  ★":""); out.lv=f.lv; out.col=f.boss?'#ffd870':'#f4f6ff';
+    add("HP "+f.hp+" / "+f.maxhp+"    Attack "+Math.round(f.atk)+"    Defense "+Math.round(f.def)+"    Agility "+Math.round(f.agi),'#f4f6ff',17);
+    if(P.about) add(P.about,'#c8d4ff',17);
+    const S=[];
+    if(F.poison) S.push(["Poison",STATUS.poison.col,"takes "+F.poison.dmg+" HP every turn",F.poison.n]);
+    if(F.bound) S.push(["Bound",'#d8b07a',ST_DESC.bound,0]);
+    if(F.weak) S.push(["Weak",'#f0b070',ST_DESC.weak,F.weak]);
+    if(F.sleep) S.push(["Asleep",'#9ac0ff',ST_DESC.sleep,F.sleep]);
+    if(F.guard) S.push(["Guarding",'#8fe0a8',ST_DESC.guard,0]);
+    if(F.charge) S.push(["Charged up",'#ff9a8a',ST_DESC.charge,0]);
+    if(S.length){ add("Troubles","#ffe08a",18,true); S.forEach(s=>trouble(...s)); } else add("Nothing troubling it.",'#8a94c4',16);
+    return out;
+  }
+  const id=x, I=PARTY_INFO[id], M=member(id), St=B.st[id]||{};
+  out.title=I.name; out.lv=M.lv; out.col='#f4f6ff';
+  add("HP "+M.hp+" / "+M.maxhp+"    MP "+M.mp+" / "+memberMaxMp(id),'#f4f6ff',17);
+  add(["str","agi","def","int","luk"].map(k=>STAT_NAME[k].slice(0,3)+" "+statOf(id,k)).join("   "),'#c8d4ff',16);
+  add(I.role,'#aab6e8',16);
+  const S=Object.keys(STATUS).filter(k=>St[k]>0).map(k=>[STATUS[k].name,'#e0b0ff',ST_DESC[k],St[k]]);
+  if(B.guard[id]) S.push(["Braced",'#8fe0a8',ST_DESC.braced,0]);
+  if(S.length){ add("Troubles","#ffe08a",18,true); S.forEach(s=>trouble(...s)); } else add("Feeling fine.",'#8a94c4',16);
+  return out;
+}
+const INSPECT={x:14,w:332,pad:12};
+/* the inspect window's lines, wrapped, and its height */
+function inspectLayout(){
+  const I=inspectInfo(B.inspect), rows=[];
+  I.lines.forEach(l=>wrapLines(l.t,l.size,INSPECT.w-INSPECT.pad*2).forEach((t,i)=>rows.push({...l,t:i&&l.t.startsWith("•")?"   "+t:t})));
+  return {I,rows,h:40+rows.length*15+20};
 }
 function drawBattle(dt){
-  if(B.shake>0) B.shake-=dt;
-  if(B.flash>0) B.flash-=dt;
   if(B.turn==='player') B.readyT+=dt;
   let k=0;
   if(B.anim){
@@ -729,38 +918,54 @@ function drawBattle(dt){
     if(k>=1){ B.anim=null; afterAction(); }
   }
   if(B.win) B.win.t+=dt;
+  if(B.prep) B.prep.t+=dt;
+  if(B.banner){ B.banner.t-=dt; if(B.banner.t<=0) B.banner=null; }
+  if(B.inspect&&typeof B.inspect==='object'&&B.inspect.hp<=0) B.inspect=null;
   drawBattleBackdrop(dt);
-  const sh=B.shake>0?Math.round(Math.sin(G.t/25)*3):0;
-  /* the pest lunges at whoever it attacks (further for a dive, a dash for zoomies) */
+  /* the pests, back to front: shadow, sprite, and a white flash when hit or about to
+     use a special move. One lunges at whoever it attacks (further for a dive, a dash
+     for zoomies). */
   const A=B.anim&&B.anim.kind==='enemy'?B.anim:null;
-  const eL=A&&!A.self?Math.round(Math.sin(k*Math.PI)*(A.fx==='dive'?-110:A.fx==='zoom'?-150:-38)):0;
-  const eY=A&&A.fx==='dive'?Math.round(Math.sin(k*Math.PI)*60):0;
-  const night=PESTS[B.species].night, bob=Math.round(Math.sin(G.t/420)*(night?5:2));
-  const gone=B.win?clamp(B.win.t/450,0,1):0;          /* the beaten pest fades away */
-  b.globalAlpha=.25*(1-gone); b.fillStyle='#1a2810';
-  b.beginPath(); b.ellipse(EX+sh+eL,EY+52,30,7,0,0,7); b.fill();
-  b.globalAlpha=(1-gone)*(night?.88:1)*(A&&A.fx==='fade'?1-Math.sin(k*Math.PI)*0.7:1);
-  drawEnemyArt(b,B.species,EX+sh+eL,EY+52+bob+eY-(night?8:0),1);
-  b.globalAlpha=1;
-  if(B.flash>0){ b.globalAlpha=B.flash/600; px(b,EX-52,EY-40,104,96,'#ffffff'); b.globalAlpha=1; }
+  B.foes.slice().sort((a,z)=>foeSpot(a).y-foeSpot(z).y).forEach(f=>{
+    if(f.shake>0) f.shake-=dt; if(f.flash>0) f.flash-=dt;
+    if(f.hp<=0||B.over==='win') f.fade=Math.min(1,f.fade+dt/450);     /* a beaten pest fades away */
+    if(f.fade>=1) return;
+    const p=foeSpot(f), me=A&&A.foe===f, sh=f.shake>0?Math.round(Math.sin(G.t/25)*3):0;
+    const eL=me&&!A.self?Math.round(Math.sin(k*Math.PI)*(A.fx==='dive'?-110:A.fx==='zoom'?-150:-38)):0;
+    const eY=me&&A.fx==='dive'?Math.round(Math.sin(k*Math.PI)*(40+p.lift)):0;
+    const night=PESTS[f.sp].night, bob=Math.round(Math.sin(G.t/420+f.slot*2.1)*(p.lift?4:2));
+    const x=p.x+sh+eL, y=p.y-p.lift+bob+eY, art=c=>drawEnemyArt(c,f.sp,0,0,p.s);
+    castShadow(art,x,p.y,p.lift-eY,0.36*(1-f.fade));
+    b.globalAlpha=(1-f.fade)*(night?.88:1)*(me&&A.fx==='fade'?1-Math.sin(k*Math.PI)*0.7:1);
+    drawEnemyArt(b,f.sp,x,y,p.s);
+    b.globalAlpha=1;
+    const prep=B.prep&&B.prep.f===f?Math.abs(Math.sin(B.prep.t/90))*0.75:0;
+    flashOver(art,x,y,Math.max(f.flash/250,prep)*(1-f.fade));
+  });
   /* the party, back to front, each in place playing their own animations */
   let who=null;
-  const placed=B.party.map(id=>{ const s=slotOf(id); let x=s.x;
-    if(B.anim&&B.anim.who===id){
-      who={id,x,y:s.y};
-    }
-    return {id,x,y:s.y}; }).sort((a,z)=>a.y-z.y);
+  const placed=B.party.map(id=>{ const s=slotOf(id);
+    if(B.anim&&B.anim.who===id) who={id,x:s.x,y:s.y};
+    return {id,x:s.x,y:s.y}; }).sort((a,z)=>a.y-z.y);
+  placed.forEach(p=>castShadow(c=>drawMember(c,p.id,0,0,k),p.x,p.y,0,0.32));
   placed.forEach(p=>{
-    b.globalAlpha=.25; b.fillStyle='#1a2810';
-    b.beginPath(); b.ellipse(p.x,p.y,21,6,0,0,7); b.fill(); b.globalAlpha=1;
     if(B.turn==='player'&&!B.over&&actor()===p.id){        /* a warm glow under whoever's turn it is */
       b.globalAlpha=.35+Math.sin(G.t/260)*.12; b.fillStyle='#ffe08a';
       b.beginPath(); b.ellipse(p.x,p.y+1,30,8,0,0,7); b.fill(); b.globalAlpha=1; }
-    drawMember(p.id,p.x,p.y,k);
+    drawMember(b,p.id,p.x,p.y,k);
   });
-  if(A) drawFoeFx(A.fx,k,A.targets);
-  else if(B.anim&&who) drawSpellFx(B.anim.kind,k,who.x,who.y);
+  if(A){ focus(A.foe); drawFoeFx(A.fx,k,A.targets); }
+  else if(B.anim&&who){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
   drawStatusTags();
+  /* picking a target: a bouncing pointer over whoever is picked */
+  const picking=B.turn==='player'&&B.menu==='target'&&B.tgt, tg=picking?B.tgt.list[B.tgt.i]:null;
+  if(picking){
+    let tx,ty; if(B.tgt.kind==='foe'){ const r=foeBox(tg); tx=r.x+r.w/2; ty=Math.max(BAND_TOP()+14,r.y-4); }
+    else { tx=slotOf(tg).x; ty=headOf(tg)-14; }
+    ty+=Math.sin(G.t/140)*3;
+    b.fillStyle='#0a0f2a'; b.beginPath(); b.moveTo(tx-9,ty-13); b.lineTo(tx+9,ty-13); b.lineTo(tx,ty+1); b.fill();
+    b.fillStyle='#ffe08a'; b.beginPath(); b.moveTo(tx-7,ty-12); b.lineTo(tx+7,ty-12); b.lineTo(tx,ty-1.5); b.fill();
+  }
   if(B.shout){ B.shout.t-=dt; if(B.shout.t<=0) B.shout=null; }
   const won=B.over==='win'&&B.win, xs=won?xpShown(B.win.who[0]):null;
   /* victory sparkles */
@@ -771,80 +976,103 @@ function drawBattle(dt){
   B.fx=B.fx.filter(f=>f.t>0);
 
   const pick=B.turn==='player'&&!B.over, W=battleWins(), dn=W.dn, id=actor();
-  const list=B.menu!=='cmd'&&pick, L=list?subList():null;
+  const list=(B.menu==='skills'||B.menu==='items')&&pick, L=list?subList():null;
+  const FW={x:W.foe.x,y:W.foe.y,w:W.foe.w,h:8+B.foes.length*FOE_ROW};
+  /* Kaitlyn's shout, a special move's name: little windows by whoever it is */
+  let shoutAt=null, bannerAt=null;
+  if(B.shout){ const s=slotOf('kaitlyn'), kx=who&&who.id==='kaitlyn'?who.x:s.x, w=TW(B.shout.txt,24,true)+20;
+    shoutAt={x:clamp(kx-w/2,6,LW-6-w),y:s.y-150,w,h:24,tx:clamp(kx,6+w/2,LW-6-w/2),kx:clamp(kx,20,LW-20)}; }
+  if(B.banner){ const r=foeBox(B.banner.f), w=TW(B.banner.txt,24,true)+24, cx=clamp(r.x+r.w/2,6+w/2,LW-6-w/2);
+    bannerAt={x:cx-w/2,y:Math.max(FW.y+FW.h+6,r.y-34),w,h:24,cx}; }
+  const fadeIn=t=>Math.min(1,t/250);
   if(!B.over){
-    rpgWin(W.msg); rpgWin(W.foe);
-    gauge(W.foe.x+10,W.foe.y+25,W.foe.w-20,6,B.hp,B.maxhp,'#e8604a','#ffb09a');
+    rpgWin(W.msg); rpgWin(FW);
+    B.foes.forEach((f,i)=>gauge(FW.x+10,FW.y+22+i*FOE_ROW,FW.w-20,5,f.hp,f.maxhp,'#e8604a','#ffb09a'));
+    if(picking&&B.tgt.kind==='foe'){ const i=B.foes.indexOf(tg);
+      b.fillStyle='rgba(150,180,255,.25)'; b.beginPath(); b.roundRect(FW.x+5,FW.y+4+i*FOE_ROW,FW.w-10,FOE_ROW,4); b.fill(); }
     if(list){
       rpgWin(W.list); rpgWin(W.linfo);
       if(L.length) winCursor(W.list.x+6,W.list.y+SUB_Y0+(B.sub-B.top)*SUB_ROW,W.list.w-12,SUB_ROW-1);
     } else {
       rpgWin(W.cmd); rpgWin(W.party); rpgWin(W.info);
       B.party.forEach((m,i)=>{ const y=W.party.y+6+i*PARTY_ROW, M=member(m);
-        if(pick&&m===id){ b.fillStyle='rgba(150,180,255,.22)'; b.beginPath(); b.roundRect(W.party.x+5,y,W.party.w-10,PARTY_ROW-2,4); b.fill(); }
-        gauge(W.party.x+82,y+19,58,5,M.hp,M.maxhp,'#e8504a','#ffa8a0');
-        gauge(W.party.x+150,y+19,50,5,M.mp,memberMaxMp(m),'#4aa8f0','#b0e0ff'); });
-      if(pick) winCursor(W.cmd.x+6,cmdTop(W)+B.idx*CMD_ROW,W.cmd.w-12,CMD_ROW-2);
+        const lit=pick&&(picking&&B.tgt.kind==='ally'?m===tg:m===id);
+        if(lit){ b.fillStyle='rgba(150,180,255,.22)'; b.beginPath(); b.roundRect(W.party.x+5,y,W.party.w-10,PARTY_ROW-2,4); b.fill(); }
+        gauge(W.party.x+82,y+20,58,5,M.hp,M.maxhp,'#e8504a','#ffa8a0');
+        gauge(W.party.x+150,y+20,50,5,M.mp,memberMaxMp(m),'#4aa8f0','#b0e0ff'); });
+      if(pick&&!picking) winCursor(W.cmd.x+6,cmdTop(W)+B.idx*CMD_ROW,W.cmd.w-12,CMD_ROW-2);
     }
   } else if(won){
-    rpgWin({x:20,y:VW.y+dn,w:320,h:VW.h});
-    B.win.who.forEach((id,i)=>{ const x=xpShown(id); gauge(40,VW.y+dn+VW.row0+i*VW.step+20,280,8,x.xp,x.next,'#f0c84a','#fff0b0'); });
-    if(B.win.seed) drawShopPic(SPECIES[B.win.seed].name.toLowerCase()+" seed",52,VW.y+dn+VW.h-22,18,24);
+    const h=vwHeight(B.win.who.length), y0=BAND_BOT()-8-h;
+    rpgWin({x:14,y:y0,w:332,h});
+    B.win.who.forEach((id,i)=>{ const x=xpShown(id); gauge(30,y0+VW.top+i*VW.step+19,300,6,x.xp,x.next,'#f0c84a','#fff0b0'); });
+    if(B.win.seed) drawShopPic(SPECIES[B.win.seed].name.toLowerCase()+" seed",42,y0+h-14,14,18);
   } else rpgWin({x:60,y:300+dn,w:240,h:84});
+  const tail=(x,y,a)=>{ b.globalAlpha=a; b.fillStyle='#0a0f2a'; b.beginPath(); b.moveTo(x-7,y-1); b.lineTo(x+7,y-1); b.lineTo(x,y+8); b.fill();
+    b.fillStyle='#e6eaf6'; b.beginPath(); b.moveTo(x-5,y-2); b.lineTo(x+5,y-2); b.lineTo(x,y+5.5); b.fill(); b.globalAlpha=1; };
+  if(shoutAt){ const a=Math.min(1,B.shout.t/300); b.globalAlpha=a; rpgWin(shoutAt); b.globalAlpha=1; tail(shoutAt.kx,shoutAt.y+shoutAt.h,a); }
+  if(bannerAt&&!B.inspect){ b.globalAlpha=Math.min(1,B.banner.t/250); rpgWin(bannerAt); b.globalAlpha=1; }
+  const insp=B.inspect?inspectLayout():null, IY=FW.y+FW.h+8;   /* under the pests' window */
+  if(insp) rpgWin({x:INSPECT.x,y:IY,w:INSPECT.w,h:insp.h});
   blit();
 
   if(!B.over){
-    wrapLines(B.log,19,W.msg.w-16).slice(0,2).forEach((ln,i,a)=>
-      TS(ln,W.msg.x+10,W.msg.y+(a.length>1?14:21)+i*13,19,'#f4f6ff'));
-    TS(B.name+(B.boss?"  ★":""),W.foe.x+10,W.foe.y+17,20,B.boss?'#ffd870':'#f4f6ff',null,true);
+    const log=picking?(B.tgt.kind==='foe'?"Who at? Tap a pest, or pick one and press A.":"Who for? Tap a friend, or pick one and press A."):B.log;
+    wrapLines(log,21,W.msg.w-16).slice(0,2).forEach((ln,i,a)=>
+      TS(ln,W.msg.x+10,W.msg.y+(a.length>1?16:24)+i*15,21,'#f4f6ff'));
+    B.foes.forEach((f,i)=>{ const y=FW.y+17+i*FOE_ROW, down=f.hp<=0;
+      TS(f.name+(f.boss?"  ★":""),FW.x+10,y,21,down?'#7c84b0':f.boss?'#ffd870':'#f4f6ff',null,true);
+      TS("Lv."+f.lv,FW.x+FW.w-10,y,18,down?'#7c84b0':'#c8d4ff','right',true); });
     if(list){
       const R=W.list, title=B.menu==='items'?"Items":PARTY_INFO[id].skills;
-      TS(title,R.x+12,R.y+16,20,'#ffe08a',null,true);
-      TS(B.menu==='items'?"from your basket":"MP "+member(id).mp+"/"+memberMaxMp(id),R.x+R.w-12,R.y+16,16,'#c8d4ff','right');
+      TS(title,R.x+12,R.y+16,21,'#ffe08a',null,true);
+      TS(B.menu==='items'?"from your basket":"HP "+member(id).hp+"   MP "+member(id).mp+"/"+memberMaxMp(id),R.x+R.w-12,R.y+16,17,'#c8d4ff','right');
       if(!L.length) TS(B.menu==='items'?"Nothing to eat yet — harvest some crops!":"No skills learned yet.",
-        R.x+R.w/2,R.y+SUB_Y0+30,17,'#aab6e8','center');
-      L.slice(B.top,B.top+SUB_ROWS).forEach((x,j)=>{ const i=B.top+j, y=R.y+SUB_Y0+j*SUB_ROW+16.5, sel=i===B.sub;
+        R.x+R.w/2,R.y+SUB_Y0+30,18,'#aab6e8','center');
+      L.slice(B.top,B.top+SUB_ROWS).forEach((x,j)=>{ const i=B.top+j, y=R.y+SUB_Y0+j*SUB_ROW+17, sel=i===B.sub;
         if(B.menu==='items'){
-          TS(itemName(x),R.x+40,y,21,'#f4f6ff',null,sel);
-          TS(itemText(x),R.x+200,y,16,'#b8f0a0');
-          TS("x"+itemCount(x),R.x+R.w-12,y,18,'#f4f6ff','right');
-        } else { const ok=member(id).mp>=x.mp;
-          TS(x.name,R.x+40,y,21,ok?'#f4f6ff':'#7c84b0',null,sel);
-          TS(x.mp+" MP",R.x+R.w-12,y,18,ok?'#a8d8ff':'#7c84b0','right'); } });
-      if(B.top>0) TS("▲",R.x+R.w-40,R.y+SUB_Y0+8,13,'#c8d4ff','center');
-      if(B.top+SUB_ROWS<L.length) TS("▼",R.x+R.w-40,R.y+R.h-4,13,'#c8d4ff','center');
-      const [t1,t2]=subInfo(L[B.sub]);
-      TS(t1,W.linfo.x+10,W.linfo.y+19,19,'#f4f6ff',null,true);
-      TS(t2,W.linfo.x+10,W.linfo.y+36,16,'#c8d4ff');
+          TS(itemName(x),R.x+40,y,22,'#f4f6ff',null,sel);
+          TS(itemText(x),R.x+200,y,17,'#b8f0a0');
+          TS("x"+itemCount(x),R.x+R.w-12,y,19,'#f4f6ff','right');
+        } else { const ok=canPay(x,id);
+          TS((x.song?"♪ ":"")+x.name,R.x+40,y,22,ok?'#f4f6ff':'#7c84b0',null,sel);
+          TS(costText(x,id),R.x+R.w-12,y,19,!ok?'#7c84b0':x.hpCost?'#ffb0a8':'#a8d8ff','right'); } });
+      if(B.top>0) TS("▲",R.x+R.w-50,R.y+SUB_Y0+8,14,'#c8d4ff','center');
+      if(B.top+SUB_ROWS<L.length) TS("▼",R.x+R.w-50,R.y+R.h-4,14,'#c8d4ff','center');
+      /* the row shows the name, so the window is all description (two lines) */
+      const [t1,t2]=subInfo(L[B.sub]), dl=wrapLines(t2,17,W.linfo.w-20);
+      if(dl.length>2){ dl.length=2; dl[1]=dl[1].replace(/\s*\S*$/,"…"); }
+      if(!L.length) TS(t1,W.linfo.x+10,W.linfo.y+19,20,'#f4f6ff',null,true);
+      dl.forEach((ln,i)=>TS(ln,W.linfo.x+10,W.linfo.y+(L.length?19:37)+i*16,17,'#c8d4ff'));
     } else {
-      CMDS.forEach((c,i)=>{ const y=cmdTop(W)+i*CMD_ROW+17, ok=cmdUsable(c,id);
-        TS(cmdName(c,id),W.cmd.x+40,y,23,!pick?'#9aa4d0':ok?'#f4f6ff':'#7c84b0',null,pick&&i===B.idx); });
+      CMDS.forEach((c,i)=>{ const y=cmdTop(W)+i*CMD_ROW+18, ok=cmdUsable(c,id);
+        TS(cmdName(c,id),W.cmd.x+40,y,25,!pick||picking?'#9aa4d0':ok?'#f4f6ff':'#7c84b0',null,pick&&!picking&&i===B.idx); });
       B.party.forEach((m,i)=>{ const y=W.party.y+6+i*PARTY_ROW, M=member(m), mx=memberMaxMp(m);
-        TS(PARTY_INFO[m].name,W.party.x+9,y+14,20,standing(m)?"#f4f6ff":"#8a90b8",null,true);
-        TS("Lv."+M.lv,W.party.x+9,y+27,15,'#aab6e8');
-        TS("HP",W.party.x+80,y+13,15,'#ffb0a8',null,true);
-        TS(M.hp+"/"+M.maxhp,W.party.x+141,y+13,16,'#f4f6ff','right');
-        TS("MP",W.party.x+148,y+13,15,'#a8d8ff',null,true);
-        TS(M.mp+"/"+mx,W.party.x+201,y+13,16,'#f4f6ff','right'); });
-      const [t1,t2]=pick?cmdInfo(CMDS[B.idx],id):[B.turn==='enemy'?"The "+B.name+"'s turn":"…",""];
-      TS(t1,W.info.x+10,W.info.y+19,19,'#f4f6ff',null,true);
-      wrapLines(t2,16,W.info.w-16).slice(0,1).forEach(ln=>TS(ln,W.info.x+10,W.info.y+36,16,'#c8d4ff'));
+        TS(PARTY_INFO[m].name,W.party.x+9,y+14,21,standing(m)?"#f4f6ff":"#8a90b8",null,true);
+        TS("Lv."+M.lv,W.party.x+9,y+27,16,'#aab6e8');
+        TS("HP",W.party.x+80,y+14,16,'#ffb0a8',null,true);
+        TS(M.hp+"/"+M.maxhp,W.party.x+141,y+14,18,'#f4f6ff','right');
+        TS("MP",W.party.x+148,y+14,16,'#a8d8ff',null,true);
+        TS(M.mp+"/"+mx,W.party.x+201,y+14,18,'#f4f6ff','right'); });
+      const ac=B.anim&&B.anim.kind==='enemy'?B.anim.foe:B.prep?B.prep.f:null;
+      const [t1,t2]=picking?(B.tgt.kind==='foe'?[tg.name,"HP "+tg.hp+"/"+tg.maxhp+" · Lv."+tg.lv]:[PARTY_INFO[tg].name,"HP "+member(tg).hp+"/"+member(tg).maxhp])
+        :pick?cmdInfo(CMDS[B.idx],id):[B.turn==='enemy'&&ac?"The "+ac.name+"'s turn":"…",""];
+      TS(t1,W.info.x+10,W.info.y+19,20,'#f4f6ff',null,true);
+      wrapLines(t2,17,W.info.w-16).slice(0,1).forEach(ln=>TS(ln,W.info.x+10,W.info.y+37,17,'#c8d4ff'));
     }
   }
+  if(shoutAt){ m.globalAlpha=Math.min(1,B.shout.t/300); TS(B.shout.txt,shoutAt.tx,shoutAt.y+17,24,'#f4f6ff','center',true); m.globalAlpha=1; }
+  if(bannerAt&&!B.inspect){ m.globalAlpha=Math.min(1,B.banner.t/250); TS(B.banner.txt,bannerAt.cx,bannerAt.y+17,24,'#ffe08a','center',true); m.globalAlpha=1; }
   B.pops.forEach(p=>{ p.t-=dt; p.y-=dt*0.03;
     const hop=Math.max(0,Math.sin((1100-p.t)/140))*6*Math.max(0,(p.t-600)/500);
     m.globalAlpha=Math.min(1,p.t/400); TO(p.txt,p.x,p.y-hop,40,p.col,'center',true,1.6); m.globalAlpha=1; });
   B.pops=B.pops.filter(p=>p.t>0);
-  if(B.shout){
-    const s=slotOf('kaitlyn'), kx=who&&who.id==='kaitlyn'?who.x:s.x;
-    const sx=clamp(kx,60,300), sy=s.y-142;
-    const w=TW(B.shout.txt,26,true)+22;
-    m.globalAlpha=Math.min(1,B.shout.t/300);
-    m.fillStyle='#2b1c12'; m.fillRect((sx-w/2-2)*SC,(sy-2)*SC,(w+4)*SC,26*SC);
-    m.fillStyle='#fff6d8'; m.fillRect((sx-w/2)*SC,sy*SC,w*SC,22*SC);
-    m.fillStyle='#2b1c12'; m.fillRect((sx-5)*SC,(sy+22)*SC,10*SC,7*SC);
-    T(B.shout.txt,sx,sy+17,26,'#3a2a1a','center',true);
-    m.globalAlpha=1;
+  if(insp){
+    const {I,rows}=insp, X=INSPECT.x+INSPECT.pad;
+    TS(I.title,X,IY+22,23,I.col,null,true);
+    TS("Lv."+I.lv,INSPECT.x+INSPECT.w-INSPECT.pad,IY+22,20,'#c8d4ff','right',true);
+    rows.forEach((r,i)=>TS(r.t,X,IY+42+i*15,r.size,r.col,null,r.bold));
+    TS(IS_TOUCH?"tap to close":"any key to close",INSPECT.x+INSPECT.w-INSPECT.pad,IY+insp.h-8,15,'#8a94c4','right');
   }
   if(won){
     const w=B.win, pop=clamp(w.t/280,0,1);
@@ -852,17 +1080,16 @@ function drawBattle(dt){
     const size=Math.round(58+(1-pop)*30), by=96-(1-pop)*20;
     m.globalAlpha=pop; TO("VICTORY!",180,by,size,'#ffd24a','center',true,2.2);
     T("VICTORY!",180,by-size*0.04,size,'rgba(255,250,210,.35)','center',true); m.globalAlpha=1;
-    const y0=VW.y+dn;
-    TS("EXP",40,y0+24,20,'#c8d4ff',null,true); TS("+"+Math.round(w.xp*xs.k)+" each",320,y0+24,20,'#ffe08a','right',true);
-    TS("Coins",40,y0+46,20,'#c8d4ff',null,true); TS((w.bonus?"lucky!  ":"")+"+"+Math.round(w.coins*xs.k)+"c",320,y0+46,20,'#ffe08a','right',true);
-    TS("You have "+(G.coins-w.coins+Math.round(w.coins*xs.k))+"c",320,y0+64,16,'#aab6e8','right');
-    w.who.forEach((id,i)=>{ const x=xpShown(id), f=w.from[id], y=y0+VW.row0+i*VW.step+14;
-      TS(PARTY_INFO[id].name+"  Lv."+x.lv,40,y,19,'#f4f6ff',null,true);
-      if(x.lv>f.lv&&Math.floor(G.t/240)%2===0) TS("LEVEL UP!",175,y,17,'#ffb04a',null,true);
-      TS(x.xp+" / "+x.next,320,y,15,'#c8d4ff','right'); });
-    if(w.seed) TS("Found: "+SPECIES[w.seed].name+" seed!",70,y0+VW.h-16,19,'#b8f0a0',null,true);
-    else TS("No seeds this time.",180,y0+VW.h-16,17,'#8a94c4','center');
-    if(!winGuard()&&Math.floor(G.t/500)%2===0) TS(IS_TOUCH?"tap or press A to continue":"J / tap to continue",180,y0+VW.h+20,17,'#c8d4ff','center');
+    const h=vwHeight(w.who.length), y0=BAND_BOT()-8-h;
+    TS("EXP +"+Math.round(w.xp*xs.k)+(w.who.length>1?" each":""),30,y0+19,20,'#ffe08a',null,true);
+    TS((w.bonus?"lucky!  ":"")+"+"+Math.round(w.coins*xs.k)+"c",330,y0+19,20,'#ffe08a','right',true);
+    TS("(have "+(G.coins-w.coins+Math.round(w.coins*xs.k))+"c)",330-TW((w.bonus?"lucky!  ":"")+"+"+Math.round(w.coins*xs.k)+"c",20,true)-8,y0+19,15,'#aab6e8','right');
+    w.who.forEach((id,i)=>{ const x=xpShown(id), f=w.from[id], y=y0+VW.top+i*VW.step+14;
+      TS(PARTY_INFO[id].name+"  Lv."+x.lv,30,y,19,'#f4f6ff',null,true);
+      if(x.lv>f.lv&&Math.floor(G.t/240)%2===0) TS("LEVEL UP!",170,y,17,'#ffb04a',null,true);
+      TS(x.xp+" / "+x.next,330,y,15,'#c8d4ff','right'); });
+    if(w.seed) TS("Found: "+SPECIES[w.seed].name+" seed!",56,y0+h-9,18,'#b8f0a0',null,true);
+    else TS("No seeds this time.",180,y0+h-9,16,'#8a94c4','center');
     return;
   }
   if(B.over){

@@ -17,15 +17,18 @@ const G={
   party:['kaitlyn'], allies:{},          /* who fights (up to 3); allies' own stats */
   story:{},                              /* how far each story has got; see 16-story.js */
   daily:{},                              /* once-a-day things: the day each was last done */
-  area:'garden', goods:{},              /* where she is (17-places.js); things gathered and caught */
+  area:'garden', goods:{}, gearOff:{},              /* where she is (17-places.js); things gathered and caught */
 };
-const fluteMul=()=>G.gear.dizi?1.35:(G.gear.silver?1.15:1);
+/* the equipped flute's power (FLUTE_INFO) */
+const fluteMul=()=>(FLUTE_INFO[G.flute||'recorder']||{mul:1}).mul;
+/* an accessory works when it's owned and not switched off in the Gear tab */
+const gearOn=id=>!!G.gear[id]&&!G.gearOff[id];
 const moveList=()=>MOVES.filter(mv=>mv.lv<=G.player.lv);
 const fieldList=()=>FIELD.filter(f=>f.lv<=G.player.lv);
 const growingCount=()=>plots.filter(p=>active(p)&&p.sp&&p.stage<3).length;
 function harmony(){
-  const n=growingCount(), per=G.gear.trellis?0.24:0.12;
-  let h=Math.min(G.gear.trellis?2.6:1.8,1+Math.max(0,n-1)*per);
+  const n=growingCount(), per=gearOn('trellis')?0.24:0.12;
+  let h=Math.min(gearOn('trellis')?2.6:1.8,1+Math.max(0,n-1)*per);
   if(G.yard.fountain) h+=0.2;
   return h;
 }
@@ -41,7 +44,7 @@ const PARTY_MAX=3, HURT_DAYS=2;
 const STATS=['hp','mp','str','agi','def','int','luk'];
 const STAT_NAME={hp:"HP",mp:"MP",str:"Strength",agi:"Agility",def:"Defense",int:"Intelligence",luk:"Luck"};
 const PARTY_INFO={
-  kaitlyn:{name:"Kaitlyn", skills:"Songs",  attack:"Quick Kick", pow:0.55, role:"Gardener · plays the golden flute",
+  kaitlyn:{name:"Kaitlyn", skills:"Skills", attack:"Quick Kick", pow:0.55, role:"Gardener · plays the golden flute",
            base:{hp:30,mp:16,str:6,agi:6,def:4,int:7,luk:5}, grow:{hp:6,mp:2,str:2,agi:1.4,def:1.3,int:2,luk:1}},
   bling:  {name:"Bling",   skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite",
            base:{hp:24,mp:8,str:3,agi:9,def:3,int:5,luk:7}, grow:{hp:4,mp:1.5,str:1,agi:2,def:1,int:1.5,luk:1.5}},
@@ -49,7 +52,7 @@ const PARTY_INFO={
 const member=id=>id==='kaitlyn'?G.player:G.allies[id];
 function statOf(id,k,lv){ const I=PARTY_INFO[id]; lv=lv||member(id).lv;
   return Math.floor(I.base[k]+I.grow[k]*(lv-1)+1e-9); }
-const maxMp=()=>statOf('kaitlyn','mp')+(G.gear.cloth?8:0);
+const maxMp=()=>statOf('kaitlyn','mp')+(gearOn('cloth')?8:0);
 const memberMaxMp=id=>id==='kaitlyn'?maxMp():statOf(id,'mp');
 /* hurt in battle: home recovering, can't go out until HURT_DAYS later */
 const isHurt=id=>id!=='kaitlyn'&&!!G.allies[id]&&G.allies[id].hurtUntil>G.day;
@@ -74,7 +77,7 @@ function learnedAt(id,lv){
 /* every skill a member has or will have, in order: {name,lv,mp,desc,field?} */
 function skillBook(id){
   if(id==='kaitlyn') return MOVES.filter(mv=>mv.id!=='kick').map(mv=>({...mv,desc:moveDesc(mv)}))
-    .concat(FIELD.map(f=>({...f,field:true,desc:"Field song: "+f.desc})))
+    .concat(FIELD.map(f=>({...f,field:true,song:true,desc:f.flavor+" Field song: "+f.desc+"."})))
     .sort((a,z)=>a.lv-z.lv);
   return (ALLY_SKILLS[id]||[]);
 }
@@ -109,7 +112,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,al:G.allies,st:G.story,dl:G.daily,
+    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
 }
@@ -125,9 +128,11 @@ function applySave(o){
   for(const id in G.allies){ const A=G.allies[id];          /* older saves had no EXP for friends */
     if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; A.maxhp=statOf(id,'hp'); }
   P.maxhp=statOf('kaitlyn','hp');
-  G.story=o.st||{}; G.daily=o.dl||{};
+  G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{};
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};
+  /* a place whose layout changed since the save: don't leave her stuck in a tree */
+  if(G.area!=='garden'&&placeSolid(P.x,P.y+9)){ const a=PLACES[G.area].arrive.garden; P.x=a.x; P.y=a.y; }
   (o.pl||[]).forEach((v,i)=>{ const p=plots[i]; if(!p)return;
     p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2||v[0]<=-10; p.deadSp=v[0]<=-10?SPECIES_ORDER[-10-v[0]]:null; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; p.sungDay=v[4]||0; p.fullDay=v[5]||0; });
   buildWorld(); return true;

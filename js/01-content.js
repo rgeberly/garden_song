@@ -4,21 +4,35 @@
 /* grow: growth points to fill the bar (a good song gives ~130), less in its best season.
    New species go at the end: saves store plots by their place in this list. */
 const SPECIES={
-  strawberry:{name:"Strawberry",kind:'bed',fruit:'#e8433f',dk:'#9c1f1f',cost:20,value:40, xp:8, notes:10,grow:700, best:'spring'},
-  tomato    :{name:"Tomato",    kind:'bed',fruit:'#f0503a',dk:'#a4281c',cost:26,value:52, xp:10,notes:12,grow:820, best:'summer'},
-  sunflower :{name:"Sunflower", kind:'bed',fruit:'#f0c44a',dk:'#a4801a',cost:30,value:60, xp:11,notes:12,grow:900, best:'summer'},
-  blueberry :{name:"Blueberry", kind:'bed',fruit:'#5a70c4',dk:'#2b3a66',cost:24,value:48, xp:9, notes:11,grow:780, best:'spring'},
-  lemongrass:{name:"Lemongrass",kind:'bed',fruit:'#9ed860',dk:'#5f9436',cost:16,value:32, xp:7, notes:9, grow:600, best:'summer'},
-  squash    :{name:"Squash",    kind:'bed',fruit:'#f0a02a',dk:'#a4610f',cost:34,value:68, xp:12,notes:13,grow:960, best:'fall'},
-  melon     :{name:"Heirloom Melon",kind:'raised',fruit:'#8ad86a',dk:'#3f7a33',cost:48,value:118,xp:20,notes:14,grow:1150,best:'summer'},
-  satsuma   :{name:"Satsuma",   kind:'tree',fruit:'#ffa83a',dk:'#c06a12',cost:70,value:145,xp:20,notes:15,grow:1250,best:'winter'},
-  muscadine :{name:"Muscadine", kind:'tree',fruit:'#7d4aa8',dk:'#42245c',cost:64,value:132,xp:18,notes:14,grow:1300,best:'fall'},
-  avocado   :{name:"Avocado",   kind:'tree',fruit:'#4a7a33',dk:'#26421b',cost:82,value:168,xp:22,notes:16,grow:1500,best:'spring'},
-  radish    :{name:"Radish",    kind:'bed',fruit:'#e0405a',dk:'#8a1f34',cost:12,value:26, xp:6, notes:8, grow:450, best:'spring'},
-  carrot    :{name:"Carrot",    kind:'bed',fruit:'#f0802a',dk:'#a4500f',cost:18,value:38, xp:7, notes:9, grow:640, best:'fall'},
-  beet      :{name:"Beet",      kind:'bed',fruit:'#9a2050',dk:'#5a1030',cost:22,value:46, xp:8, notes:10,grow:720, best:'winter'},
+  strawberry:{name:"Strawberry",kind:'bed',fruit:'#e8433f',dk:'#9c1f1f',cost:20,value:40, xp:8, notes:10,grow:700, best:'spring',
+              flavor:"Sweet, red and impossible to eat just one."},
+  tomato    :{name:"Tomato",    kind:'bed',fruit:'#f0503a',dk:'#a4281c',cost:26,value:52, xp:10,notes:12,grow:820, best:'summer',
+              flavor:"Technically a fruit. Emotionally a vegetable."},
+  sunflower :{name:"Sunflower", kind:'bed',fruit:'#f0c44a',dk:'#a4801a',cost:30,value:60, xp:11,notes:12,grow:900, best:'summer',
+              flavor:"A seed-packed face that always looks on the bright side."},
+  blueberry :{name:"Blueberry", kind:'bed',fruit:'#5a70c4',dk:'#2b3a66',cost:24,value:48, xp:9, notes:11,grow:780, best:'spring',
+              flavor:"Tiny blue bursts of brain fuel."},
+  lemongrass:{name:"Lemongrass",kind:'bed',fruit:'#9ed860',dk:'#5f9436',cost:16,value:32, xp:7, notes:9, grow:600, best:'summer',
+              flavor:"Smells so fresh that pests politely leave."},
+  squash    :{name:"Squash",    kind:'bed',fruit:'#f0a02a',dk:'#a4610f',cost:34,value:68, xp:12,notes:13,grow:960, best:'fall',
+              flavor:"Hearty and filling. Squash that hunger!"},
+  melon     :{name:"Heirloom Melon",kind:'raised',fruit:'#8ad86a',dk:'#3f7a33',cost:48,value:118,xp:20,notes:14,grow:1150,best:'summer',
+              flavor:"An old family variety, pampered in a raised bed."},
+  satsuma   :{name:"Satsuma",   kind:'tree',fruit:'#ffa83a',dk:'#c06a12',cost:70,value:145,xp:20,notes:15,grow:1250,best:'winter',
+              flavor:"Peels in one go if you're lucky. Zippy!"},
+  muscadine :{name:"Muscadine", kind:'tree',fruit:'#7d4aa8',dk:'#42245c',cost:64,value:132,xp:18,notes:14,grow:1300,best:'fall',
+              flavor:"Wild grapes with a musky perfume pests can't resist."},
+  avocado   :{name:"Avocado",   kind:'tree',fruit:'#4a7a33',dk:'#26421b',cost:82,value:168,xp:22,notes:16,grow:1500,best:'spring',
+              flavor:"Creamy, pricey and very good for you. Guac and roll!"},
+  radish    :{name:"Radish",    kind:'bed',fruit:'#e0405a',dk:'#8a1f34',cost:12,value:26, xp:6, notes:8, grow:450, best:'spring',
+              flavor:"Small, spicy and raring to go."},
+  carrot    :{name:"Carrot",    kind:'bed',fruit:'#f0802a',dk:'#a4500f',cost:18,value:38, xp:7, notes:9, grow:640, best:'fall',
+              flavor:"Crunchy and good for the eyes, or so the rabbits claim."},
+  beet      :{name:"Beet",      kind:'bed',fruit:'#9a2050',dk:'#5a1030',cost:22,value:46, xp:8, notes:10,grow:720, best:'winter',
+              flavor:"Earthy, sweet and impossible to beat."},
   /* pricey and quick, but not much of a meal */
-  pumpkin   :{name:"Pumpkin",   kind:'raised',fruit:'#f08a2a',dk:'#a4520f',cost:56,value:132,xp:18,notes:12,grow:820,best:'fall'},
+  pumpkin   :{name:"Pumpkin",   kind:'raised',fruit:'#f08a2a',dk:'#a4520f',cost:56,value:132,xp:18,notes:12,grow:820,best:'fall',
+              flavor:"Big, round and quick to grow, but mostly just good for pie."},
 };
 const SPECIES_ORDER=Object.keys(SPECIES);
 /* the order the shop gets them in: three to start, one more each garden level */
@@ -56,56 +70,76 @@ const sellPrice=sp=>Math.round(SPECIES[sp].value*(G.yard.arch?1.15:1));
      'guard' halves damage to it until its next turn, 'charge' makes its next hit
      double. pow scales its attack; st a status it may leave (chance p): poison,
      blind, sleep, weak, scared; drain heals it by that share of the damage; miss a
-     chance to miss. fx is the effect drawn (see drawFoeFx). */
+     chance to miss. fx is the effect drawn (see drawFoeFx). lv: the level it turns up
+   at (stats grow from there, see pestStats); fly: hovers in battle; about: its flavor. */
 const PESTS={
-  beetle :{name:"Dung Beetle",  hp:26, atk:4, def:3, agi:3,  xp:14, coin:5, min:1, col:'#a8781e',skills:[
+  beetle :{name:"Dung Beetle",  hp:26, atk:4, def:3, agi:3,  xp:14, coin:5, min:1, col:'#a8781e',lv:1,
+          about:"Rolls its lunch around all day. Proud of it, too.",skills:[
     {name:"Headbutt",kind:'hit',pow:1,w:3,fx:'bash'},
     {name:"Dung Ball",kind:'all',pow:0.6,w:2,fx:'ball'}]},
-  wasp   :{name:"Paper Wasp",   hp:20, atk:6, def:2, agi:10, xp:16, coin:6, min:1, col:'#e8b02a',skills:[
+  wasp   :{name:"Paper Wasp",   hp:20, atk:6, def:2, agi:10, xp:16, coin:6, min:1, col:'#e8b02a',lv:1,fly:true,
+          about:"Builds paper houses and takes zero visitors.",skills:[
     {name:"Sting",kind:'hit',pow:1,w:3,st:'poison',p:0.4,fx:'sting'},
     {name:"Swarm Buzz",kind:'all',pow:0.55,w:2,fx:'buzz'}]},
-  rat    :{name:"Garden Rat",   hp:34, atk:5, def:3, agi:8,  xp:20, coin:8, min:2, col:'#8a8072',skills:[
+  rat    :{name:"Garden Rat",   hp:34, atk:5, def:3, agi:8,  xp:20, coin:8, min:2, col:'#8a8072',lv:2,
+          about:"Twitchy whiskers, sticky paws. Keep an eye on your coin purse.",skills:[
     {name:"Bite",kind:'hit',pow:1,w:3,fx:'bite'},
     {name:"Gnaw",kind:'hit',pow:0.7,w:2,st:'weak',p:0.6,fx:'bite'},
     {name:"Pilfer",kind:'steal',w:1,fx:'steal'}]},
-  saddleback:{name:"Saddleback",hp:30, atk:7, def:4, agi:2,  xp:22, coin:9, min:2, col:'#8fc43a',skills:[
+  saddleback:{name:"Saddleback",hp:30, atk:7, def:4, agi:2,  xp:22, coin:9, min:2, col:'#8fc43a',lv:3,
+          about:"Cute little saddle, very rude spines. Do not pet.",skills:[
     {name:"Sting",kind:'hit',pow:1,w:3,st:'poison',p:0.7,fx:'sting'},
     {name:"Spine Burst",kind:'all',pow:0.6,w:2,st:'poison',p:0.3,fx:'spines'}]},
-  seagull:{name:"Seagull",      hp:28, atk:6, def:2, agi:12, xp:21, coin:9, min:2, col:'#e8eef4',skills:[
+  seagull:{name:"Seagull",      hp:28, atk:6, def:2, agi:12, xp:21, coin:9, min:2, col:'#e8eef4',lv:3,fly:true,
+          about:"Miles from any beach and still screaming about chips.",skills:[
     {name:"Peck",kind:'hit',pow:1,w:3,fx:'peck'},
     {name:"Dive Bomb",kind:'hit',pow:1.6,w:2,miss:0.3,fx:'dive'},
     {name:"Snatch",kind:'steal',w:1,fx:'steal'}]},
-  ghost  :{name:"Shy Ghost",    hp:32, atk:5, def:2, agi:7,  xp:27, coin:10,min:2, col:'#bfe8e0',night:true,skills:[
+  ghost  :{name:"Shy Ghost",    hp:32, atk:5, def:2, agi:7,  xp:27, coin:10,min:2, col:'#bfe8e0',night:true,lv:3,fly:true,
+          about:"Only comes out after dark. Probably just wants a friend.",skills:[
     {name:"Boo!",kind:'hit',pow:0.5,w:2,st:'scared',p:0.7,fx:'boo'},
     {name:"Chill Touch",kind:'hit',pow:1,w:3,drain:0.5,fx:'chill'},
     {name:"Fade Away",kind:'guard',w:1,fx:'fade'}]},
-  crab   :{name:"Hermit Crab",  hp:44, atk:5, def:8, agi:3,  xp:26, coin:10,min:3, col:'#c46a3a',skills:[
+  crab   :{name:"Hermit Crab",  hp:44, atk:5, def:8, agi:3,  xp:26, coin:10,min:3, col:'#c46a3a',lv:4,
+          about:"Lives in a borrowed shell and pinches first, asks later.",skills:[
     {name:"Pinch",kind:'hit',pow:1,w:3,fx:'pinch'},
     {name:"Shell Up",kind:'guard',w:1,fx:'shell'},
     {name:"Claw Crush",kind:'hit',pow:1.5,w:1,fx:'pinch'}]},
-  crow   :{name:"Spiteful Crow",hp:36, atk:7, def:3, agi:11, xp:28, coin:11,min:3, col:'#3a5aa8',skills:[
+  crow   :{name:"Spiteful Crow",hp:36, atk:7, def:3, agi:11, xp:28, coin:11,min:3, col:'#3a5aa8',lv:4,fly:true,
+          about:"Clever, petty and remembers your face. Forever.",skills:[
     {name:"Peck",kind:'hit',pow:1,w:3,fx:'peck'},
     {name:"Mocking Caw",kind:'hit',pow:0.4,w:2,st:'blind',p:0.8,fx:'caw'},
     {name:"Talon Rake",kind:'all',pow:0.7,w:2,fx:'claw'}]},
-  raccoon:{name:"Raccoon",      hp:56, atk:8, def:5, agi:8,  xp:36, coin:14,min:4, col:'#8a8f96',skills:[
+  raccoon:{name:"Raccoon",      hp:56, atk:8, def:5, agi:8,  xp:36, coin:14,min:4, col:'#8a8f96',lv:6,
+          about:"A masked bandit with a gourmet taste for garbage.",skills:[
     {name:"Swipe",kind:'hit',pow:1,w:3,fx:'claw'},
     {name:"Trash Toss",kind:'all',pow:0.75,w:2,fx:'trash'},
     {name:"Snack Break",kind:'heal',heal:0.25,w:1,fx:'snack'}]},
-  woo    :{name:"Tricky Woo",   hp:60, atk:8, def:4, agi:13, xp:40, coin:16,min:4, col:'#f4f4f4',skills:[
+  woo    :{name:"Tricky Woo",   hp:60, atk:8, def:4, agi:13, xp:40, coin:16,min:4, col:'#f4f4f4',lv:7,
+          about:"The neighbors' dog. Too fast, too fluffy, too good at puppy eyes.",skills:[
     {name:"Nip",kind:'hit',pow:1,w:3,fx:'bite'},
     {name:"Puppy Eyes",kind:'hit',pow:0,w:2,st:'sleep',p:0.75,fx:'hearts'},
     {name:"Zoomies",kind:'multi',pow:0.6,hits:3,w:2,fx:'zoom'}]},
-  vghost :{name:"Vengeful Ghost",hp:80,atk:10,def:4, agi:9,  xp:55, coin:20,min:5, col:'#8ac4f0',night:true,skills:[
+  vghost :{name:"Vengeful Ghost",hp:80,atk:10,def:4, agi:9,  xp:55, coin:20,min:5, col:'#8ac4f0',night:true,lv:9,fly:true,
+          about:"A ghost with a grudge. Something about a lost prize pumpkin.",skills:[
     {name:"Wail",kind:'all',pow:0.8,w:2,st:'scared',p:0.3,fx:'wail'},
     {name:"Spectral Grasp",kind:'hit',pow:1.1,w:3,drain:0.5,fx:'chill'},
     {name:"Curse",kind:'hit',pow:0.5,w:1,st:'weak',p:1,fx:'curse'},
     {name:"Gather Gloom",kind:'charge',w:1,fx:'gloom'}]},
-  hoa    :{name:"HOA President",hp:130,atk:12,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,skills:[
+  hoa    :{name:"HOA President",hp:130,atk:12,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,lv:12,
+          about:"Clipboard in hand and a bylaw for everything. Even your gnomes.",skills:[
     {name:"Citation",kind:'hit',pow:1.2,w:3,fx:'paper'},
     {name:"Noise Complaint",kind:'all',pow:0.8,w:2,fx:'megaphone'},
     {name:"Fine",kind:'steal',w:1,fx:'steal'},
     {name:"Bylaw Lecture",kind:'hit',pow:0,w:1,st:'sleep',p:0.8,fx:'paper'}]},
 };
+/* a pest's stats at a level: each level over its species' own (lv) adds a tenth */
+function pestStats(sp,lv){
+  const P=PESTS[sp], d=Math.max(0,(lv||P.lv)-P.lv), k=1+0.1*d;
+  return {hp:Math.round(P.hp*k),atk:P.atk*k,def:P.def*(1+0.05*d),agi:P.agi+d*0.5,xp:Math.round(P.xp*k),coin:Math.round(P.coin*k)};
+}
+/* the level a new pest turns up at: its own, or a little more as the garden grows */
+const pestLevel=sp=>PESTS[sp].lv+ri(0,Math.min(3,Math.floor((G.gardenLv-1)/2)));
 /* the troubles anyone can be in, with how long they last (turns) and a tag colour */
 const STATUS={poison:{name:"Poison",tag:"PSN",col:'#a05ad8',turns:3}, blind:{name:"Blind",tag:"BLD",col:'#5a5a6a',turns:3},
   sleep:{name:"Asleep",tag:"SLP",col:'#5a8ad8',turns:2}, weak:{name:"Weak",tag:"WK",col:'#d88a3a',turns:3},
@@ -135,37 +169,57 @@ const KICK_SHOUTS=["Hiya!","Take that!","May my boot aim true!","Not in MY garde
   "Shoo!","Out you go!","Mind the tomatoes!","Bastard!","I'll kill you!","You coward!",
   "Eat dirt!","That's for the melons!"];
 /* one new song every two levels */
+/* Kaitlyn's moves. song: played on the flute (the rhythm game, notes long); hpCost: a
+   share of her max HP instead of MP. flavor: what it's like, for descriptions. */
 const MOVES=[
-  {id:'kick',  name:"Quick Kick",      lv:1, mp:0,  notes:0,  pow:0.55, heal:0, fx:'kick'},
-  {id:'sprout',name:"Sprout Strike",   lv:1, mp:3,  notes:4,  pow:1.0,  heal:0, fx:'sprout'},
-  {id:'lull',  name:"Frog Lullaby",    lv:3, mp:4,  notes:4,  pow:0,    heal:16,fx:'lull'},
-  {id:'waltz', name:"Bramble Waltz",   lv:5, mp:6,  notes:6,  pow:1.7,  heal:0, fx:'waltz'},
-  {id:'req',   name:"Wasp Requiem",    lv:7, mp:7,  notes:6,  pow:1.3,  heal:0, fx:'req', weaken:true},
-  {id:'thorn', name:"Thorn Nocturne",  lv:9, mp:9,  notes:8,  pow:2.5,  heal:0, fx:'thorn'},
-  {id:'hymn',  name:"Harvest Hymn",    lv:11,mp:12, notes:10, pow:3.2,  heal:12,fx:'hymn'},
+  {id:'kick',  name:"Quick Kick",      lv:1, mp:0,  notes:0,  pow:0.55, heal:0, fx:'kick',
+   flavor:"A quick, no-nonsense boot to the pest."},
+  {id:'sprout',name:"Sprout Strike",   lv:1, mp:3,  notes:4,  pow:1.0,  heal:0, fx:'sprout', song:true,
+   flavor:"A peppy tune that makes roots burst up underfoot."},
+  {id:'karate',name:"Karate Kick",     lv:2, mp:0,  hpCost:0.1, pow:1.1, heal:0, fx:'kick',
+   flavor:"Hi-YAH! She puts her whole heart (and a little of her health) into it."},
+  {id:'lull',  name:"Frog Lullaby",    lv:3, mp:4,  notes:4,  pow:0,    heal:16,fx:'lull', song:true,
+   flavor:"A croaky little bedtime song. The frogs harmonize, mostly in tune."},
+  {id:'waltz', name:"Bramble Waltz",   lv:5, mp:6,  notes:6,  pow:1.7,  heal:0, fx:'waltz', song:true,
+   flavor:"One-two-three, thorns-thorns-thorns! Brambles whirl into the foe."},
+  {id:'req',   name:"Wasp Requiem",    lv:7, mp:7,  notes:6,  pow:1.3,  heal:0, fx:'req', weaken:true, song:true,
+   flavor:"Summons an angry swarm."},
+  {id:'thorn', name:"Thorn Nocturne",  lv:9, mp:9,  notes:8,  pow:2.5,  heal:0, fx:'thorn', song:true,
+   flavor:"A moody midnight melody that grows a forest of thorns."},
+  {id:'hymn',  name:"Harvest Hymn",    lv:11,mp:12, notes:10, pow:3.2,  heal:12,fx:'hymn', song:true,
+   flavor:"A golden anthem of plenty: smites the foe and feeds the soul."},
 ];
-/* a battle song in words, for the Skills tab and the battle info line */
+/* a move or skill in words: its flavor, then what it does (MP is shown beside it) */
 function moveDesc(mv){
   const L=[];
-  if(mv.pow>0) L.push("Power x"+mv.pow);
+  if(mv.pow>0) L.push("one foe, power x"+mv.pow);
   if(mv.weaken) L.push("weakens the foe");
   if(mv.heal) L.push("heals the whole party ~"+mv.heal+" HP");
-  return L.join(", ")+" · "+mv.notes+"-note song";
+  if(mv.hpCost) L.push("costs "+Math.round(mv.hpCost*100)+"% of max HP");
+  const what=L.join(", ");
+  return (mv.flavor?mv.flavor+" ":"")+what.charAt(0).toUpperCase()+what.slice(1)+".";
 }
 /* friends' skills (MP): pow scales with Intelligence; bind: chance the foe loses a turn;
    heal: share of max HP; cure: clears poison, blindness and weakness; burst: x3 if poisoned */
 const ALLY_SKILLS={
   bling:[
-    {id:'constrict',name:"Constrict",  lv:3, mp:3, pow:0.9, bind:0.6, desc:"Squeeze for damage; may hold the foe still a turn"},
-    {id:'shed',     name:"Shed Skin",  lv:6, mp:4, heal:0.4, cure:true, desc:"Heals 40% of HP and cures poison, blindness, weakness"},
-    {id:'burst',    name:"Venom Burst",lv:9, mp:6, pow:1.1, burst:true, desc:"Strong strike; triple damage to a poisoned foe"},
-    {id:'hypno',    name:"Hypnosis",   lv:11,mp:5, sleep:0.75, desc:"Swaying eyes put the foe to sleep for 2-3 turns"},
+    {id:'constrict',name:"Constrict",  lv:3, mp:3, pow:0.9, bind:0.6,
+     desc:"A big, crushing hug. Not the friendly kind. One foe, power x0.9, may hold it still for a turn."},
+    {id:'shed',     name:"Shed Skin",  lv:6, mp:4, heal:0.4, cure:true,
+     desc:"Out with the old scales! Heals 40% of HP and cures poison, blindness and weakness."},
+    {id:'burst',    name:"Venom Burst",lv:9, mp:6, pow:1.1, burst:true,
+     desc:"Wakes up all that venom at once. Ouch. One foe, power x1.1, triple if it's poisoned."},
+    {id:'hypno',    name:"Hypnosis",   lv:11,mp:5, sleep:0.75,
+     desc:"Look into my eyesss... Puts one foe to sleep for 2-3 turns."},
   ],
 };
 const FIELD=[
-  {id:'reprise',name:"Growth Reprise",lv:4, mp:6, desc:"+20% growth to every plant · once a day"},
-  {id:'ward',   name:"Pest Ward",     lv:6, mp:8, desc:"drives every pest away"},
-  {id:'shower', name:"Sun Shower",    lv:8, mp:7, desc:"heals plants · ruined ones sprout again"},
+  {id:'reprise',name:"Growth Reprise",lv:4, mp:6, desc:"+20% growth to every plant · once a day",
+   flavor:"An encore for the garden. The plants can't help but grow along."},
+  {id:'ward',   name:"Pest Ward",     lv:6, mp:8, desc:"drives every pest away",
+   flavor:"A shrill, off-putting trill. Pests suddenly remember they left the stove on."},
+  {id:'shower', name:"Sun Shower",    lv:8, mp:7, desc:"heals plants · ruined ones sprout again",
+   flavor:"Rain and sunshine at once, like the sky can't make up its mind."},
 ];
 
 /* ---------------- small sprites ---------------- */
@@ -192,12 +246,14 @@ const S_HOA=[
 const M_HOA={O:'#2b1c12',v:'#2f6fc4',h:'#6b4a2a',F:'#f2cd9e',s:'#1a1410',
   m:'#a04a3a',P:'#e8e2be',C:'#8a6d45',t:'#f7f3e0',K:'#c9b48a',W:'#f0f0f0'};
 /* a pest out in the garden: its battle picture, small, with a little bob (ghosts float) */
-function drawPestWorld(c,sp,x,y,t){
+/* a pest on the garden map; flip: facing right (the art faces left) */
+function drawPestWorld(c,sp,x,y,t,flip){
   const P=PESTS[sp], bob=Math.abs(Math.sin(t/180+x))*(P.night?3:1.5);
   c.globalAlpha=.25; c.fillStyle='#1a2810'; c.beginPath(); c.ellipse(x,y,9,3,0,0,7); c.fill();
   c.globalAlpha=P.night?.85:1;
+  c.save(); if(flip){ c.translate(x,0); c.scale(-1,1); c.translate(-x,0); }
   if(!drawEnemyArt(c,sp,x,y-bob-(P.night?6:0),P.boss?0.42:0.36)) px(c,x-6,y-8,12,8,P.col);
-  c.globalAlpha=1;
+  c.restore(); c.globalAlpha=1;
 }
 
 /* ---------------- cached plant rendering ---------------- */

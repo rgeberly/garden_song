@@ -16,8 +16,9 @@ const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
   if(shop.tab===0) return UNLOCK_ORDER.filter(s=>G.unlocked.includes(s)).map(s=>{ const S=SPECIES[s];
     return {type:'seed',id:s,name:S.name+" seed",cost:S.cost,
-      desc:"Needs "+S.grow+" growth (about "+Math.ceil(S.grow/SONG_GROWTH)+" songs), "+growNeed(s,S.best)+
-        " in "+SEASON_NAME[S.best]+". "+S.notes+"-note songs. Sells for "+sellPrice(s)+"c.",
+      desc:S.flavor+" "+(S.kind==='raised'?"Raised beds only. ":S.kind==='tree'?"Grows in a stone ring. ":"")+
+        "Needs "+S.grow+" growth (about "+Math.ceil(S.grow/SONG_GROWTH)+" songs), "+growNeed(s,S.best)+
+        " in "+SEASON_NAME[S.best]+". Sells for "+sellPrice(s)+"c.",
       note:"you have x"+(G.seeds[s]||0)}; });
   if(shop.tab===1) return [{type:'coffee',id:'coffee',name:"Coffee",cost:30,
       desc:"Walk 50% faster for 2 minutes."}]

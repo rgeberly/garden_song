@@ -124,13 +124,23 @@ function fluteOn(n){
   g.gain.setValueAtTime(1,Math.max(s+0.012,e-0.03));
   g.gain.linearRampToValueAtTime(0.0001,e+0.10);
 }
-function startRhythm(plot,bc){
+/* The notes always come from the flute part (STEM_PHRASES). If the recordings are
+   still loading, wait a moment for them; if they can't load, the same flute notes
+   play over a drawn accompaniment instead. */
+const STEM_WAIT=5000;
+function startRhythm(plot,bc,waited){
+  initAudio();
+  if(STEM.loading&&(waited||0)<STEM_WAIT){
+    if(!waited&&!bc) say("Tuning the flute...");
+    setTimeout(()=>startRhythm(plot,bc,(waited||0)+150),150); return;
+  }
   const count=bc?bc.notes:SPECIES[plot.sp].notes;
   const bpm=bc?112:96+G.gardenLv*2;
   const seed=(plot?plot.x*7+plot.y*13:917)+count*31;
-  const useStem=STEM.ready&&typeof STEM_PHRASES!=='undefined'&&STEM_PHRASES.length;
-  const chart=bc&&bc.practice?(useStem?fullStemChart():makeChart(64,seed,100))
-             :useStem?stemChart(count,seed):makeChart(count,seed,bpm);
+  const haveFlute=typeof STEM_PHRASES!=='undefined'&&STEM_PHRASES.length, useStem=STEM.ready&&haveFlute;
+  const chart=!haveFlute?makeChart(bc&&bc.practice?64:count,seed,bc&&bc.practice?100:bpm)
+             :bc&&bc.practice?fullStemChart():stemChart(count,seed);
+  if(!useStem) chart.stem=false;            /* hits play a drawn flute instead */
   /* Count-in: "3, 2, 1, Go!" one beat each, ending just before the first note
      starts to fall, so there is time to get your fingers on H J K L. */
   const first=chart.notes.length?chart.notes[0].t:0;
@@ -267,7 +277,7 @@ function finishRhythm(){
   if(R_.battle){ const cb=R_.battle.cb; R_=null; cb(acc); return; }
   const plot=R_.plot,S=SPECIES[plot.sp];
   plot.sungDay=G.day;
-  const h=harmony(), mul=(G.gear.can?1.25:1)*(G.yard.bath?1.1:1)*(plot.raised?1.3:1)*fluteMul();
+  const h=harmony(), mul=(gearOn('can')?1.25:1)*(G.yard.bath?1.1:1)*(plot.raised?1.3:1)*fluteMul();
   const gain=Math.round((38+acc*72+R_.maxcombo*1.6)*h*mul);
   const before=plot.stage;
   setGrowth(plot,plot.growth+gain);

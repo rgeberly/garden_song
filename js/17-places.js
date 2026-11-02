@@ -10,29 +10,29 @@
    ================================================================ */
 /* goods: things gathered or caught (G.goods), sold at the market stand; eat: like EAT */
 const GOODS={
-  daisy:      {name:"Wild Daisy",       value:10, kind:'forage', season:'spring', col:'#f6f0d0'},
-  violet:     {name:"Wood Violet",      value:14, kind:'forage', season:'spring', col:'#9a6ad8'},
-  wildberry:  {name:"Wild Strawberries",value:16, kind:'forage', season:'spring', col:'#e8433f', eat:{hp:6}},
-  raspberry:  {name:"Wild Raspberries", value:18, kind:'forage', season:'summer', col:'#d8406a', eat:{hp:8}},
-  mint:       {name:"Mountain Mint",    value:12, kind:'forage', season:'summer', col:'#6ad88a', eat:{mp:4}},
-  chanterelle:{name:"Chanterelle",      value:26, kind:'forage', season:'fall',   col:'#f0a83a', eat:{hp:10}},
-  porcini:    {name:"Porcini",          value:32, kind:'forage', season:'fall',   col:'#8a5a2a', eat:{hp:12,mp:3}},
-  chestnut:   {name:"Chestnuts",        value:14, kind:'forage', season:'fall',   col:'#7a4a22'},
-  pinecone:   {name:"Pinecone",         value:8,  kind:'forage', season:'winter', col:'#8a6a3a'},
-  winterberry:{name:"Winterberries",    value:20, kind:'forage', season:'winter', col:'#d8203a', eat:{mp:6}},
-  snowdrop:   {name:"Snowdrop",         value:24, kind:'forage', season:'winter', col:'#f4f8ff'},
+  daisy:      {name:"Wild Daisy",       value:10, kind:'forage', season:'spring', col:'#f6f0d0', flavor:"A cheerful little flower. Loves me, loves me not."},
+  violet:     {name:"Wood Violet",      value:14, kind:'forage', season:'spring', col:'#9a6ad8', flavor:"Shy, purple and sweet-smelling."},
+  wildberry:  {name:"Wild Strawberries",value:16, kind:'forage', season:'spring', col:'#e8433f', eat:{hp:6}, flavor:"Tiny but mighty flavorful."},
+  raspberry:  {name:"Wild Raspberries", value:18, kind:'forage', season:'summer', col:'#d8406a', eat:{hp:8}, flavor:"Thorny to pick, worth every scratch."},
+  mint:       {name:"Mountain Mint",    value:12, kind:'forage', season:'summer', col:'#6ad88a', eat:{mp:4}, flavor:"Clears the head like a mountain breeze."},
+  chanterelle:{name:"Chanterelle",      value:26, kind:'forage', season:'fall',   col:'#f0a83a', eat:{hp:10}, flavor:"The good orange mushroom Old Pete keeps talking about."},
+  porcini:    {name:"Porcini",          value:32, kind:'forage', season:'fall',   col:'#8a5a2a', eat:{hp:12,mp:3}, flavor:"Plump, nutty and adored by chefs."},
+  chestnut:   {name:"Chestnuts",        value:14, kind:'forage', season:'fall',   col:'#7a4a22', flavor:"Roasts beautifully on an open fire."},
+  pinecone:   {name:"Pinecone",         value:8,  kind:'forage', season:'winter', col:'#8a6a3a', flavor:"Nature's little wooden ornament."},
+  winterberry:{name:"Winterberries",    value:20, kind:'forage', season:'winter', col:'#d8203a', eat:{mp:6}, flavor:"Bright red cheer in the snow."},
+  snowdrop:   {name:"Snowdrop",         value:24, kind:'forage', season:'winter', col:'#f4f8ff', flavor:"The first flower brave enough to face winter."},
   /* fish: power = how hard it fights; seasons it bites in (all if none); night: only after dark */
-  minnow:     {name:"Minnow",           value:8,  kind:'fish', col:'#a8b8c8', power:0.5, w:5},
-  perch:      {name:"Yellow Perch",     value:22, kind:'fish', col:'#e8c84a', power:0.8, w:4},
-  trout:      {name:"Rainbow Trout",    value:40, kind:'fish', col:'#e88aa8', power:1.1, w:3, seasons:['spring','summer']},
-  bass:       {name:"Largemouth Bass",  value:55, kind:'fish', col:'#5a8a4a', power:1.4, w:2, seasons:['summer','fall']},
-  catfish:    {name:"Catfish",          value:70, kind:'fish', col:'#6a6a5a', power:1.7, w:2, seasons:['summer','fall'], night:true},
-  koi:        {name:"Golden Koi",       value:180,kind:'fish', col:'#ffb02a', power:2.1, w:0.4},
+  minnow:     {name:"Minnow",           value:8,  kind:'fish', col:'#a8b8c8', power:0.5, w:5, flavor:"Small fry. Literally."},
+  perch:      {name:"Yellow Perch",     value:22, kind:'fish', col:'#e8c84a', power:0.8, w:4, flavor:"Yellow, stripy and a little grumpy."},
+  trout:      {name:"Rainbow Trout",    value:40, kind:'fish', col:'#e88aa8', power:1.1, w:3, seasons:['spring','summer'], flavor:"Shimmers like a rainbow, fights like a bulldog."},
+  bass:       {name:"Largemouth Bass",  value:55, kind:'fish', col:'#5a8a4a', power:1.4, w:2, seasons:['summer','fall'], flavor:"Big mouth, bigger attitude."},
+  catfish:    {name:"Catfish",          value:70, kind:'fish', col:'#6a6a5a', power:1.7, w:2, seasons:['summer','fall'], night:true, flavor:"Whiskers, mystery and midnight snacks."},
+  koi:        {name:"Golden Koi",       value:180,kind:'fish', col:'#ffb02a', power:2.1, w:0.4, flavor:"A living treasure. Rumored to grant wishes (it doesn't)."},
   /* food and drink bought in town or at the stall: kept until used (not sold back).
      use: hp/mp for whoever has it, hpAll/mpAll for the whole party, coffee: ms of speed */
-  coffee:     {name:"Coffee",           value:0,  kind:'food', col:'#6a3a1a', use:{coffee:120000}},
-  tea:        {name:"Herbal Tea",       value:0,  kind:'food', col:'#8ac86a', use:{mpAll:10}},
-  bun:        {name:"Honey Bun",        value:0,  kind:'food', col:'#e8b04a', use:{hpAll:20}},
+  coffee:     {name:"Coffee",           value:0,  kind:'food', col:'#6a3a1a', use:{coffee:120000}, flavor:"Liquid motivation."},
+  tea:        {name:"Herbal Tea",       value:0,  kind:'food', col:'#8ac86a', use:{mpAll:10}, flavor:"Calming herbs, steeped with care."},
+  bun:        {name:"Honey Bun",        value:0,  kind:'food', col:'#e8b04a', use:{hpAll:20}, flavor:"Sticky, sweet and a little bit glazed. Just like Mabel."},
 };
 const goodsList=()=>Object.keys(GOODS).filter(k=>G.goods[k]>0);
 const sellGoods=()=>goodsList().filter(k=>GOODS[k].kind!=='food');
@@ -67,17 +67,38 @@ const PLACES={
       {name:"Milo",x:452,y:478,col:'#5aa85a',hair:'#e8c84a',
        lines:["Have you seen a snake with a gold ring around its neck? That'd be so cool!"]},
     ]},
-  mountain:{name:"Bramble Peak", ground:'#7aa85a', path:'#c8b48a',
-    paths:[[330,520,60,200],[300,300,60,240],[200,260,140,50],[360,250,180,50]],
-    cliffs:true, pond:{x:500,y:430,rx:110,ry:66},
-    trees:[[60,220],[120,300],[60,420],[140,520],[60,620],[240,640],[620,600],[680,520],[660,300],[600,220],
-           [230,420],[180,180],[440,180],[680,660]],
-    exits:[{x:360,y:700,r:40,to:'garden',label:"Back to the garden"}],
-    arrive:{garden:{x:360,y:670,dir:0}},
-    gather:[[160,250],[250,330],[110,380],[200,470],[280,560],[420,320],[560,300],[640,420],[420,560],
-            [580,560],[310,210],[170,600]],
+  /* bigger than a garden screen (w,h): a trail switchbacks up from the garden at
+     the bottom, past the pond, to a lookout under the cliffs at the top */
+  mountain:{name:"Bramble Peak", ground:'#7aa85a', path:'#c8b48a', w:1080, h:1800,
+    paths:[[510,1500,60,300],[300,1460,270,56],[300,1180,60,330],[300,1150,480,56],[740,850,60,356],
+           [420,820,380,56],[420,520,60,356],[420,500,400,56],[780,250,60,306]],
+    cliffs:true, pond:{x:800,y:1420,rx:120,ry:70}, plaza:{x:810,y:230,r:64},
+    trees:[],                                     /* filled in by mountainTrees() */
+    exits:[{x:540,y:1790,r:40,to:'garden',label:"Back to the garden"}],
+    arrive:{garden:{x:540,y:1755,dir:0}},
+    gather:[[470,1700],[610,1560],[250,1500],[380,1380],[250,1240],[420,1110],[640,1230],[850,1120],
+            [690,950],[860,900],[560,780],[350,880],[370,640],[520,560],[640,450],[880,520],[730,300],
+            [900,300],[180,1660],[960,1640]],
     people:[]},
 };
+/* a place's size (the mountain is bigger than a garden screen) */
+const placeW=P=>(P&&P.w)||WORLD_W, placeH=P=>(P&&P.h)||WORLD_H;
+/* the size of wherever she is now, for the camera */
+const areaSize=()=>{ const P=G.area!=='garden'&&PLACES[G.area]; return [placeW(P),placeH(P)]; };
+/* pines all over the mountain, kept off the trail, the pond, the lookout and the
+   gathering spots (the same every time) */
+(function mountainTrees(){
+  const P=PLACES.mountain, W=placeW(P), H=placeH(P); let s=12345;
+  const rr=()=>{ s=(s*16807)%2147483647; return s/2147483647; };
+  const clear=(x,y)=>!P.paths.some(([px,py,pw,ph])=>x>px-34&&x<px+pw+34&&y>py-30&&y<py+ph+44)
+    &&(((x-P.pond.x)/(P.pond.rx+40))**2+((y-P.pond.y)/(P.pond.ry+44))**2>1)
+    &&Math.hypot(x-P.plaza.x,y-P.plaza.y)>P.plaza.r+40
+    &&!P.gather.some(([gx,gy])=>Math.hypot(x-gx,y-gy)<40)&&Math.hypot(x-540,y-1770)>70;
+  for(let y=200;y<H-20;y+=58) for(let x=30;x<W-20;x+=62){
+    const tx=x+rr()*34-17, ty=y+rr()*30-15;
+    if(rr()<0.62&&clear(tx,ty)) P.trees.push([Math.round(tx),Math.round(ty)]);
+  }
+})();
 /* where each place's door back to the garden leaves you in the garden */
 const GARDEN_ARRIVE={town:{x:226,y:96,dir:2}, mountain:{x:288,y:44,dir:4}};
 /* the garden's way out to each place (garden px), with its prompt */
@@ -95,7 +116,7 @@ function goTo(area){
 const nearGardenExit=(f=1)=>GARDEN_EXITS.find(e=>Math.hypot(G.player.x-e.x,G.player.y-e.y)<e.r*f);
 function placeSolid(x,y){
   const P=curPlace();
-  if(x<16||y<20||x>WORLD_W-16||y>WORLD_H-14) return true;
+  if(x<16||y<20||x>placeW(P)-16||y>placeH(P)-14) return true;
   if(P.cliffs&&y<150) return true;
   if(P.fountain&&Math.hypot(x-P.fountain.x,y-P.fountain.y)<P.fountain.r+6) return true;
   if(P.pond&&(((x-P.pond.x)/(P.pond.rx))**2+((y-P.pond.y)/(P.pond.ry))**2<1)) return true;
@@ -153,7 +174,7 @@ function placeLabel(){
 function updatePlace(dt){
   if(updateCast(dt)) return;
   walk(dt,WALK_SPEED,(x,y)=>placeSolid(x,y+9));
-  const P=G.player; P.x=clamp(P.x,21,WORLD_W-21); P.y=clamp(P.y,24,WORLD_H-30);
+  const [W,H]=areaSize(), P=G.player; P.x=clamp(P.x,21,W-21); P.y=clamp(P.y,24,H-30);
   for(const k of ['coffeeT','snackT','calmT','lureT']) if(G[k]>0) G[k]=Math.max(0,G[k]-dt);
   if(G.msgT>0) G.msgT-=dt;
 }
@@ -171,15 +192,16 @@ function placeImg(area){
 function placeCanvas(area){
   const key=area+'|'+season();
   if(PLACE_CANVAS[key]) return PLACE_CANVAS[key];
-  const P=PLACES[area], cv2=document.createElement('canvas'), s=PLACE_PX, wint=season()==='winter', fall=season()==='fall';
-  cv2.width=cv2.height=WORLD_W*s; const c=cv2.getContext('2d'); c.scale(s,s);
-  c.fillStyle=wint?'#e8eef4':fall?'#a8a05a':P.ground; c.fillRect(0,0,WORLD_W,WORLD_H);
-  for(let i=0;i<900;i++){ const x=(i*97.3)%WORLD_W, y=(i*61.7)%WORLD_H;   /* grass flecks */
+  const P=PLACES[area], cv2=document.createElement('canvas'), wint=season()==='winter', fall=season()==='fall';
+  const W=placeW(P), H=placeH(P), s=P.w?1:PLACE_PX;          /* a big place at 1 px each, to keep it light */
+  cv2.width=W*s; cv2.height=H*s; const c=cv2.getContext('2d'); c.scale(s,s);
+  c.fillStyle=wint?'#e8eef4':fall?'#a8a05a':P.ground; c.fillRect(0,0,W,H);
+  for(let i=0;i<900*W*H/(WORLD_W*WORLD_H);i++){ const x=(i*97.3)%W, y=(i*61.7)%H;   /* grass flecks */
     c.fillStyle=wint?'rgba(255,255,255,.5)':'rgba(40,80,30,.18)'; c.fillRect(x,y,2,3); }
   if(P.cliffs){ const g=c.createLinearGradient(0,0,0,160); g.addColorStop(0,'#6a7080'); g.addColorStop(1,'#8a8a8a');
     c.fillStyle=g; c.beginPath(); c.moveTo(0,160);
-    for(let x=0;x<=WORLD_W;x+=60) c.lineTo(x,40+((x*37)%70)); c.lineTo(WORLD_W,160); c.closePath(); c.fill();
-    c.fillStyle='#f4f8ff'; for(let x=0;x<WORLD_W;x+=120){ c.beginPath(); c.moveTo(x+20,70); c.lineTo(x+60,40+((x*37)%40)); c.lineTo(x+100,70); c.fill(); } }
+    for(let x=0;x<=W;x+=60) c.lineTo(x,40+((x*37)%70)); c.lineTo(W,160); c.closePath(); c.fill();
+    c.fillStyle='#f4f8ff'; for(let x=0;x<W;x+=120){ c.beginPath(); c.moveTo(x+20,70); c.lineTo(x+60,40+((x*37)%40)); c.lineTo(x+100,70); c.fill(); } }
   c.fillStyle=wint?'#dcd4c4':P.path; P.paths.forEach(([x,y,w,h])=>{ c.beginPath(); c.roundRect(x,y,w,h,18); c.fill(); });
   if(P.plaza){ c.fillStyle='#cfc4b0'; c.beginPath(); c.arc(P.plaza.x,P.plaza.y,P.plaza.r,0,7); c.fill();
     c.strokeStyle='rgba(90,80,60,.25)'; for(let r=20;r<P.plaza.r;r+=20){ c.beginPath(); c.arc(P.plaza.x,P.plaza.y,r,0,7); c.stroke(); } }
@@ -225,7 +247,7 @@ function drawPlace(){
   const cam=camera(), P=curPlace();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);
-  b.imageSmoothingEnabled=true; b.drawImage(placeImg(G.area)||placeCanvas(G.area),-cam.x,-cam.y,WORLD_W,WORLD_H);
+  b.imageSmoothingEnabled=true; b.drawImage(placeImg(G.area)||placeCanvas(G.area),-cam.x,-cam.y,placeW(P),placeH(P));
   const ents=[];
   (P.people||[]).forEach(p=>ents.push({y:p.y,f:()=>drawPerson(b,{...p,x:p.x-cam.x,y:p.y-cam.y})}));
   if(P.gather) P.gather.forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
@@ -352,9 +374,10 @@ function useGood(k,id){
   if(e.coffee) G.coffeeT=Math.max(G.coffeeT,e.coffee);
   return effText(e);
 }
-function eatGood(k){
+function eatGood(k,id){
   const g=GOODS[k]; if(!goodEffect(k)){ say("Better to sell the "+g.name+"."); blip(150,.08,.2); return; }
-  say((g.kind==='food'?"Had the ":"Ate the ")+g.name+": "+useGood(k)+"."); blip(620,0.06,0.1,'sine'); autoSave();
+  id=id||'kaitlyn';
+  say(PARTY_INFO[id].name+(g.kind==='food'?" had the ":" ate the ")+g.name+": "+useGood(k,id)+"."); blip(620,0.06,0.1,'sine'); autoSave();
 }
 /* what can be eaten or drunk in battle: crops (by species) and goods ('g:'+key) that heal */
 function battleItems(){
