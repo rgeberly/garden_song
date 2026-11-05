@@ -343,6 +343,8 @@ function drawTownShop(){
 /* a small drawn picture of a good (until they have art): a fish shape, or a sprig */
 function drawGoodIcon(c,k,cx,cy,box){
   const g=GOODS[k], s=box/24;
+  /* its picture (shop items/<name>), when there is one */
+  if(c===b&&drawShopPic(g.name.toLowerCase(),cx,cy,box,box)) return;
   c.save(); c.translate(cx,cy); c.scale(s,s);
   if(g.kind==='fish'){
     c.fillStyle=g.col; c.beginPath(); c.ellipse(-2,0,9,4.5,0,0,7); c.fill();
