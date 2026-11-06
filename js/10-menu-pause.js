@@ -1,5 +1,5 @@
 /* ================================================================
-   PAUSE MENU: party, status, skills, items, gear, settings, save
+   PAUSE MENU: party, status, skills, items, gear, lore, settings, save
    ================================================================ */
 function bonusLines(){
   const L=[];
@@ -117,9 +117,9 @@ function eatCrop(sp,id){
    the tabs closes the menu). Status and Skills show one member at a time: left/right
    (or the arrows by the name) changes who. */
 let sys={tab:0,idx:0,focus:'tabs',who:0,top:0};
-const SYSTABS=['Party','Status','Skills','Items','Gear','Settings','Save'];
+const SYSTABS=['Party','Status','Skills','Items','Gear','Lore','Settings','Save'];
 const SAVE_ACTIONS=["Copy save code","Paste a save code","Save now","Quit to title"];
-const SYSW={page:{x:8,y:8,w:256,h:464}, tab:{x:270,y:8,w:82,h:31,step:36}, info:{x:270,y:262,w:82,h:210}};
+const SYSW={page:{x:8,y:8,w:256,h:464}, tab:{x:270,y:8,w:82,h:29,step:33}, info:{x:270,y:278,w:82,h:194}};
 /* rows start this far down the page (Status and Skills have a portrait above them) */
 const pageRowsY=()=>pagesWho()?92:SYSTABS[sys.tab]==='Party'?44:48;
 function openSys(){ if(G.cast) return; G.code=exportCode(); sys={tab:0,idx:0,focus:'tabs',who:0,top:0}; G.scene='sys'; }
@@ -130,6 +130,91 @@ function stepSetting(S,d){ const o=S.opts, i=o.indexOf(S.get());
   S.set(o[(i+d+o.length)%o.length]); blip(520+o.indexOf(S.get())*80,.05,.1,'triangle'); autoSave(); }
 const allMembers=()=>['kaitlyn'].concat(Object.keys(G.allies));
 const whoId=()=>{ const L=allMembers(); return L[((sys.who%L.length)+L.length)%L.length]; };
+/* ---------- Lore: what she's learned about the pests and the fish ----------
+   Two choices (sys.lore null), then a list of every pest or fish (sys.lore 'beasts' or
+   'fish'): the ones she's beaten or caught by name, the rest as ???. A known one opens
+   its page (sys.loreSel); B steps back a level at a time. */
+const LORE_KINDS=[{id:'beasts',name:"Bestiary",about:"The pests you've beaten"},{id:'fish',name:"Fish",about:"Every fish in the mountain pond"}];
+const beastKeys=()=>Object.keys(PESTS), fishKeys=()=>Object.keys(GOODS).filter(k=>GOODS[k].kind==='fish');
+const knowBeast=k=>(G.lore.beat[k]||0)>0, knowFish=k=>!!G.lore.fish[k];
+/* when a fish bites (the pond freezes over in winter) */
+const fishWhen=g=>(g.seasons?g.seasons.map(s=>SEASON_NAME[s]).join(", "):"Spring, Summer, Fall")+(g.night?" · nights only":"");
+function loreRows(){
+  if(sys.loreSel) return {h:40,rows:[]};
+  if(sys.lore==='beasts') return {h:40,rows:beastKeys().map(k=>({beast:k}))};
+  if(sys.lore==='fish') return {h:40,rows:fishKeys().map(k=>({fish:k}))};
+  return {h:56,rows:LORE_KINDS.map(L=>({lore:L}))};
+}
+function loreActivate(R){
+  if(R.lore){ sys.lore=R.lore.id; sys.idx=0; sys.top=0; blip(520,0.04,0.08,'triangle'); return; }
+  const k=R.beast||R.fish;
+  if(!(R.beast?knowBeast(k):knowFish(k))){ blip(150,.08,.2); return; }
+  sys.loreSel={kind:R.beast?'beast':'fish',k}; blip(620,0.04,0.08,'triangle');
+}
+/* B: from a page back to its list, from a list back to the two choices (false at the top) */
+function loreBack(){
+  if(sys.loreSel){ sys.loreSel=null; return true; }
+  if(sys.lore){ const i=LORE_KINDS.findIndex(L=>L.id===sys.lore); sys.lore=null; sys.idx=Math.max(0,i); sys.top=0; return true; }
+  return false;
+}
+function loreTitle(){
+  const S=sys.loreSel;
+  if(S) return S.kind==='beast'?PESTS[S.k].name:GOODS[S.k].name;
+  if(sys.lore==='beasts') return "Bestiary  "+beastKeys().filter(knowBeast).length+"/"+beastKeys().length;
+  if(sys.lore==='fish') return "Fish  "+fishKeys().filter(knowFish).length+"/"+fishKeys().length;
+  return "Lore";
+}
+/* a pest's or fish's page, as lines of text (the same as tapping a pest in battle shows) */
+function loreLines(){
+  const S=sys.loreSel, L=[], add=(t,col,size,bold)=>L.push({t,col:col||'#c8d4ff',size:size||17,bold});
+  if(S.kind==='beast'){ const P=PESTS[S.k], st=pestStats(S.k,P.lv), n=G.lore.beat[S.k];
+    add("Lv."+P.lv+(P.boss?"  ·  Boss":"")+(P.night?"  ·  comes out at night":"")+(P.fly?"  ·  flies":""),'#ffe08a',17,true);
+    add("HP "+st.hp+"    Attack "+Math.round(st.atk)+"    Defense "+Math.round(st.def)+"    Agility "+Math.round(st.agi),'#f4f6ff');
+    add(P.about);
+    add("Moves: "+P.skills.map(s=>s.name).join(", "),'#b8f0a0');
+    add("Leaves behind "+P.xp+" EXP and "+P.coin+"c",'#c8d4ff');
+    add("Beaten "+n+" time"+(n===1?"":"s"),'#aab6e8');
+  } else { const g=GOODS[S.k], F=G.lore.fish[S.k];
+    add(g.flavor);
+    add("Sells for "+goodsPrice(S.k)+"c",'#ffe08a',17,true);
+    add("Bites in: "+fishWhen(g),'#b8f0a0');
+    add("Caught "+F.n+(F.best?"  ·  biggest "+F.best+" cm":""),'#aab6e8'); }
+  return L;
+}
+const LORE_PIC={y:58,h:124};          /* the picture on a page: top and height, from the page's top */
+function loreDetailBack(P){
+  const S=sys.loreSel, cx=P.x+P.w/2;
+  b.fillStyle='rgba(10,15,42,.55)'; b.beginPath(); b.roundRect(P.x+16,P.y+LORE_PIC.y,P.w-32,LORE_PIC.h,8); b.fill();
+  if(S.kind==='beast'){ const a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[S.k];
+    if(a){ const s=Math.min((LORE_PIC.h-16)*SC/a.r[3],(P.w-56)*SC/a.r[2]); drawEnemyArt(b,S.k,cx,P.y+LORE_PIC.y+LORE_PIC.h-8,s); } }
+  else drawGoodIcon(b,S.k,cx,P.y+LORE_PIC.y+LORE_PIC.h/2,90);
+}
+function loreDetailText(P){
+  let y=P.y+LORE_PIC.y+LORE_PIC.h+26;
+  loreLines().forEach(l=>{ wrapLines(l.t,l.size,P.w-36).forEach(ln=>{ TS(ln,P.x+18,y,l.size,l.col,null,l.bold); y+=l.size>16?19:17; }); y+=6; });
+  TS(IS_TOUCH?"tap to go back":"B: back",P.x+P.w/2,P.y+P.h-14,15,'#8a94c4','center');
+}
+function loreRowPic(r,P,y,h){
+  if(r.beast&&knowBeast(r.beast)){ const a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[r.beast];
+    if(a) drawEnemyArt(b,r.beast,P.x+46,y+h-6,Math.min(28*SC/a.r[3],34*SC/a.r[2])); }
+  if(r.fish&&knowFish(r.fish)) drawGoodIcon(b,r.fish,P.x+46,y+h/2-1,24);
+}
+function loreRowText(r,P,y,h,sel){
+  if(r.lore){ TS(r.lore.name,P.x+40,y+24,21,'#f4f6ff',null,sel); TS(r.lore.about,P.x+40,y+42,15,'#aab6e8'); return; }
+  if(r.beast){ const k=r.beast;
+    if(knowBeast(k)){ TS(PESTS[k].name,P.x+70,y+h/2+6,18,'#f4f6ff',null,sel); TS("Lv."+PESTS[k].lv,P.x+P.w-12,y+h/2+6,16,'#ffe08a','right',true); }
+    else TS("???",P.x+70,y+h/2+6,18,'#7c84b0',null,sel);
+    return; }
+  const g=GOODS[r.fish];
+  if(knowFish(r.fish)){ TS(g.name,P.x+70,y+h/2+6,18,'#f4f6ff',null,sel); TS("x"+G.lore.fish[r.fish].n,P.x+P.w-12,y+h/2+6,16,'#ffe08a','right',true); }
+  else { TS("???",P.x+70,y+h/2+6,18,'#7c84b0',null,sel); TS(fishWhen(g),P.x+P.w-12,y+h/2+5,13,'#8a94c4','right'); }
+}
+function loreFoot(R){
+  if(R.beast){ const k=R.beast; return knowBeast(k)?[PESTS[k].name,PESTS[k].about+"  (A for more)"]:["???","Not beaten yet."]; }
+  if(R.fish){ const g=GOODS[R.fish]; return knowFish(R.fish)?[g.name,g.flavor+" Sells for "+goodsPrice(R.fish)+"c.  (A for more)"]
+                                                            :["???","Not caught yet. Bites in: "+fishWhen(g)+"."]; }
+  return null;
+}
 function ownedGearList(){ return GEAR.filter(g=>G.gear[g.id]&&g.id!=='silver'&&g.id!=='dizi'); }
 /* the rows of the open page: [{label,...}] plus how tall each is */
 function sysRows(){
@@ -142,12 +227,13 @@ function sysRows(){
     Object.keys(G.seeds).filter(k=>G.seeds[k]>0).map(sp=>({seed:sp})))};
   if(t==='Gear') return {h:34,rows:FLUTE_META.order.map(id=>({flute:id})).concat(ownedGearList().map(g=>({gear:g})))};
   if(t==='Settings') return {h:44,rows:SETTINGS.map(S=>({set:S}))};
+  if(t==='Lore') return loreRows();
   return {h:44,rows:SAVE_ACTIONS.map((a,i)=>({save:i}))};
 }
-const footH=()=>['Status','Skills','Items','Gear','Settings'].includes(SYSTABS[sys.tab])?78:0;
+const footH=()=>['Status','Skills','Items','Gear','Settings'].includes(SYSTABS[sys.tab])||(SYSTABS[sys.tab]==='Lore'&&sys.lore&&!sys.loreSel)?78:0;
 const rowsFit=()=>{ const R=sysRows(); return Math.max(1,Math.floor((SYSW.page.h-pageRowsY()-footH()-8)/R.h)); };
 function sysSee(i){ const n=rowsFit(); if(i<sys.top) sys.top=i; if(i>=sys.top+n) sys.top=i-n+1; }
-function sysSetTab(t){ sys.tab=(t+SYSTABS.length)%SYSTABS.length; sys.idx=0; sys.top=0; }
+function sysSetTab(t){ sys.tab=(t+SYSTABS.length)%SYSTABS.length; sys.idx=0; sys.top=0; sys.lore=null; sys.loreSel=null; }
 function sysActivate(i){
   const R=sysRows().rows[i], t=SYSTABS[sys.tab]; if(!R) return;
   if(t==='Party'){
@@ -170,6 +256,7 @@ function sysActivate(i){
     sys.ask={k,idx:0};
   }
   else if(t==='Settings') stepSetting(R.set,1);
+  else if(t==='Lore') loreActivate(R);
   else if(t==='Gear'){
     if(R.flute){ const id=R.flute;
       if(fluteOwned(id)){ G.flute=id; say(FLUTE_INFO[id].name+" equipped."); if(AC) flute(11,AC.currentTime,.3,.5); }
@@ -212,6 +299,7 @@ function sysKey(k){
     else if(isOk(k)){ if(sys.ask.idx===0) feed(sys.ask.k,'kaitlyn'); else sys.ask=null; }
     else if(isBack(k)) sys.ask=null;
     return; }
+  if(sys.loreSel&&(isOk(k)||isBack(k))){ sys.loreSel=null; return; }      /* a Lore page closes */
   if(sys.focus==='tabs'){
     if(isUp(k)) sysSetTab(sys.tab-1);
     else if(isDown(k)) sysSetTab(sys.tab+1);
@@ -225,7 +313,7 @@ function sysKey(k){
   else if((isLeft(k)||isRight(k))&&pagesWho()){ sys.who+=isLeft(k)?-1:1; sys.idx=0; sys.top=0; }
   else if((isLeft(k)||isRight(k))&&SYSTABS[sys.tab]==='Settings'){ const R=sysRows().rows[sys.idx]; if(R) stepSetting(R.set,isLeft(k)?-1:1); }
   else if(isOk(k)) sysActivate(sys.idx);
-  else if(isBack(k)) sys.focus='tabs';
+  else if(isBack(k)){ if(!(SYSTABS[sys.tab]==='Lore'&&loreBack())) sys.focus='tabs'; }
   else if(k==='m') G.scene='world';
 }
 const PICK={x:40,y:150,w:280,row:40};
@@ -241,6 +329,8 @@ function sysTouch(x,y){
     return; }
   if(x>=T.x&&x<=T.x+T.w&&y>=T.y&&y<T.y+SYSTABS.length*T.step){ sysSetTab(Math.floor((y-T.y)/T.step)); sys.focus='tabs'; return; }
   if(x<P.x||x>P.x+P.w||y<P.y||y>P.y+P.h) return;
+  /* Lore: a tap on a page, or on a list's title, goes back a level */
+  if(SYSTABS[sys.tab]==='Lore'&&(sys.loreSel||(sys.lore&&y<P.y+pageRowsY()-6))){ loreBack(); return; }
   if(pagesWho()&&y<P.y+pageRowsY()-6){ sys.who+=x<P.x+P.w/2?-1:1; sys.idx=0; sys.top=0; return; }
   /* the first tap picks a row, a second tap on it uses it */
   const R=sysRows(), j=Math.floor((y-P.y-pageRowsY())/R.h), i=sys.top+j;
@@ -264,6 +354,7 @@ function sysFoot(){
                                :[SPECIES[R.seed].name+" seed  x"+G.seeds[R.seed],"Plant it in an empty garden spot."];
   if(t==='Gear') return R.flute?[FLUTE_INFO[R.flute].name,"Songs x"+FLUTE_INFO[R.flute].mul.toFixed(2)+(fluteOwned(R.flute)?(G.flute===R.flute?" · equipped":" · A to equip"):" · not owned yet")]
                                :[R.gear.name+(gearOn(R.gear.id)?"  ·  on":"  ·  off"),cap(R.gear.desc)+". A to switch "+(gearOn(R.gear.id)?"off.":"on.")];
+  if(t==='Lore') return loreFoot(R);
   if(t==='Settings'){ const S=R.set; return [S.name+":  "+S.label(S.get()),S.about(S.get())+(IS_TOUCH?"  Tap again to change.":"  ◀ ▶ or J to change.")]; }
   if(t==='Party'&&R.id) return null;
   return null;
@@ -295,6 +386,7 @@ function drawSys(){
     if(t==='Items'&&r.seed) drawShopPic(SPECIES[r.seed].name.toLowerCase()+" seed",P.x+46,y+R.h/2-1,18,26);
     if(t==='Gear'&&r.gear) drawShopPic(r.gear.name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
     if(t==='Gear'&&r.flute) drawShopPic(FLUTE_INFO[r.flute].name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
+    if(t==='Lore') loreRowPic(r,P,y,R.h);
   });
   if(t==='Status'){ const id=whoId(), M=member(id);
     gauge(P.x+20,P.y+pageRowsY()+STATS.length*R.h+12,P.w-40,6,M.xp,M.next,'#f0c84a','#fff0b0'); }
@@ -306,11 +398,12 @@ function drawSys(){
     winCursor(PICK.x+6,PICK.y+40+sys.pick.idx*PICK.row,PICK.w-12,PICK.row-2);
     G.party.forEach((id,i)=>{ const M=member(id), y=PICK.y+40+i*PICK.row;
       gauge(PICK.x+150,y+12,110,5,M.hp,M.maxhp,'#e8504a','#ffa8a0'); gauge(PICK.x+150,y+26,110,5,M.mp,memberMaxMp(id),'#4aa8f0','#b0e0ff'); }); }
+  if(t==='Lore'&&sys.loreSel) loreDetailBack(P);
   if(footH()&&!modal()) rpgWin({x:P.x+6,y:P.y+P.h-footH()-4,w:P.w-12,h:footH()});
   blit();
   if(modal()){ drawModalWords(); return; }      /* the dimmed page's words stay hidden */
   /* words */
-  SYSTABS.forEach((n,i)=>TS(n,T.x+T.w/2,T.y+i*T.step+21,n.length>6?17:20,i===sys.tab?'#ffe08a':'#e4e8ff','center',i===sys.tab));
+  SYSTABS.forEach((n,i)=>TS(n,T.x+T.w/2,T.y+i*T.step+20,n.length>6?17:19,i===sys.tab?'#ffe08a':'#e4e8ff','center',i===sys.tab));
   TS(G.coins+"c",I.x+I.w-8,I.y+24,22,'#ffe08a','right',true);
   TS(SEASON_NAME[season()],I.x+8,I.y+52,17,'#c8d4ff');
   TS("Day "+G.day,I.x+8,I.y+72,17,'#c8d4ff');
@@ -326,6 +419,8 @@ function drawSys(){
     if(many) TS("◀  ▶",P.x+P.w-14,P.y+34,22,'#c8d4ff','right',true);
     wrapLines(PARTY_INFO[id].role,14,P.w-100).slice(0,2).forEach((ln,i)=>TS(ln,P.x+88,P.y+72+i*12,14,'#aab6e8')); }
   else if(t==='Party') TS("Active team  "+G.party.length+"/"+PARTY_MAX,P.x+14,P.y+26,24,'#f4f6ff',null,true);
+  else if(t==='Lore'){ TS(loreTitle(),P.x+14,P.y+26,sys.loreSel?22:24,'#f4f6ff',null,true);
+    if(sys.lore&&!sys.loreSel) TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right'); }
   else TS(t,P.x+14,P.y+26,24,'#f4f6ff',null,true);
   vis.forEach((r,j)=>{ const i=sys.top+j, y=rowY(i), sel=sys.focus==='list'&&i===sys.idx;
     if(t==='Party'&&r.head){ TS(r.head,P.x+14,y+R.h/2,22,'#ffe08a',null,true);
@@ -354,11 +449,13 @@ function drawSys(){
         TS(eq?"equipped":own?"":"locked",P.x+P.w-12,y+21,15,eq?'#b8f0a0':'#7c84b0','right'); }
       else { const on=gearOn(r.gear.id); TS(r.gear.name,P.x+66,y+21,19,on?'#f4f6ff':'#7c84b0',null,sel);
         TS(on?"on":"off",P.x+P.w-12,y+21,15,on?'#b8f0a0':'#ff9a8a','right',true); } }
+    else if(t==='Lore') loreRowText(r,P,y,R.h,sel);
     else if(t==='Settings'){ const S=r.set;
       TS(S.name,P.x+38,y+28,20,'#f4f6ff',null,sel);
       TS("◀  "+S.label(S.get())+"  ▶",P.x+P.w-14,y+28,19,'#ffe08a','right',true); }
     else TS(SAVE_ACTIONS[r.save],P.x+P.w/2+10,y+28,21,'#f4f6ff','center',sel);
   });
+  if(t==='Lore'&&sys.loreSel) loreDetailText(P);
   if(t==='Items'&&!R.rows.length) TS("Nothing yet — harvest some crops!",P.x+P.w/2,P.y+90,17,'#aab6e8','center');
   if(t==='Gear'&&!ownedGearList().length) TS("Accessories you buy show up here.",P.x+P.w/2,rowY(3)+22,16,'#aab6e8','center');
   if(t==='Save') TS("Slot "+G.slot+" · Lv."+G.player.lv+" · "+G.coins+"c · "+SEASON_NAME[season()]+" Day "+G.day,P.x+P.w/2,P.y+250,17,'#c8d4ff','center');

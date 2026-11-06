@@ -135,6 +135,7 @@ function updateFishing(dt){
     else if(FS.slackT>SLACK_MS||FS.dist>=1.3){ FS.phase='lost'; FS.t=0; FS.msg="The line went slack and it got away."; }
     else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; FS.size=Math.round(rnd(12,30)*(0.7+g.power*0.4)); fishSplash(1.2);
       G.goods[FS.fish]=(G.goods[FS.fish]||0)+1;
+      const L=G.lore.fish[FS.fish]||(G.lore.fish[FS.fish]={n:0,best:0}); L.n++; L.best=Math.max(L.best,FS.size);
       if(AC){ flute(9,AC.currentTime,.3,.6); flute(13,AC.currentTime+.12,.3,.6); flute(16,AC.currentTime+.24,.6,.6); } }
   }
 }

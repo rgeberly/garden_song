@@ -20,6 +20,7 @@ const G={
   area:'garden', goods:{}, gearOff:{},              /* where she is (17-places.js); things gathered and caught */
   diff:'normal',                         /* DIFFICULTY, from the Settings tab */
   slot:1,                                /* which save slot this game lives in */
+  lore:{beat:{},fish:{}},                /* pests beaten (times) and fish caught ({n,best cm}), for the Lore tab */
 };
 /* Difficulty: spawn scales how often pests turn up on the map, hp and atk their HP and
    attack in battle. */
@@ -122,7 +123,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,
+    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
 }
@@ -141,6 +142,9 @@ function applySave(o){
   G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};
+  G.lore=o.lr||{beat:{},fish:{}};
+  /* saves from before the Lore tab: the fish in the bag were surely caught */
+  for(const k in G.goods) if(GOODS[k]&&GOODS[k].kind==='fish'&&G.goods[k]>0&&!G.lore.fish[k]) G.lore.fish[k]={n:G.goods[k],best:0};
   /* a place whose layout changed since the save: don't leave her stuck in a tree */
   if(G.area!=='garden'&&placeSolid(P.x,P.y+9)){ const a=PLACES[G.area].arrive.garden; P.x=a.x; P.y=a.y; }
   (o.pl||[]).forEach((v,i)=>{ const p=plots[i]; if(!p)return;

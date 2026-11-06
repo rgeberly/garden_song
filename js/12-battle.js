@@ -480,6 +480,7 @@ function winRewards(){
   B.win={xp,coins,bonus,seed,from,who:up,t:0};
   G.coins+=coins; if(seed) G.seeds[seed]=(G.seeds[seed]||0)+1;
   G.pests=G.pests.filter(p=>p!==B.pest);
+  B.foes.forEach(f=>G.lore.beat[f.sp]=(G.lore.beat[f.sp]||0)+1);      /* for the Bestiary */
   up.forEach(id=>addXpTo(id,xp));          /* everyone still standing learns from it */
 }
 /* a moment's pause so the key that won the fight doesn't also close the screen */
