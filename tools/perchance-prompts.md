@@ -44,6 +44,11 @@ They show on the catch window and in the bag. Save each in `shop items/` under t
 | `shop items/Rainbow Trout.png` | a single rainbow trout with a pink stripe and speckles, side view, cute game item icon, centered, plain white background |
 | `shop items/Largemouth Bass.png` | a single green largemouth bass with a big mouth, side view, cute game item icon, centered, plain white background |
 | `shop items/Catfish.png` | a single grey-brown catfish with long whiskers, side view, cute game item icon, centered, plain white background |
+| `shop items/Shad.png` | a single silvery shad fish with a deep body and a faint row of dark spots behind the gills, side view, cute game item icon, centered, plain white background |
+| `shop items/Mullet.png` | a single grey-silver mullet fish with a blunt head and dark stripes along its sides, side view, cute game item icon, centered, plain white background |
+| `shop items/Flounder.png` | a single flat brown speckled flounder fish seen from above, oval body with both eyes on one side, cute game item icon, centered, plain white background |
+| `shop items/Speckled Trout.png` | a single silver speckled sea trout covered in small black spots, slender body, side view, cute game item icon, centered, plain white background |
+| `shop items/Salmon.png` | a single big salmon with a silver-pink body, a hooked jaw and dark spots on its back, side view, cute game item icon, centered, plain white background |
 | `shop items/Golden Koi.png` | a single shining golden koi fish with flowing fins, side view, cute game item icon, sparkles, centered, plain white background |
 
 ## Music stand: Style **No style**, white background, Shape **Portrait**

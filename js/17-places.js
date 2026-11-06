@@ -27,6 +27,11 @@ const GOODS={
   trout:      {name:"Rainbow Trout",    value:40, kind:'fish', col:'#e88aa8', power:1.1, w:3, seasons:['spring','summer'], flavor:"Shimmers like a rainbow, fights like a bulldog."},
   bass:       {name:"Largemouth Bass",  value:55, kind:'fish', col:'#5a8a4a', power:1.4, w:2, seasons:['summer','fall'], flavor:"Big mouth, bigger attitude."},
   catfish:    {name:"Catfish",          value:70, kind:'fish', col:'#6a6a5a', power:1.7, w:2, seasons:['summer','fall'], night:true, flavor:"Whiskers, mystery and midnight snacks."},
+  shad:       {name:"Shad",             value:18, kind:'fish', col:'#b8c4cc', power:0.7, w:4, seasons:['spring'], flavor:"Runs upriver every spring, bony but brave."},
+  mullet:     {name:"Mullet",           value:24, kind:'fish', col:'#8a96a0', power:0.9, w:3, seasons:['summer','fall'], flavor:"Business in the front, splashing in the back."},
+  flounder:   {name:"Flounder",         value:45, kind:'fish', col:'#9a7a5a', power:1.0, w:2, seasons:['summer','fall'], flavor:"Flat as a pancake, with both eyes on one side. Rude to stare."},
+  speckled:   {name:"Speckled Trout",   value:50, kind:'fish', col:'#9aa8b4', power:1.2, w:2, seasons:['spring','fall'], flavor:"Spotted all over, like it rolled in pepper."},
+  salmon:     {name:"Salmon",           value:85, kind:'fish', col:'#d8786a', power:1.8, w:1, seasons:['fall'], flavor:"Swims a long way home every fall. Strong and stubborn."},
   koi:        {name:"Golden Koi",       value:180,kind:'fish', col:'#ffb02a', power:2.1, w:0.4, flavor:"A living treasure. Rumored to grant wishes (it doesn't)."},
   /* food and drink bought in town or at the stall: kept until used (not sold back).
      use: hp/mp for whoever has it, hpAll/mpAll for the whole party, coffee: ms of speed */
