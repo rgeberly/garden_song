@@ -14,14 +14,6 @@ right, with a rocky bank down the left side, so the bobber lands on the water.
 |---|---|
 | `scenes/fishing_fall.png` | painted anime style, view from a grassy riverbank in autumn looking out over a calm mountain river, the water starts narrow in the far middle and widens toward the bottom right, a rocky bank along the left side, orange red and gold autumn trees and dark pines on both shores, grey rocky peaks under a clear sky, a few falling leaves on the water, no people, no fishing rod, no text |
 
-## Fish still missing: Style **No style**, white background, Shape **Square**
-
-They show on the catch window and in the bag. Save each in `shop items/` under the fish's exact name:
-
-| Save as | Description |
-|---|---|
-| `shop items/Rainbow Trout.png` | a single rainbow trout with a pink stripe and speckles, side view, cute game item icon, centered, plain white background |
-
 ## Optional: townsfolk portraits, "painted anime style", Shape **Portrait**
 
 They'd show in the talk box instead of the little stand-in figures. These need a small hookup in the
