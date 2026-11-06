@@ -392,7 +392,8 @@ def main():
     pmaps = {}
     for f in pics('maps'):
         base = os.path.splitext(os.path.basename(f))[0].lower()
-        if '_' not in base or base.endswith(('_collision', '_front', '_draft')): continue
+        # only <place>_<season>: not walls, front layers, drafts or working copies
+        if '_' not in base or any(w in base for w in ('collision', 'front', 'draft', 'copy')): continue
         where, when = base.split('_', 1)
         save_jpg(f, os.path.join(ROOT, 'assets', 'places', base + '.jpg'), 2160)
         pmaps.setdefault(where, []).append(when)
