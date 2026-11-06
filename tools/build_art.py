@@ -55,6 +55,11 @@ DECOR = {'fountain': ('frog fountain', 168), 'bath': ('bird bath', 162),
 # Creatures that flutter around the garden: width of one frame in device px.
 CREATURE_W = {'bluebird': 66, 'monarch': 48, 'music note': 39}
 CREATURE_CELL = 256
+# ...and these, where the background caught inside is off-white too (between legs, inside loops)
+SHOP_SOFT_HOLES = {'music stand': 40}
+# Shop pictures with a pale painted shadow under them (the game draws its own): below this
+# share of the picture's height, pale greyish beige is cleared.
+SHOP_FLOOR = {'music stand': 0.65}
 SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'seed apron': 2000}
 # Party members in battle, sized on their first ready frame, in sheet px (the game draws
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
@@ -101,7 +106,7 @@ def load(path):
     return a
 
 
-def remove_white(a, hole=0):
+def remove_white(a, hole=0, soft_holes=False):
     """Clear the white background that touches the picture's edge (and enclosed
     pure-white holes of at least `hole` px, when asked)."""
     if (a[..., 3] < 250).mean() > 0.02:          # already has real transparency
@@ -119,7 +124,9 @@ def remove_white(a, hole=0):
     edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
     bg = np.isin(lab, edge[edge > 0])
     if hole:
-        n, lab, st, _ = cv2.connectedComponentsWithStats(((dist < 8) & ~bg).astype(np.uint8), connectivity=8)
+        # enclosed pockets: pure white, or (soft_holes) any light colourless white
+        pocket = ((dist < 40) & (chroma < 20)) if soft_holes else (dist < 8)
+        n, lab, st, _ = cv2.connectedComponentsWithStats((pocket & ~bg).astype(np.uint8), connectivity=8)
         for i in range(1, n):
             if st[i, 4] >= hole: bg |= lab == i
     alpha = np.ones(dist.shape, np.float32)
@@ -275,7 +282,13 @@ def main():
     shop, smeta = [], {}
     for f in pics('shop items'):
         name = os.path.splitext(os.path.basename(f))[0].strip().lower()
-        im = trim(remove_white(load(f), SHOP_HOLES.get(name, 0)))
+        im = (remove_white(load(f), SHOP_SOFT_HOLES[name], soft_holes=True) if name in SHOP_SOFT_HOLES
+              else remove_white(load(f), SHOP_HOLES.get(name, 0)))
+        if name in SHOP_FLOOR:
+            hsv = cv2.cvtColor(np.ascontiguousarray(im[..., :3]), cv2.COLOR_BGR2HSV)
+            floor = (hsv[..., 2] > 140) & (hsv[..., 1] < 85); floor[:int(im.shape[0] * SHOP_FLOOR[name])] = False
+            im[floor, 3] = 0
+        im = trim(im)
         im = shrink(im, SHOP_BOX / max(im.shape[:2]))
         shop.append((name, im))
     ssheet, spos = pack(shop)
@@ -494,7 +507,7 @@ def main():
     for lk, name in (('words', 'logo'), ('frame', 'logo frame')):
         f = find_pic(os.path.join(SRC, name))
         if not f: continue
-        im = trim(remove_white(load(f), 1500))         # also white pockets inside the vines
+        im = trim(remove_white(load(f), 40, soft_holes=True))    # and the white caught inside the vines
         im = shrink(im, min(1.0, 1020 / im.shape[1]))
         cv2.imwrite(os.path.join(OUT, 'logo.png'), im, [cv2.IMWRITE_PNG_COMPRESSION, 9])
         logo_kind = lk; print('logo.png', im.shape[1], 'x', im.shape[0], '(' + lk + ')')

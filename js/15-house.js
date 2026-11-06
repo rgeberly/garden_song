@@ -87,7 +87,10 @@ function drawStand(x,y,k){
   const s=k*2.4;
   /* its picture (shop items/Music Stand), when there is one */
   if(typeof SHOP_ART!=='undefined'&&SHOP_ART['music stand']){
-    b.fillStyle='rgba(20,12,4,.3)'; b.beginPath(); b.ellipse(x,y,9*s,3*s,0,0,7); b.fill();
+    /* a soft shadow on the floor under its legs (indoors, like hers: no sun to cast one) */
+    b.save(); b.translate(x,y); b.scale(1,0.32);
+    const g=b.createRadialGradient(0,0,0,0,0,15*s); g.addColorStop(0,'rgba(20,12,4,.42)'); g.addColorStop(0.6,'rgba(20,12,4,.22)'); g.addColorStop(1,'rgba(20,12,4,0)');
+    b.fillStyle=g; b.beginPath(); b.arc(0,0,15*s,0,7); b.fill(); b.restore();
     if(drawShopPic('music stand',x,y-18*s,28*s,38*s)) return; }
   b.fillStyle='rgba(20,12,4,.3)'; b.beginPath(); b.ellipse(x,y,9*s,3*s,0,0,7); b.fill();
   b.strokeStyle='#5a3a1e'; b.lineWidth=1.6*s;

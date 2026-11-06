@@ -21,6 +21,10 @@ function logoImg(){
   return LOGO_IMG.complete&&LOGO_IMG.naturalWidth?LOGO_IMG:null;
 }
 const LOGO_W=320;                 /* how wide the logo is drawn (logical px), at most */
+/* the title's entrance: the scene fades up from black (TITLE_FADE ms), then the logo rises
+   into the sky with the sun (starting LOGO_DELAY ms in, over LOGO_RISE ms) to settle with
+   its middle LOGO_Y of the way down the screen */
+const TITLE_FADE=3000, LOGO_DELAY=1200, LOGO_RISE=4000, LOGO_Y=0.27;
 const mixCol=(a,z,k)=>{ const A=parseInt(a.slice(1),16), Z=parseInt(z.slice(1),16), c=sh=>Math.round(((A>>sh)&255)*(1-k)+((Z>>sh)&255)*k);
   return 'rgb('+c(16)+','+c(8)+','+c(0)+')'; };
 function drawTitle(){
@@ -78,18 +82,20 @@ function drawTitle(){
       b.fillStyle='#fff2c8'; b.beginPath(); b.moveTo(sunX,sunY);
       b.lineTo(sunX+Math.cos(a-0.03)*600,sunY+Math.sin(a-0.03)*600); b.lineTo(sunX+Math.cos(a+0.03)*600,sunY+Math.sin(a+0.03)*600); b.fill(); }
     b.restore(); }
+  const dawn=clamp((G.t-titleT0)/TITLE_FADE,0,1);
+  if(dawn<1){ b.fillStyle='rgba(0,0,0,'+(1-dawn)+')'; b.fillRect(0,top,LW,H); }
   /* a dark band behind the words at the bottom */
   const fade=b.createLinearGradient(0,bot-110,0,bot); fade.addColorStop(0,'rgba(10,16,12,0)'); fade.addColorStop(1,'rgba(10,16,12,.7)');
   b.fillStyle=fade; b.fillRect(0,bot-110,LW,110);
   if(titleWoken) drawTitleMenuBack(bot);
-  /* the logo fades in and settles near the top */
-  const ta=clamp((G.t-titleT0-600)/1400,0,1), ty=top+66+(1-ta)*10, lg=logoImg();
-  let lw=0, lh=0;
-  if(lg){ lw=Math.min(LOGO_W,lg.naturalWidth/SC); lh=lw*lg.naturalHeight/lg.naturalWidth;
-    b.save(); b.globalAlpha=ta; b.imageSmoothingEnabled=true; b.drawImage(lg,180-lw/2,top+14+(1-ta)*10,lw,lh); b.restore(); }
+  /* the logo rises into the sky as the sun comes up, fading in as it goes */
+  const lk=clamp((G.t-titleT0-LOGO_DELAY)/LOGO_RISE,0,1), le=1-Math.pow(1-lk,3), lg=logoImg();
+  const lcy=top+H*LOGO_Y+(1-le)*40;          /* where the logo's middle is */
+  if(lg){ const lw=Math.min(LOGO_W,lg.naturalWidth/SC), lh=lw*lg.naturalHeight/lg.naturalWidth;
+    b.save(); b.globalAlpha=le; b.imageSmoothingEnabled=true; b.drawImage(lg,180-lw/2,lcy-lh/2,lw,lh); b.restore(); }
   blit();
-  m.globalAlpha=ta;
-  if(!lg||TITLE_LOGO==='frame'){ const cy=lg?top+14+(1-ta)*10+lh/2-22:ty;
+  m.globalAlpha=le;
+  if(!lg||TITLE_LOGO==='frame'){ const cy=lcy-20;
     TO("Kaitlyn's",180,cy,54,'#ffcf3a','center',true,2);
     TO("Garden Song",180,cy+40,54,'#ffcf3a','center',true,2); }
   m.globalAlpha=1;
