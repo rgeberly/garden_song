@@ -15,6 +15,9 @@ where the full-size originals live) holds
     party/<Name>-attack-spritesheet.png  their attack, same layout
     party/<Name>-portrait.png            their face for menus and conversations
     scenes/<name>.png                    full pictures shown in story scenes
+    fishing/Rod.png, Reel.png, Bobber.png   the fishing game's tackle (white background)
+    logo.png  or  logo frame.png          the title screen's logo (white background):
+                                          with the words, or a frame the game writes them on
 Pictures can be PNG or JPEG (animation sheets must be PNG, for their transparency) and
 may have a white background: white touching the edge of the picture is
 removed (light grey shadows on it become see-through shadows). Each picture is
@@ -422,6 +425,29 @@ def main():
         cv2.imwrite(os.path.join(ROOT, 'assets', 'scenes', name + '.jpg'), flat, [cv2.IMWRITE_JPEG_QUALITY, 88])
         print('scene', name, flat.shape[1], 'x', flat.shape[0])
 
+    # the fishing game's rod, reel and bobber: each at most this tall/wide (device px)
+    FISH_BOX = {'rod': 900, 'reel': 360, 'bobber': 120}
+    tackle = []
+    for f in pics('fishing'):
+        name = os.path.splitext(os.path.basename(f))[0].strip().lower()
+        im = trim(remove_white(load(f)))
+        tackle.append((name, shrink(im, FISH_BOX.get(name, 360) / max(im.shape[:2]))))
+    fmeta = {}
+    if tackle:
+        fsheet, fmeta = pack(tackle)
+        cv2.imwrite(os.path.join(OUT, 'fishing.png'), fsheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        print('fishing.png -', ', '.join(sorted(fmeta)))
+    # the title logo: logo (with the words) or logo frame (the game writes the words on it)
+    logo_kind = None
+    for lk, name in (('words', 'logo'), ('frame', 'logo frame')):
+        f = find_pic(os.path.join(SRC, name))
+        if not f: continue
+        im = trim(remove_white(load(f)))
+        im = shrink(im, min(1.0, 1020 / im.shape[1]))
+        cv2.imwrite(os.path.join(OUT, 'logo.png'), im, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        logo_kind = lk; print('logo.png', im.shape[1], 'x', im.shape[0], '(' + lk + ')')
+        break
+
     with open(os.path.join(ROOT, 'js', 'data', 'art.js'), 'w', encoding='utf-8') as fh:
         fh.write('/* Made by tools/build_art.py: sheet positions [x,y,w,h] in device px;\n'
                  '   ax,ay is where a crop/soil/stand picture stands on the ground. */\n')
@@ -434,6 +460,8 @@ def main():
         fh.write('const NOTE_ART=' + json.dumps(nmeta, separators=(',', ':')) + ';\n')
         fh.write('const PLACE_MAPS=' + json.dumps(pmaps, separators=(',', ':')) + ';\n')
         fh.write('const GARDEN_ZONES=' + ('true' if tr else 'false') + ';\n')
+        fh.write('const FISH_ART=' + json.dumps(fmeta, separators=(',', ':')) + ';\n')
+        fh.write('const TITLE_LOGO=' + json.dumps(logo_kind) + ';\n')
         fh.write('const BACKDROPS=' + json.dumps(sorted(backs)) + ';\n')
         fh.write('const RHYTHM_BG=' + ('true' if bg else 'false') + ';\n')
         fh.write('const FRONT_LAYERS=' + json.dumps(fronts) + ';\n')

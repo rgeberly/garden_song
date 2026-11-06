@@ -12,6 +12,15 @@ function titleImg(){
   if(!TITLE_IMG){ TITLE_IMG=new Image(); TITLE_IMG.src='assets/scenes/title.jpg'; }
   return TITLE_IMG.complete&&TITLE_IMG.naturalWidth?TITLE_IMG:null;
 }
+/* the logo (logo or logo frame in the art folder, as assets/sprites/logo.png): with the
+   words in it, or a frame the words are written over; plain gold words until then */
+let LOGO_IMG=null;
+function logoImg(){
+  if(typeof TITLE_LOGO==='undefined'||!TITLE_LOGO) return null;
+  if(!LOGO_IMG){ LOGO_IMG=new Image(); LOGO_IMG.src='assets/sprites/logo.png'; }
+  return LOGO_IMG.complete&&LOGO_IMG.naturalWidth?LOGO_IMG:null;
+}
+const LOGO_W=320;                 /* how wide the logo is drawn (logical px), at most */
 const mixCol=(a,z,k)=>{ const A=parseInt(a.slice(1),16), Z=parseInt(z.slice(1),16), c=sh=>Math.round(((A>>sh)&255)*(1-k)+((Z>>sh)&255)*k);
   return 'rgb('+c(16)+','+c(8)+','+c(0)+')'; };
 function drawTitle(){
@@ -73,12 +82,16 @@ function drawTitle(){
   const fade=b.createLinearGradient(0,bot-110,0,bot); fade.addColorStop(0,'rgba(10,16,12,0)'); fade.addColorStop(1,'rgba(10,16,12,.7)');
   b.fillStyle=fade; b.fillRect(0,bot-110,LW,110);
   if(titleWoken) drawTitleMenuBack(bot);
+  /* the logo fades in and settles near the top */
+  const ta=clamp((G.t-titleT0-600)/1400,0,1), ty=top+66+(1-ta)*10, lg=logoImg();
+  let lw=0, lh=0;
+  if(lg){ lw=Math.min(LOGO_W,lg.naturalWidth/SC); lh=lw*lg.naturalHeight/lg.naturalWidth;
+    b.save(); b.globalAlpha=ta; b.imageSmoothingEnabled=true; b.drawImage(lg,180-lw/2,top+14+(1-ta)*10,lw,lh); b.restore(); }
   blit();
-  const ta=clamp((G.t-titleT0-600)/1400,0,1), ty=top+66+(1-ta)*10;
   m.globalAlpha=ta;
-  TO("Kaitlyn's",180,ty,54,'#ffcf3a','center',true,2);
-  TO("Garden Song",180,ty+40,54,'#ffcf3a','center',true,2);
-  TS("play the golden flute · grow the garden",180,ty+68,22,'#fff6e0','center');
+  if(!lg||TITLE_LOGO==='frame'){ const cy=lg?top+14+(1-ta)*10+lh/2-22:ty;
+    TO("Kaitlyn's",180,cy,54,'#ffcf3a','center',true,2);
+    TO("Garden Song",180,cy+40,54,'#ffcf3a','center',true,2); }
   m.globalAlpha=1;
   if(titleWoken) drawTitleMenuWords(bot);
   else if(Math.floor(G.t/500)%2===0) TS("♪  TAP TO START  ♪",180,bot-36,28,'#f7f0dc','center',true);

@@ -98,6 +98,18 @@ function blip(f,dur,vol,type){ if(!AC)return;
   o.type=type||'square'; o.frequency.value=f;
   g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
   o.connect(g); g.connect(sfxGain); o.start(t); o.stop(t+dur); }
+/* water: a burst of filtered noise that falls away, over a little plop (vol 0..1) */
+function splashSound(vol){
+  if(!AC||!noiseBuf) return;
+  const t=AC.currentTime, v=vol||0.4;
+  const nz=AC.createBufferSource(); nz.buffer=noiseBuf;
+  const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.setValueAtTime(1800,t); bp.frequency.exponentialRampToValueAtTime(700,t+0.35); bp.Q.value=0.8;
+  const g=AC.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.5*v,t+0.015); g.gain.exponentialRampToValueAtTime(0.0001,t+0.42);
+  nz.connect(bp); bp.connect(g); g.connect(sfxGain||master); nz.start(t); nz.stop(t+0.45);
+  const o=AC.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(420,t); o.frequency.exponentialRampToValueAtTime(110,t+0.12);
+  const og=AC.createGain(); og.gain.setValueAtTime(0.25*v,t); og.gain.exponentialRampToValueAtTime(0.0001,t+0.15);
+  o.connect(og); og.connect(sfxGain||master); o.start(t); o.stop(t+0.16);
+}
 function thud(){ if(!AC)return;
   const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();
   o.type='sine'; o.frequency.setValueAtTime(200,t);
