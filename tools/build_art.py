@@ -97,7 +97,11 @@ def remove_white(a, hole=0):
     if (a[..., 3] < 250).mean() > 0.02:          # already has real transparency
         return a
     c = a[..., :3].astype(np.float32)
-    dist = 255 - c.min(axis=2)                     # how far from white
+    # how far from the background: white, or the picture's own off-white (a light grey or
+    # cream along its edges is treated as its white)
+    lo = c.min(axis=2)
+    ref = float(np.median(np.concatenate([lo[0], lo[-1], lo[:, 0], lo[:, -1]])))
+    dist = np.clip((ref if 190 < ref < 240 else 255) - lo, 0, 255)
     chroma = c.max(axis=2) - c.min(axis=2)
     # background-ish: near white, or a light colourless shadow
     soft = ((dist < 70) & (chroma < 16)).astype(np.uint8)

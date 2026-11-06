@@ -142,7 +142,7 @@ const inPool=(x,y)=> x>POOL.x+F(.02)&&x<POOL.x+POOL.w-F(.02)&&
 /* Walk-through zones (maps/transitions, as assets/sprites/garden_zones.png on the walls'
    grid): 1 the path to town, 2 the trail to the mountain, 3 the house door. Walking into
    a path takes her there; the door still waits for A. */
-let ZONES=null;
+let ZONES=null; const DOOR_REACH=7;     /* cells, 2 garden px each */
 (function loadZones(){
   if(typeof GARDEN_ZONES==='undefined'||!GARDEN_ZONES) return;
   const im=new Image();
@@ -151,6 +151,12 @@ let ZONES=null;
     const d=g.getImageData(0,0,C,C).data, Z=new Uint8Array(C*C);
     for(let i=0,j=0;i<Z.length;i++,j+=4){ const r=d[j], gr=d[j+1], bl=d[j+2];
       Z[i]=r>200&&gr<80?1:r>200&&gr>150?2:bl>200&&r<80?3:0; }
+    /* the door reaches a little further up and to the right (DOOR_REACH cells), so the
+       prompt stays while she walks right up to it */
+    const Z0=Z.slice();
+    for(let y=0;y<C;y++) for(let x=0;x<C;x++) if(Z0[y*C+x]===3)
+      for(let d=1;d<=DOOR_REACH;d++) for(let e=0;e<=DOOR_REACH;e++){
+        const xx=x+e, yy=y-d; if(xx<C&&yy>=0&&!Z[yy*C+xx]) Z[yy*C+xx]=3; }
     ZONES=Z; };
   im.src='assets/sprites/garden_zones.png';
 })();

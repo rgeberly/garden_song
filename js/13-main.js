@@ -5,6 +5,8 @@
    the sun climbs over the horizon, warming the scene below. The scene is the title
    picture (assets/scenes/title.jpg) once it has loaded, or a drawn garden until then. */
 const TITLE_RISE=11000, TITLE_HORIZON=0.5;     /* how long the sunrise takes (ms); where the horizon is */
+/* where the light comes from in the title picture (shares of its width and height) */
+const TITLE_SUN={x:0.88,y:0.62};
 let titleT0=null, TITLE_IMG=null;
 function titleImg(){
   if(!TITLE_IMG){ TITLE_IMG=new Image(); TITLE_IMG.src='assets/scenes/title.jpg'; }
@@ -16,7 +18,11 @@ function drawTitle(){
   if(titleT0===null) titleT0=G.t;
   const top=BAND_TOP(), bot=BAND_BOT(), H=bot-top, hy=top+H*TITLE_HORIZON;
   const raw=clamp((G.t-titleT0)/TITLE_RISE,0,1), k=raw*raw*(3-2*raw);    /* eased */
-  const sunX=LW*0.66, sunY=hy+26-k*96, im=titleImg();
+  const im=titleImg();
+  /* the picture covers the scene; the sun's glow and rays come from its bright spot */
+  let pic=null, sunX=LW*0.66, sunY=hy+26-k*96;
+  if(im){ const r=im.naturalWidth/im.naturalHeight, h=Math.max(H,LW/r), w=h*r;
+    pic={x:(LW-w)/2,y:top+(H-h)/2,w,h}; sunX=pic.x+w*TITLE_SUN.x; sunY=pic.y+h*TITLE_SUN.y+(1-k)*24; }
   /* the sky: night blue to dawn pink to morning */
   const sky=b.createLinearGradient(0,top,0,hy);
   sky.addColorStop(0,mixCol('#141a44','#78b8ec',k)); sky.addColorStop(0.65,mixCol('#4a3a78','#bcdcf0',k));
@@ -38,8 +44,7 @@ function drawTitle(){
     b.beginPath(); b.ellipse(cx,cy,38,8,0,0,7); b.fill(); b.beginPath(); b.ellipse(cx+20,cy-5,22,7,0,0,7); b.fill(); }
   if(im){
     /* the picture, covering the scene; it's dark before the sun is up */
-    const r=im.naturalWidth/im.naturalHeight, h=Math.max(H,LW/r), w=h*r;
-    b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,(LW-w)/2,top+(H-h)/2,w,h); b.restore();
+    b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,pic.x,pic.y,pic.w,pic.h); b.restore();
   } else {
     /* a drawn garden: far hills, near hills, the lawn with Kaitlyn and friends */
     b.fillStyle=mixCol('#2a2a4a','#6a9a7a',k);
@@ -162,7 +167,8 @@ const slotText=s=>s?"Lv."+s.lv+" · "+SEASON_NAME[seasonOf(s.day)]+", Day "+s.da
 function drawTitleMenuBack(bot){
   if(TM.mode==='main'){ const L=titleItems();
     L.forEach((it,i)=>{ const Y=tbtnY(bot,i,L.length);
-      b.fillStyle=i===TM.idx?'rgba(255,214,110,.35)':'rgba(20,28,22,.6)'; b.beginPath(); b.roundRect(TBTN.x,Y,TBTN.w,TBTN.h,8); b.fill(); });
+      b.fillStyle='rgba(14,20,16,.78)'; b.beginPath(); b.roundRect(TBTN.x,Y,TBTN.w,TBTN.h,8); b.fill();
+      if(i===TM.idx){ b.strokeStyle='#ffd870'; b.lineWidth=1.5; b.stroke(); } });
     return; }
   const Y=tslotY(bot);
   rpgWin({x:TSLOT.x,y:Y,w:TSLOT.w,h:TSLOT.top+(SAVE_SLOTS+1)*TSLOT.row+10});
