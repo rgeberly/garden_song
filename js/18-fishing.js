@@ -18,15 +18,16 @@ const DRAG=0.85, T_MAX=1.15;
 const REEL={x:286,r:54}, ROD={x:62,h:84}, FSTOP={x:LW-70,y:14,w:60,h:26};
 let FS=null;
 /* Where the line can meet the water: 'near' 0 (far away) to 1 (close by), 'side' -1..1
-   across it. In the pond picture's own pixels (FISH_WATER, along the river from its far
-   bend to the near water), or in screen px for the drawn pond. */
-const FISH_WATER={far:{x:565,y:845,half:85},near:{x:760,y:1340,half:250}};
+   across it. In each pond picture's own pixels (FISH_WATER, from the far end of the water
+   to the near water), or in screen px for the drawn pond. */
+const FISH_WATER={fishing:{far:{x:565,y:845,half:85},near:{x:760,y:1340,half:250}},
+                  fishing_spring:{far:{x:620,y:830,half:110},near:{x:800,y:1350,half:260}}};
 const DRAWN_WATER={far:{x:200,y:170,half:110},near:{x:210,y:340,half:150}};
 /* where the pond picture sits on the screen: covering it, its bottom on the band's */
 function fishPic(){ const im=fishImg(), T0=BAND_TOP(), T1=BAND_BOT(), r=im.naturalWidth/im.naturalHeight;
   const h=Math.max(T1-T0,LW/r), w=h*r; return {x:(LW-w)/2,y:T1-h,w,h,s:h/im.naturalHeight}; }
 function waterPt(near,side){
-  const im=fishImg(), W=im?FISH_WATER:DRAWN_WATER, k=clamp(near,0,1);
+  const im=fishImg(), W=im?FISH_WATER[pondKey()]||FISH_WATER.fishing:DRAWN_WATER, k=clamp(near,0,1);
   let x=W.far.x+(W.near.x-W.far.x)*k+side*(W.far.half+(W.near.half-W.far.half)*k), y=W.far.y+(W.near.y-W.far.y)*k;
   if(im){ const P=fishPic(); x=P.x+x*P.s; y=P.y+y*P.s; }
   return {x,y,s:0.55+0.75*k};             /* s: how big things look there */
@@ -143,6 +144,7 @@ function updateFishing(dt){
    into assets/sprites/fishing.png): drawn along a line (the rod, its handle at x0,y0 and
    tip at x1,y1) or centred and size tall. False until there's a picture. */
 let IMG_FISHING=null;
+const ROD_WIDEN=1.8;           /* the rod drawn this much wider than true, so its slim blank shows */
 function drawFishingArt(k,x0,y0,x1,y1,size){
   const a=typeof FISH_ART!=='undefined'&&FISH_ART[k]; if(!a) return false;
   if(!IMG_FISHING){ IMG_FISHING=new Image(); IMG_FISHING.src='assets/sprites/fishing.png'; }
@@ -150,15 +152,18 @@ function drawFishingArt(k,x0,y0,x1,y1,size){
   const [sx,sy,w,h]=a;
   b.save(); b.imageSmoothingEnabled=true; b.translate(x0,y0);
   if(size){ const s=size/Math.max(w,h); b.drawImage(IMG_FISHING,sx,sy,w,h,-w*s/2,-h*s/2,w*s,h*s); }
-  else { const len=Math.hypot(x1-x0,y1-y0), s=len/h; b.rotate(Math.atan2(y1-y0,x1-x0)+Math.PI/2);
-    b.drawImage(IMG_FISHING,sx,sy,w,h,-w*s/2,-len,w*s,len); }
+  else { const len=Math.hypot(x1-x0,y1-y0), s=len/h, ww=w*s*ROD_WIDEN; b.rotate(Math.atan2(y1-y0,x1-x0)+Math.PI/2);
+    b.drawImage(IMG_FISHING,sx,sy,w,h,-ww/2,-len,ww,len); }
   b.restore(); return true;
 }
-/* the pond picture (scenes/fishing), once it has loaded; a drawn pond until then */
-let FISH_IMG=null;
+/* the pond picture for the season (scenes/fishing_<season>, or scenes/fishing), once it
+   has loaded; a drawn pond until then */
+const FISH_IMG={};
+const pondKey=()=>{ const k='fishing_'+season(); return typeof SCENES!=='undefined'&&SCENES.includes(k)?k:'fishing'; };
 function fishImg(){
-  if(!FISH_IMG){ FISH_IMG=new Image(); FISH_IMG.src='assets/scenes/fishing.jpg'; }
-  return FISH_IMG.complete&&FISH_IMG.naturalWidth?FISH_IMG:null;
+  const k=pondKey();
+  if(!FISH_IMG[k]){ FISH_IMG[k]=new Image(); FISH_IMG[k].src='assets/scenes/'+k+'.jpg'; }
+  return FISH_IMG[k].complete&&FISH_IMG[k].naturalWidth?FISH_IMG[k]:null;
 }
 function drawFishing(dt){
   updateFishing(dt);
@@ -178,7 +183,8 @@ function drawFishing(dt){
      wherever the fish has taken it across */
   const W=waterPt(lineNear(),FS.side), fx=W.x, fy=W.y, ws=W.s;
   /* the rod, from the bottom left; its tip swings up as it is pulled back */
-  const baseX=26, baseY=T1-36, tipX=52+FS.lift*8, tipY=T1-170-FS.lift*42;
+  const art=typeof FISH_ART!=='undefined'&&FISH_ART.rod;     /* the rod's picture is long and slim */
+  const baseX=26, baseY=T1-36, tipX=(art?70:52)+FS.lift*8, tipY=T1-(art?250:170)-FS.lift*(art?50:42);
   if(!drawFishingArt('rod',baseX,baseY,tipX,tipY)){
     b.strokeStyle='#5a3a1e'; b.lineWidth=3; b.beginPath(); b.moveTo(baseX,baseY); b.lineTo(tipX,tipY); b.stroke(); }
   b.strokeStyle='rgba(255,255,255,.75)'; b.lineWidth=1;

@@ -60,6 +60,13 @@ SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'see
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
 # Bling by her length.
 PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70)}
+# Places with painted maps and their own walls: their size in the game (world px, as in
+# js/17-places.js) and the walls' grid (world px per cell). The mountain's walls come from
+# its painting unless maps/mountain_collision is there; MOUNTAIN_OPEN marks parts of the
+# painting as open anyway (shares of its width and height: x, y, w, h).
+PLACE_SIZE = {'mountain': (1080, 1446)}
+PLACE_GRID = 4
+MOUNTAIN_OPEN = [(0.34, 0.90, 0.21, 0.10)]
 # Enemies (enemies/<Name>.png|jpg): their key in the game and height in battle (device px).
 # Pixel art smaller than that is enlarged with hard edges.
 ENEMIES = {'dung beetle': ('beetle', 190), 'paper wasp': ('wasp', 220), 'garden rat': ('rat', 250),
@@ -163,6 +170,19 @@ def remove_edge_colour(a, tol=14):
         big = st[1:, 4].max()
         for i in range(1, n):
             if st[i, 4] < big * 0.002: out[lab == i, 3] = 0
+    return out
+
+
+def cutout(a):
+    """Cut a picture's subject out of a plain background by its outline (GrabCut), for
+    pictures where the subject itself is partly white and remove_white would eat it."""
+    bgr = np.ascontiguousarray(a[..., :3]); h, w = bgr.shape[:2]
+    mask = np.zeros((h, w), np.uint8); bgd = np.zeros((1, 65), np.float64); fgd = np.zeros((1, 65), np.float64)
+    cv2.grabCut(bgr, mask, (int(w * 0.04), int(h * 0.04), int(w * 0.92), int(h * 0.92)), bgd, fgd, 6, cv2.GC_INIT_WITH_RECT)
+    fg = np.isin(mask, [1, 3]).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(fg)
+    if n > 1: fg = (lab == 1 + np.argmax(st[1:, 4])).astype(np.uint8)     # just the biggest piece
+    out = a.copy(); out[..., 3] = cv2.GaussianBlur(fg * 255, (3, 3), 0)
     return out
 
 
@@ -393,6 +413,36 @@ def main():
         for col, out in (((237, 28, 36), (0, 0, 255)), ((255, 201, 14), (0, 255, 255)), ((0, 162, 232), (255, 0, 0))):
             z[np.abs(t - np.array(col)).sum(2) < 90] = out          # BGR
         cv2.imwrite(os.path.join(OUT, 'garden_zones.png'), cv2.resize(z, (360, 360), interpolation=cv2.INTER_NEAREST))
+    # walls for the places with painted maps: maps/<place>_collision if there is one
+    # (black = blocked, white = open), or for the mountain worked out from its spring
+    # painting: the light grass and the tan trail are open (all of it that joins the
+    # trail), dark trees, rock, water and sky are not. Saved at a quarter of the place's
+    # size (PLACE_GRID world px per cell) as assets/sprites/<place>_collision.png.
+    pcols = []
+    for place, size in PLACE_SIZE.items():
+        cf = find_pic(os.path.join(SRC, 'maps', place + '_collision'))
+        if cf:
+            m = cv2.imread(cf, cv2.IMREAD_GRAYSCALE) > 128
+        elif place == 'mountain' and find_pic(os.path.join(SRC, 'maps', 'mountain_spring')):
+            a = cv2.imread(find_pic(os.path.join(SRC, 'maps', 'mountain_spring')))
+            hsv = cv2.cvtColor(cv2.GaussianBlur(a, (5, 5), 0), cv2.COLOR_BGR2HSV).astype(int)
+            H, S, V = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+            trail = (H >= 6) & (H <= 26) & (S >= 40) & (V >= 100)
+            grass = (H >= 26) & (H <= 52) & (S >= 80) & (V >= 100)
+            walk = (trail | grass).astype(np.uint8)
+            h0, w0 = walk.shape
+            for fx, fy, fw, fh in MOUNTAIN_OPEN:            # the shaded foot of the trail
+                walk[int(fy * h0):int((fy + fh) * h0), int(fx * w0):int((fx + fw) * w0)] = 1
+            walk = cv2.morphologyEx(walk, cv2.MORPH_CLOSE, np.ones((11, 11), np.uint8))
+            walk = cv2.morphologyEx(walk, cv2.MORPH_OPEN, np.ones((7, 7), np.uint8))
+            n, lab = cv2.connectedComponents(walk)
+            m = lab == lab[int(0.5 * h0), int(0.46 * w0)]   # what joins the trail mid-way up
+        else:
+            continue
+        gw, gh = size[0] // PLACE_GRID, size[1] // PLACE_GRID
+        out = np.where(cv2.resize(m.astype(np.uint8) * 255, (gw, gh), interpolation=cv2.INTER_AREA) > 128, 255, 0).astype(np.uint8)
+        cv2.imwrite(os.path.join(OUT, place + '_collision.png'), out)
+        pcols.append(place); print(place + '_collision.png', gw, 'x', gh, '(' + ('painted' if cf else 'from the map') + ')')
     hcol = find_pic(os.path.join(SRC, 'maps', 'house_collision'))
     if hcol:
         m = cv2.imread(hcol, cv2.IMREAD_GRAYSCALE)
@@ -417,20 +467,22 @@ def main():
 
     # story pictures: flattened onto black and saved as JPEG at screen width
     os.makedirs(os.path.join(ROOT, 'assets', 'scenes'), exist_ok=True)
+    scene_names = []
     for f in pics('scenes'):
         a = load(f); s = SCENE_W / a.shape[1]
         im = shrink(a, s); al = im[..., 3:4] / 255.0
         flat = (im[..., :3] * al).astype(np.uint8)
         name = os.path.splitext(os.path.basename(f))[0].strip().lower()
         cv2.imwrite(os.path.join(ROOT, 'assets', 'scenes', name + '.jpg'), flat, [cv2.IMWRITE_JPEG_QUALITY, 88])
-        print('scene', name, flat.shape[1], 'x', flat.shape[0])
+        print('scene', name, flat.shape[1], 'x', flat.shape[0]); scene_names.append(name)
 
     # the fishing game's rod, reel and bobber: each at most this tall/wide (device px)
     FISH_BOX = {'rod': 900, 'reel': 360, 'bobber': 120}
+    FISH_CUTOUT = {'bobber'}                     # half white: cut out by its outline instead
     tackle = []
     for f in pics('fishing'):
         name = os.path.splitext(os.path.basename(f))[0].strip().lower()
-        im = trim(remove_white(load(f)))
+        im = trim(cutout(load(f)) if name in FISH_CUTOUT else remove_white(load(f)))
         tackle.append((name, shrink(im, FISH_BOX.get(name, 360) / max(im.shape[:2]))))
     fmeta = {}
     if tackle:
@@ -442,7 +494,7 @@ def main():
     for lk, name in (('words', 'logo'), ('frame', 'logo frame')):
         f = find_pic(os.path.join(SRC, name))
         if not f: continue
-        im = trim(remove_white(load(f)))
+        im = trim(remove_white(load(f), 1500))         # also white pockets inside the vines
         im = shrink(im, min(1.0, 1020 / im.shape[1]))
         cv2.imwrite(os.path.join(OUT, 'logo.png'), im, [cv2.IMWRITE_PNG_COMPRESSION, 9])
         logo_kind = lk; print('logo.png', im.shape[1], 'x', im.shape[0], '(' + lk + ')')
@@ -461,6 +513,8 @@ def main():
         fh.write('const PLACE_MAPS=' + json.dumps(pmaps, separators=(',', ':')) + ';\n')
         fh.write('const GARDEN_ZONES=' + ('true' if tr else 'false') + ';\n')
         fh.write('const FISH_ART=' + json.dumps(fmeta, separators=(',', ':')) + ';\n')
+        fh.write('const PLACE_COLS=' + json.dumps(pcols) + ';\n')
+        fh.write('const SCENES=' + json.dumps(sorted(scene_names)) + ';\n')
         fh.write('const TITLE_LOGO=' + json.dumps(logo_kind) + ';\n')
         fh.write('const BACKDROPS=' + json.dumps(sorted(backs)) + ';\n')
         fh.write('const RHYTHM_BG=' + ('true' if bg else 'false') + ';\n')

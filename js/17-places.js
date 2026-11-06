@@ -72,37 +72,37 @@ const PLACES={
       {name:"Milo",x:452,y:478,col:'#5aa85a',hair:'#e8c84a',
        lines:["Have you seen a snake with a gold ring around its neck? That'd be so cool!"]},
     ]},
-  /* bigger than a garden screen (w,h): a trail switchbacks up from the garden at
-     the bottom, past the pond, to a lookout under the cliffs at the top */
-  mountain:{name:"Bramble Peak", ground:'#7aa85a', path:'#c8b48a', w:1080, h:1800,
-    paths:[[510,1500,60,300],[300,1460,270,56],[300,1180,60,330],[300,1150,480,56],[740,850,60,356],
-           [420,820,380,56],[420,520,60,356],[420,500,400,56],[780,250,60,306]],
-    cliffs:true, pond:{x:800,y:1420,rx:120,ry:70}, plaza:{x:810,y:230,r:64},
-    trees:[],                                     /* filled in by mountainTrees() */
-    exits:[{x:540,y:1790,r:40,to:'garden',label:"Back to the garden"}],
-    arrive:{garden:{x:540,y:1728,dir:0}},
-    gather:[[470,1700],[610,1560],[250,1500],[380,1380],[250,1240],[420,1110],[640,1230],[850,1120],
-            [690,950],[860,900],[560,780],[350,880],[370,640],[520,560],[640,450],[880,520],[730,300],
-            [900,300],[180,1660],[960,1640]],
+  /* Bramble Peak (maps/mountain_<season>): a trail winds up from the garden at the
+     bottom to the rocky top, a meadow beside it and a stream down the right side to fish
+     in. Its walls come from the painting (assets/sprites/mountain_collision.png); paths
+     and trees only draw the stand-in until the painting loads. */
+  mountain:{name:"Bramble Peak", ground:'#7aa85a', path:'#c8b48a', w:1080, h:1446,
+    paths:[[400,1200,150,246],[360,900,140,320],[330,600,130,320],[380,300,130,320],[440,120,120,200]],
+    pond:{x:900,y:1050,rx:75,ry:150}, trees:[],
+    exits:[{x:478,y:1446,r:50,to:'garden',label:"Back to the garden"}],
+    arrive:{garden:{x:478,y:1360,dir:0}},
+    gather:[[382,838],[662,146],[802,1318],[846,618],[446,462],[726,962],[214,1138],[506,1182],[586,678],
+            [714,406],[198,674],[450,234],[378,1034],[566,866],[806,1130],[750,778],[390,626],[666,1222]],
     people:[]},
 };
 /* a place's size (the mountain is bigger than a garden screen) */
 const placeW=P=>(P&&P.w)||WORLD_W, placeH=P=>(P&&P.h)||WORLD_H;
 /* the size of wherever she is now, for the camera */
 const areaSize=()=>{ const P=G.area!=='garden'&&PLACES[G.area]; return [placeW(P),placeH(P)]; };
-/* pines all over the mountain, kept off the trail, the pond, the lookout and the
-   gathering spots (the same every time) */
-(function mountainTrees(){
-  const P=PLACES.mountain, W=placeW(P), H=placeH(P); let s=12345;
-  const rr=()=>{ s=(s*16807)%2147483647; return s/2147483647; };
-  const clear=(x,y)=>!P.paths.some(([px,py,pw,ph])=>x>px-34&&x<px+pw+34&&y>py-30&&y<py+ph+44)
-    &&(((x-P.pond.x)/(P.pond.rx+40))**2+((y-P.pond.y)/(P.pond.ry+44))**2>1)
-    &&Math.hypot(x-P.plaza.x,y-P.plaza.y)>P.plaza.r+40
-    &&!P.gather.some(([gx,gy])=>Math.hypot(x-gx,y-gy)<40)&&Math.hypot(x-540,y-1770)>70;
-  for(let y=200;y<H-20;y+=58) for(let x=30;x<W-20;x+=62){
-    const tx=x+rr()*34-17, ty=y+rr()*30-15;
-    if(rr()<0.62&&clear(tx,ty)) P.trees.push([Math.round(tx),Math.round(ty)]);
-  }
+/* Walls painted for a place (PLACE_COLS, from build_art.py): one cell per PLACE_GRID
+   world px, true where it's blocked. A place without them uses its paths, trees, pond and
+   houses. */
+const PLACE_GRID=4, PLACE_COL={};
+(function loadPlaceWalls(){
+  if(typeof PLACE_COLS==='undefined') return;
+  PLACE_COLS.forEach(area=>{ const im=new Image();
+    im.onload=()=>{ const w=im.naturalWidth, h=im.naturalHeight, cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      const g=cv.getContext('2d'); g.drawImage(im,0,0); const d=g.getImageData(0,0,w,h).data, M=new Uint8Array(w*h);
+      for(let i=0;i<M.length;i++) M[i]=d[i*4]<128?1:0;
+      PLACE_COL[area]={w,h,M};
+      /* a save from before the walls: don't leave her stuck in a tree */
+      if(G.area===area&&placeSolid(G.player.x,G.player.y+9)){ const a=PLACES[area].arrive.garden; G.player.x=a.x; G.player.y=a.y; } };
+    im.src='assets/sprites/'+area+'_collision.png'; });
 })();
 /* where each place's door back to the garden leaves you in the garden */
 const GARDEN_ARRIVE={town:{x:100,y:104,dir:2}, mountain:{x:306,y:44,dir:4}};
@@ -125,6 +125,9 @@ const nearGardenExit=(f=1)=>GARDEN_EXITS.find(e=>Math.hypot(G.player.x-e.x,G.pla
 function placeSolid(x,y){
   const P=curPlace();
   if(x<16||y<20||x>placeW(P)-16||y>placeH(P)-14) return true;
+  const C=PLACE_COL[G.area];
+  if(C){ const cx=Math.floor(x/PLACE_GRID), cy=Math.floor(y/PLACE_GRID);
+    return cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1; }
   if(P.cliffs&&y<150) return true;
   if(P.fountain&&Math.hypot(x-P.fountain.x,y-P.fountain.y)<P.fountain.r+6) return true;
   if(P.pond&&(((x-P.pond.x)/(P.pond.rx))**2+((y-P.pond.y)/(P.pond.ry))**2<1)) return true;
