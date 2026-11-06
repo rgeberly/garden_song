@@ -32,6 +32,42 @@ const GOODS={
   flounder:   {name:"Flounder",         value:45, kind:'fish', col:'#9a7a5a', power:1.0, w:2, seasons:['summer','fall'], flavor:"Flat as a pancake, with both eyes on one side. Rude to stare."},
   speckled:   {name:"Speckled Trout",   value:50, kind:'fish', col:'#9aa8b4', power:1.2, w:2, seasons:['spring','fall'], flavor:"Spotted all over, like it rolled in pepper."},
   salmon:     {name:"Salmon",           value:85, kind:'fish', col:'#d8786a', power:1.8, w:1, seasons:['fall'], flavor:"Swims a long way home every fall. Strong and stubborn."},
+  croaker:    {name:"Croaker",          value:22, kind:'fish', col:'#c8b48a', power:0.8, w:3, seasons:['summer','fall'], flavor:"Grunts and croaks when you pull it in. Rude, but delicious."},
+  crab:       {name:"Crab",             value:40, kind:'fish', col:'#5a7ab8', power:1.0, w:2, seasons:['summer','fall'], flavor:"Walks sideways, pinches forwards. Handle with care."},
+  octopus:    {name:"Octopus",          value:75, kind:'fish', col:'#c86a8a', power:1.5, w:1, seasons:['spring','summer'], flavor:"Eight arms, three hearts, and zero intention of letting go."},
+  tarpon:     {name:"Tarpon",           value:240,kind:'fish', col:'#d8e0e8', power:2.4, w:0.35, seasons:['summer'], flavor:"The silver king. Leaps like it's showing off, because it is."},
+  dolphin:    {name:"Dolphin",          value:320,kind:'fish', col:'#8aa8c8', power:2.8, w:0.12, flavor:"...you're actually keeping this?"},
+  /* drops: what beaten pests leave behind (PEST_DROPS), sold at the market like forage */
+  dungball:    {name:"Dung Ball",        value:3,   kind:'drop', col:'#7a5a2a', flavor:"Lovingly hand-rolled. Please wash your hands."},
+  irishell:    {name:"Iridescent Shell", value:40,  kind:'drop', col:'#5ad8b0', flavor:"Shimmers green, gold and purple in the light."},
+  paperscrap:  {name:"Paper Scrap",      value:4,   kind:'drop', col:'#d8c8a0', flavor:"A tiny wall from a wasp's paper house."},
+  royaljelly:  {name:"Royal Jelly",      value:45,  kind:'drop', col:'#f0e08a', flavor:"Fit for a queen. Sticky for everyone else."},
+  button:      {name:"Shiny Button",     value:5,   kind:'drop', col:'#c8a050', flavor:"Somebody's coat is missing this."},
+  lostring:    {name:"Lost Ring",        value:60,  kind:'drop', col:'#e8c84a', flavor:"A little gold ring. Someone in town might miss it."},
+  bristle:     {name:"Bristle Tuft",     value:5,   kind:'drop', col:'#8fc43a', flavor:"Don't touch the pointy end. Or any end."},
+  cocoon:      {name:"Silk Cocoon",      value:50,  kind:'drop', col:'#f4f0e0', flavor:"Soft as a cloud, light as a sigh."},
+  gullfeather: {name:"Gull Feather",     value:5,   kind:'drop', col:'#e8eef4', flavor:"Smells faintly of the beach, and of chips."},
+  stolenfry:   {name:"Stolen Fry",       value:42,  kind:'drop', col:'#f0c84a', flavor:"Its prized possession. Somehow still warm."},
+  ecto:        {name:"Ectoplasm",        value:6,   kind:'drop', col:'#bfe8e0', flavor:"Cool, wobbly and very slightly haunted."},
+  locket:      {name:"Ghostly Locket",   value:70,  kind:'drop', col:'#c8d0e8', flavor:"Inside: a faded picture of someone smiling."},
+  shellshard:  {name:"Shell Shard",      value:6,   kind:'drop', col:'#d88a5a', flavor:"A piece of a borrowed home."},
+  pearl:       {name:"Pearl",            value:80,  kind:'drop', col:'#f4f0f8', flavor:"Round, white and worth a pretty penny."},
+  blackfeather:{name:"Black Feather",    value:6,   kind:'drop', col:'#2a3a5a', flavor:"Glossy, blue-black and a little smug."},
+  spoon:       {name:"Shiny Spoon",      value:60,  kind:'drop', col:'#c8ccd8', flavor:"It's been polished to a mirror shine. By a crow."},
+  trinket:     {name:"Trash Treasure",   value:8,   kind:'drop', col:'#8a8f96', flavor:"One raccoon's trash is another raccoon's treasure."},
+  mask:        {name:"Bandit Mask",      value:75,  kind:'drop', col:'#3a3a3a', flavor:"Tiny. Stylish. Suspicious."},
+  chewball:    {name:"Chewed Ball",      value:8,   kind:'drop', col:'#e8d84a', flavor:"Soggy, beloved and slightly flat."},
+  collar:      {name:"Fancy Collar",     value:80,  kind:'drop', col:'#d84a6a', flavor:"A jewelled collar. Woo looks better without it anyway."},
+  wisp:        {name:"Wisp",             value:10,  kind:'drop', col:'#8ac4f0', flavor:"A little blue flame that won't go out."},
+  ribbon:      {name:"Prize Ribbon",     value:120, kind:'drop', col:'#e8c84a', flavor:"First prize, giant pumpkin division. So that's what it was about."},
+  goathair:    {name:"Goat Hair",        value:8,   kind:'drop', col:'#d8d0c0', flavor:"Itchy, warm and very well travelled."},
+  bell:        {name:"Mountain Bell",    value:85,  kind:'drop', col:'#c8a050', flavor:"Rings sweetly with every step."},
+  tusk:        {name:"Tusk",             value:12,  kind:'drop', col:'#f0e8d0', flavor:"Curved, chipped and still a bit muddy."},
+  truffle:     {name:"Truffle",          value:130, kind:'drop', col:'#5a4030', flavor:"The boar's favorite snack. Chefs pay a fortune for these."},
+  bearfur:     {name:"Bear Fur",         value:15,  kind:'drop', col:'#2e2a2a', flavor:"A thick, warm tuft. Smells like the woods."},
+  honeycomb:   {name:"Honeycomb",        value:150, kind:'drop', col:'#f0b030', flavor:"Dripping with wild honey. The bear won't miss it. Probably."},
+  citation:    {name:"Citation",         value:2,   kind:'drop', col:'#f4f4f4', flavor:"For excessive gardening. Frame it."},
+  gavel:       {name:"Gavel",            value:200, kind:'drop', col:'#8a5a2a', flavor:"The symbol of his power. It's very small."},
   koi:        {name:"Golden Koi",       value:180,kind:'fish', col:'#ffb02a', power:2.1, w:0.4, flavor:"A living treasure. Rumored to grant wishes (it doesn't)."},
   /* food and drink bought in town or at the stall: kept until used (not sold back).
      use: hp/mp for whoever has it, hpAll/mpAll for the whole party, coffee: ms of speed */
@@ -56,8 +92,8 @@ const PLACES={
     blocks:[[0,0,190,245],[175,0,170,190],[345,0,110,105],[495,30,160,200],[650,0,70,250],[610,255,95,65],
             [0,245,100,260],[585,470,135,150],[0,560,330,160],[0,500,60,60],[240,530,120,60],[370,630,110,90],
             [620,620,100,100],[660,330,60,140]],
-    exits:[{x:505,y:705,r:40,to:'garden',label:"Back to the garden"}],
-    arrive:{garden:{x:505,y:650,dir:0}},
+    exits:[{x:612,y:712,r:42,to:'garden',label:"Back to the garden"}],          /* where the road leaves, bottom right */
+    arrive:{garden:{x:556,y:640,dir:0}},
     people:[
       {name:"Mabel",x:132,y:262,col:'#c8584a',hair:'#e8e0d0',shop:'cafe',
        lines:["Welcome to the café, dear! Something warm for the road?"]},
@@ -114,6 +150,9 @@ const GARDEN_EXITS=[{x:214,y:96,r:22,to:'town',label:"Path to town"},{x:288,y:30
 
 const curPlace=()=>PLACES[G.area];
 function goTo(area){
+  if(area!=='garden') placeImg(area);           /* start loading its painting during the fade */
+  else seasonMap(season());
+  if(area==='mountain'&&typeof fishImg==='function') fishImg();      /* and the pond, for fishing */
   travel(()=>{
     const from=G.area; G.area=area; G.swim=false;
     const a=area==='garden'?GARDEN_ARRIVE[from]:PLACES[area].arrive.garden;
@@ -122,6 +161,10 @@ function goTo(area){
   });
 }
 const nearGardenExit=(f=1)=>GARDEN_EXITS.find(e=>Math.hypot(G.player.x-e.x,G.player.y-e.y)<e.r*f);
+/* is x,y blocked by a place's painted walls? */
+function placeSolidIn(area,x,y){ const C=PLACE_COL[area]; if(!C) return false;
+  const cx=Math.floor(x/PLACE_GRID), cy=Math.floor(y/PLACE_GRID);
+  return cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1; }
 function placeSolid(x,y){
   const P=curPlace();
   if(x<16||y<20||x>placeW(P)-16||y>placeH(P)-14) return true;
@@ -137,11 +180,59 @@ function placeSolid(x,y){
   return (P.people||[]).some(p=>Math.hypot(x-p.x,y-p.y)<10);
 }
 
-/* ---------- gathering on the mountain: today's spots and what grows there ---------- */
-function gatherToday(){
-  if(G.daily.gatherDay===G.day) return;
-  G.daily.gatherDay=G.day; G.daily.picked=[];
+/* ---------- pests on the mountain trail ----------
+   The mountain's own (goat, boar, bear: once she's near their level) and a few garden
+   ones roam the open ground and come at her when she's close. Never the HOA President. */
+const MTN_MAX=4, MTN_ALSO=['crow','raccoon','seagull','wasp','rat'];
+function mtnPool(){
+  const lv=G.player.lv;
+  return Object.keys(PESTS).filter(k=>{ const P=PESTS[k]; if(P.boss) return false;
+    return P.where==='mountain'?P.lv<=lv+3:MTN_ALSO.includes(k)&&(!P.night||isNight()); });
 }
+function spawnMtnPest(){
+  const P=G.player, pool=mtnPool(), M=curPlace(); if(!pool.length) return;
+  for(let i=0;i<30;i++){ const x=rnd(40,placeW(M)-40), y=rnd(160,placeH(M)-60);
+    if(placeSolid(x,y+9)||Math.hypot(x-P.x,y-P.y)<180) continue;
+    const sp=pool[ri(0,pool.length-1)], lv=pestLevel(sp);
+    G.mtnPests.push({species:sp,lv,x,y,hp:pestStats(sp,lv).hp,roam:null}); return; }
+}
+/* true when a fight starts */
+function updateMountainPests(dt){
+  const P=G.player;
+  if(PLACE_COL.mountain&&(!G.daily.spots||G.daily.gatherDay!==G.day)) gatherToday();   /* a new day, or the walls just loaded */
+  G.mtnT=(G.mtnT===undefined?3000:G.mtnT)-dt;
+  if(G.mtnT<=0){ G.mtnT=rnd(9000,15000)/diff().spawn; if(G.mtnPests.length<MTN_MAX) spawnMtnPest(); }
+  for(const p of G.mtnPests){
+    const near=Math.hypot(p.x-P.x,p.y-(P.y+6));
+    if(near<20){ startBattle(p); return true; }
+    if(near<110) p.roam={x:P.x,y:P.y+6};                    /* it's seen her */
+    else if(!p.roam||Math.hypot(p.roam.x-p.x,p.roam.y-p.y)<6||p.stuck>600){ p.stuck=0; p.roam=null;
+      for(let i=0;i<10;i++){ const x=p.x+rnd(-120,120), y=p.y+rnd(-120,120); if(!placeSolid(x,y+9)){ p.roam={x,y}; break; } } }
+    if(!p.roam) continue;
+    const dx=p.roam.x-p.x, dy=p.roam.y-p.y, d=Math.hypot(dx,dy)||1, sp=(near<110?0.03:0.02)*dt;
+    const nx=p.x+dx/d*sp, ny=p.y+dy/d*sp;
+    if(placeSolid(nx,ny+9)) p.stuck=(p.stuck||0)+dt; else { p.x=nx; p.y=ny; p.face=dx>0; }
+  }
+  return false;
+}
+/* ---------- gathering on the mountain: today's spots and what grows there ---------- */
+/* Each day the things to gather turn up in new places: GATHER_N spots picked at random
+   on open ground (once the mountain's walls have loaded; its fixed spots until then). */
+const GATHER_N=18;
+function gatherToday(){
+  if(G.daily.gatherDay===G.day&&G.daily.spots) return;
+  if(G.daily.gatherDay!==G.day) G.daily.picked=[];
+  G.daily.gatherDay=G.day; G.daily.spots=null;
+  const M=PLACES.mountain; if(!PLACE_COL.mountain) return;
+  let s=G.day*48271+7; const rr=()=>{ s=(s*16807)%2147483647; return s/2147483647; };
+  const L=[];
+  for(let i=0;i<4000&&L.length<GATHER_N;i++){ const x=Math.round(30+rr()*(placeW(M)-60)), y=Math.round(150+rr()*(placeH(M)-200));
+    const open=!placeSolidIn('mountain',x,y)&&!placeSolidIn('mountain',x-10,y)&&!placeSolidIn('mountain',x+10,y)&&!placeSolidIn('mountain',x,y-10);
+    if(open&&L.every(([a,b])=>Math.hypot(a-x,b-y)>70)) L.push([x,y]); }
+  G.daily.spots=L;
+}
+/* today's gathering spots where she is */
+const gatherSpots=()=>G.area==='mountain'&&G.daily.spots&&G.daily.gatherDay===G.day?G.daily.spots:(curPlace().gather||null);
 /* what grows at spot i today (the same all day), or null if it's been picked */
 function gatherAt(i){
   if((G.daily.picked||[]).includes(i)) return null;
@@ -151,8 +242,8 @@ function gatherAt(i){
   return opts[s%opts.length];
 }
 function nearGather(f=1){
-  const P=curPlace(); if(!P.gather) return -1;
-  return P.gather.findIndex(([x,y],i)=>gatherAt(i)&&Math.hypot(G.player.x-x,G.player.y+8-y)<26*f);
+  const S=gatherSpots(); if(!S) return -1;
+  return S.findIndex(([x,y],i)=>gatherAt(i)&&Math.hypot(G.player.x-x,G.player.y+8-y)<26*f);
 }
 function nearPond(f=1){
   const P=curPlace(); if(!P.pond) return false;
@@ -171,18 +262,19 @@ function placeInteract(){
   const g=nearGather();
   if(g>=0){ const k=gatherAt(g); G.daily.picked.push(g); G.goods[k]=(G.goods[k]||0)+1;
     say("Found "+GOODS[k].name+"!"); blip(700,0.05,0.1,'sine'); passTime(5); autoSave(); return; }
-  if(nearPond()){ startFishing(); return; }
+  if(nearPond()){ if(!G.rod) say("You'll need a rod and reel. Mr. Hollis sells them in town."); else startFishing(); return; }
   say("The mountain air is lovely.".replace("The mountain air is lovely.",G.area==='town'?"Willowbrook is bustling today.":"The mountain air is lovely."));
 }
 function placeLabel(){
   const R=PROMPT_REACH;
   const who=nearPerson(R); if(who) return who.shop?who.name+" (shop)":who.name;
   if(nearGather(R)>=0) return "Gather";
-  if(nearPond(R)) return season()==='winter'?"Frozen":"Fish";
+  if(nearPond(R)) return season()==='winter'?"Frozen":G.rod?"Fish ("+FISH_MIN+" min)":"Fish (needs a rod)";
   return null;
 }
 function updatePlace(dt){
   if(updateCast(dt)) return;
+  if(G.area==='mountain'&&updateMountainPests(dt)) return;
   walk(dt,WALK_SPEED,(x,y)=>placeSolid(x,y+9));
   const [W,H]=areaSize(), P=G.player; P.x=clamp(P.x,21,W-21); P.y=clamp(P.y,24,H-30);
   /* the way back to the garden is a path: walking onto it takes her home */
@@ -252,6 +344,12 @@ function drawPerson(c,p){
 }
 function drawGatherSpot(c,x,y,k){
   const g=GOODS[k], tw=Math.sin(G.t/300+x)*0.5+0.5;
+  /* its own picture (shop items/<name>) when there is one, with a glint so it stands out */
+  if(c===b&&typeof SHOP_ART!=='undefined'&&SHOP_ART[g.name.toLowerCase()]){
+    c.fillStyle='rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(x,y,8,2.6,0,0,7); c.fill();
+    drawShopPic(g.name.toLowerCase(),x,y-9,18,18);
+    c.globalAlpha=tw*0.9; c.fillStyle='#ffffff'; c.fillRect(x+6,y-19,2,2); c.fillRect(x+5,y-18,4,0.8); c.globalAlpha=1;
+    return; }
   c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(x,y,6,2,0,0,7); c.fill();
   c.fillStyle='#4a7a3a'; c.fillRect(x-1,y-6,2,6); c.fillRect(x-4,y-4,3,2); c.fillRect(x+1,y-5,3,2);
   c.fillStyle=g.col; c.beginPath(); c.arc(x,y-8,3.4,0,7); c.fill();
@@ -261,10 +359,14 @@ function drawPlace(){
   const cam=camera(), P=curPlace();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);
-  b.imageSmoothingEnabled=true; b.drawImage(placeImg(G.area)||placeCanvas(G.area),-cam.x,-cam.y,placeW(P),placeH(P));
+  /* the painting; black while it loads (the drawn stand-in only for a place without one) */
+  const pim=placeImg(G.area), painted=typeof PLACE_MAPS!=='undefined'&&(PLACE_MAPS[G.area]||[]).includes(season());
+  b.imageSmoothingEnabled=true;
+  if(pim||!painted) b.drawImage(pim||placeCanvas(G.area),-cam.x,-cam.y,placeW(P),placeH(P));
   const ents=[];
   (P.people||[]).forEach(p=>ents.push({y:p.y,f:()=>drawPerson(b,{...p,x:p.x-cam.x,y:p.y-cam.y})}));
-  if(P.gather) P.gather.forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
+  if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
+  if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3))}));
   ents.push({y:G.player.y+9,f:()=>{
     const sx=G.player.x-cam.x, sy=G.player.y+12-cam.y;
     b.save(); b.translate(sx,sy); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); b.translate(-sx,-sy); b.imageSmoothingEnabled=false;
@@ -300,8 +402,12 @@ const TOWN_SHOPS={
   store:{title:"Rosa's General Store", items:()=>UNLOCK_ORDER.filter(s=>G.unlocked.includes(s)).map(s=>({
     name:SPECIES[s].name+" seed",cost:SPECIES[s].cost,desc:"Needs "+SPECIES[s].grow+" growth · best in "+SEASON_NAME[SPECIES[s].best]+". You have "+(G.seeds[s]||0)+".",
     buy:()=>{ G.seeds[s]=(G.seeds[s]||0)+1; }}))},
-  tools:{title:"Hollis Tools", items:()=>GEAR.filter(g=>!G.gear[g.id]).map(g=>({name:g.name,cost:g.cost,desc:cap(g.desc)+".",
-    buy:()=>{ G.gear[g.id]=1; }}))},
+  tools:{title:"Hollis Tools", items:()=>{
+    /* the next rod and reel up (one set at a time), then the garden gear */
+    const n=(G.rod||0)+1, L=n<RODS.length?[{name:RODS[n].name,cost:RODS[n].cost,desc:RODS[n].about+(n===1?" You need one to fish.":""),
+      buy:()=>{ G.rod=n; }}]:[];
+    return L.concat(GEAR.filter(g=>!G.gear[g.id]).map(g=>({name:g.name,cost:g.cost,desc:cap(g.desc)+".",
+      buy:()=>{ G.gear[g.id]=1; }}))); }},
   market:{title:"Juniper's Market", sell:true, items:()=>{
     const L=sellGoods().map(k=>({name:GOODS[k].name+"  x"+G.goods[k],cost:goodsPrice(k),desc:"Sell one for "+goodsPrice(k)+"c.",
       buy:()=>{ G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k]; G.coins+=goodsPrice(k); }}));

@@ -20,9 +20,10 @@ function seasonMap(s){
 /* fetch today's and the next season's paintings ahead of time */
 function preloadSeasonMaps(){ seasonMap(season()); seasonMap(seasonOf(G.day+DAYS_PER_SEASON)); }
 /* the painting to draw: today's season, or spring until it has arrived */
+/* the season's painting, or nothing while it loads (black, rather than a flash of spring) */
 function currentMap(){
   const im=seasonMap(season());
-  return im.complete&&im.naturalWidth?im:IMG_MAP;
+  return im.complete&&im.naturalWidth?im:null;
 }
 
 /* ---------- the clock ---------- */
@@ -168,48 +169,63 @@ function groundShadow(c,draw,x,y,w,lift){
 const daylight=()=>sunAt(G.clock/60).strength;
 
 /* ---------- going to bed ---------- */
-/* Bed is allowed any time, after a yes/no: W/S or A/D choose, J/Space confirm, H/Esc
-   (or tapping outside) cancels. The clock stays still while it is open. */
+/* Bed is allowed any time: sleep till morning, or (earlier in the day) a nap till noon or
+   till 6 PM, or stay up. W/S choose, J/Space confirm, H/Esc (or tapping outside) cancels.
+   The clock stays still while it is open. */
 let ask=null;
 function askSleep(){
   ask={idx:0}; padVec={x:0,y:0}; padId=null; btnHeld=false; G.scene='ask';
 }
-const ASK={x:40,y:96,w:280,h:132}, ASK_BTN=[{x:58,y:180,w:112,h:34},{x:190,y:180,w:112,h:34}];
+function sleepChoices(){
+  const L=[{id:'night',name:"Sleep till morning"}];
+  if(G.clock<12*60-30) L.push({id:'nap',name:"Nap till noon",to:12*60});
+  if(G.clock<18*60-30) L.push({id:'nap',name:"Nap till 6 PM",to:18*60});
+  L.push({id:'no',name:"Stay up"});
+  return L;
+}
+const ASK={x:40,y:70,w:280,top:92,row:40};
+const askH=()=>ASK.top+sleepChoices().length*ASK.row+10;
 function askKey(k){
-  if(isLeft(k)||isRight(k)||isUp(k)||isDown(k)) ask.idx=1-ask.idx;
-  else if(isOk(k)||k==='e') askAnswer(ask.idx===0);
-  else if(isBack(k)) askAnswer(false);
+  const n=sleepChoices().length;
+  if(isUp(k)||isLeft(k)) ask.idx=(ask.idx+n-1)%n;
+  else if(isDown(k)||isRight(k)) ask.idx=(ask.idx+1)%n;
+  else if(isOk(k)||k==='e') askAnswer(sleepChoices()[ask.idx]);
+  else if(isBack(k)) askAnswer(null);
 }
 /* how far the window is moved down to sit in the middle of a taller garden view */
 const askY=()=>Math.max(0,Math.round(VIEW_H/2-162));
 function askTouch(x,y){
   y-=askY();
-  const hit=ASK_BTN.findIndex(r=>x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h);
-  if(hit>=0) askAnswer(hit===0);
-  else if(!(x>ASK.x&&x<ASK.x+ASK.w&&y>ASK.y&&y<ASK.y+ASK.h)) askAnswer(false);
+  const L=sleepChoices(), j=Math.floor((y-ASK.y-ASK.top)/ASK.row);
+  if(x>ASK.x+16&&x<ASK.x+ASK.w-16&&j>=0&&j<L.length){ if(ask.idx===j) askAnswer(L[j]); else ask.idx=j; }
+  else if(!(x>ASK.x&&x<ASK.x+ASK.w&&y>ASK.y&&y<ASK.y+askH())) askAnswer(null);
 }
-function askAnswer(yes){ ask=null; G.scene='world'; if(yes) goToSleep(false); }
+function askAnswer(c){ ask=null; G.scene='world';
+  if(c&&c.id==='night') goToSleep(false);
+  else if(c&&c.id==='nap') goToSleep(false,c.to); }
 function drawAsk(){
   drawWorld();
   wipeBuf();
   b.globalAlpha=.45; px(b,0,0,LW,VIEW_H,'#0d1410'); b.globalAlpha=1;
   b.save(); b.translate(0,askY()); m.save(); m.translate(0,askY()*SC);
-  panel(ASK.x,ASK.y,ASK.w,ASK.h);
-  ASK_BTN.forEach((r,i)=>{ const on=ask.idx===i;
-    px(b,r.x,r.y,r.w,r.h,on?'#a8781e':'#2b1c12');
-    px(b,r.x+2,r.y+2,r.w-4,r.h-4,i===0?'#c8d8f0':'#e2d3ae');
-    if(on){ px(b,r.x+2,r.y+2,r.w-4,3,'#fff3c0'); fluteCursor(r.x+33,r.y+r.h/2); } });
+  const L=sleepChoices();
+  panel(ASK.x,ASK.y,ASK.w,askH());
+  L.forEach((c,i)=>{ const on=ask.idx===i, x=ASK.x+16, y=ASK.y+ASK.top+i*ASK.row, w=ASK.w-32, h=ASK.row-6;
+    px(b,x,y,w,h,on?'#a8781e':'#2b1c12');
+    px(b,x+2,y+2,w-4,h-4,c.id==='no'?'#e2d3ae':'#c8d8f0');
+    if(on){ px(b,x+2,y+2,w-4,3,'#fff3c0'); fluteCursor(x+26,y+h/2); } });
   blit();
   const early=G.clock<=EARLY_BED, t=clockText();
-  T("Go to bed now?",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
-  T("It's "+t.h+":"+t.mm+" "+t.ap+".",LW/2,ASK.y+52,20,'#6a5a3a','center');
-  T(early?"Asleep by 10 PM: a free coffee in the morning!":"She'll wake at 6 AM.",LW/2,ASK.y+69,18,early?'#5a7a3a':'#7a6a4a','center');
-  ["Sleep","Stay up"].forEach((s,i)=>{ const r=ASK_BTN[i]; T(s,r.x+r.w/2+12,r.y+23,26,'#3a2a1a','center',true); });
+  T("Time for bed?",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
+  T("It's "+t.h+":"+t.mm+" "+t.ap+".",LW/2,ASK.y+54,20,'#6a5a3a','center');
+  T(early?"Asleep by 10 PM: a free coffee in the morning!":"A night's sleep: she'll wake at 6 AM.",LW/2,ASK.y+73,17,early?'#5a7a3a':'#7a6a4a','center');
+  L.forEach((c,i)=>T(c.name,LW/2+12,ASK.y+ASK.top+i*ASK.row+23,22,'#3a2a1a','center',true));
   b.restore(); m.restore();
 }
 let sleep=null;
-function goToSleep(midnight){
-  sleep={phase:midnight?'yawn':'out', t:0, early:!midnight&&G.clock<=EARLY_BED};
+/* nap: the time to wake at the same day (a nap), instead of the next morning */
+function goToSleep(midnight,nap){
+  sleep={phase:midnight?'yawn':'out', t:0, early:!midnight&&!nap&&G.clock<=EARLY_BED, nap:nap||0};
   padVec={x:0,y:0}; padId=null; btnHeld=false;
   G.scene='sleep'; G.msgT=0;
 }
@@ -236,6 +252,12 @@ function wakeUp(){
   if(sleep.early){ G.coffeeT=120000; sleep.say+="  Early to bed: free coffee!"; }
   if(back.length) sleep.say+="  "+back.join(" and ")+" is feeling better!";
 }
+/* a nap: the clock moves on, and everyone gets back half of what they're missing */
+function napDone(){
+  passTime(sleep.nap-G.clock);
+  G.party.forEach(id=>{ const M=member(id); M.hp+=Math.ceil((M.maxhp-M.hp)/2); M.mp+=Math.ceil((memberMaxMp(id)-M.mp)/2); });
+  const t=clockText(); sleep.say="What a nice nap! It's "+t.h+":"+t.mm+" "+t.ap+".";
+}
 const SLEEP_FADE=900, SLEEP_NIGHT=1700, YAWN_WAIT=4200;
 function updateSleep(dt){
   sleep.t+=dt;
@@ -246,7 +268,7 @@ function updateSleep(dt){
 }
 function sleepNext(){
   const next={yawn:'out',out:'night',night:'in',in:null}[sleep.phase];
-  if(next==='night') wakeUp();          /* swap the day while the screen is dark */
+  if(next==='night'){ if(sleep.nap) napDone(); else wakeUp(); }    /* swap the day (or the hour) while the screen is dark */
   if(!next){ G.scene='world'; say(sleep.say); sleep=null; autoSave(); return; }
   sleep.phase=next; sleep.t=0;
 }

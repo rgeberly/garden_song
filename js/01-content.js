@@ -35,6 +35,9 @@ const SPECIES={
               flavor:"Big, round and quick to grow, but mostly just good for pie."},
 };
 const SPECIES_ORDER=Object.keys(SPECIES);
+/* seeds in the order of the seasons they do best in (for the shop and the bag) */
+const SEASON_RANK={spring:0,summer:1,fall:2,winter:3};
+const bySeason=L=>L.slice().sort((a,z)=>SEASON_RANK[SPECIES[a].best]-SEASON_RANK[SPECIES[z].best]||SPECIES_ORDER.indexOf(a)-SPECIES_ORDER.indexOf(z));
 /* the order the shop gets them in: three to start, one more each garden level */
 const UNLOCK_ORDER=['strawberry','tomato','sunflower','radish','blueberry','carrot','lemongrass','beet',
   'squash','melon','pumpkin','satsuma','muscadine','avocado'];
@@ -71,7 +74,8 @@ const sellPrice=sp=>Math.round(SPECIES[sp].value*(G.yard.arch?1.15:1));
      double. pow scales its attack; st a status it may leave (chance p): poison,
      blind, sleep, weak, scared; drain heals it by that share of the damage; miss a
      chance to miss. fx is the effect drawn (see drawFoeFx). lv: the level it turns up
-   at (stats grow from there, see pestStats); fly: hovers in battle; size: drawn bigger (the HOA
+   at (stats grow from there, see pestStats); fly: hovers in battle; where:'mountain': only
+   on the mountain trail; big: how big its stand-in is until it has a picture; size: drawn bigger (the HOA
    President towers over Kaitlyn); about: its flavor. */
 const PESTS={
   beetle :{name:"Dung Beetle",  hp:26, atk:4, def:3, agi:3,  xp:14, coin:5, min:1, col:'#a8781e',lv:1,
@@ -127,6 +131,23 @@ const PESTS={
     {name:"Spectral Grasp",kind:'hit',pow:1.1,w:3,drain:0.5,fx:'chill'},
     {name:"Curse",kind:'hit',pow:0.5,w:1,st:'weak',p:1,fx:'curse'},
     {name:"Gather Gloom",kind:'charge',w:1,fx:'gloom'}]},
+  /* the mountain's own (where:'mountain': never in the garden) */
+  goat   :{name:"Mountain Goat",hp:52, atk:8, def:5, agi:10, xp:34, coin:13,min:1, col:'#d8d0c0',lv:5,where:'mountain',big:0.9,
+          about:"Will eat your hat, your map and your lunch. Then headbutt you for dessert.",skills:[
+    {name:"Headbutt",kind:'hit',pow:1,w:3,fx:'bash'},
+    {name:"Bleat",kind:'all',pow:0.3,w:2,st:'scared',p:0.4,fx:'caw'},
+    {name:"Ram Charge",kind:'charge',w:1,fx:'gloom'}]},
+  boar   :{name:"Wild Boar",    hp:74, atk:10,def:6, agi:6,  xp:46, coin:18,min:1, col:'#6a5040',lv:7,where:'mountain',big:1.05,
+          about:"Bristly, grumpy and built like a fridge. Snorts at everything, especially you.",skills:[
+    {name:"Gore",kind:'hit',pow:1.1,w:3,fx:'bash'},
+    {name:"Tusk Toss",kind:'hit',pow:1.5,w:1,miss:0.25,fx:'claw'},
+    {name:"Mud Wallow",kind:'guard',w:1,fx:'shell'}]},
+  bear   :{name:"Black Bear",   hp:130,atk:13,def:7, agi:5,  xp:80, coin:30,min:1, col:'#2e2a2a',lv:10,where:'mountain',big:1.4,
+          about:"Mostly wants berries and naps. You are standing between it and both.",skills:[
+    {name:"Swipe",kind:'hit',pow:1.1,w:3,fx:'claw'},
+    {name:"Maul",kind:'hit',pow:1.7,w:1,fx:'bite'},
+    {name:"Roar",kind:'all',pow:0.4,w:1,st:'scared',p:0.5,fx:'megaphone'},
+    {name:"Honey Break",kind:'heal',heal:0.2,w:1,fx:'snack'}]},
   hoa    :{name:"HOA President",hp:130,atk:12,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,size:1.4,lv:12,
           about:"Clipboard in hand and a bylaw for everything. Even your gnomes.",skills:[
     {name:"Citation",kind:'hit',pow:1.2,w:3,fx:'paper'},
@@ -141,12 +162,16 @@ function pestStats(sp,lv){
 }
 /* the level a new pest turns up at: its own, or a little more as the garden grows */
 const pestLevel=sp=>PESTS[sp].lv+ri(0,Math.min(3,Math.floor((G.gardenLv-1)/2)));
+/* what each pest may leave behind when it's beaten: [ordinary, rare] (GOODS keys), and
+   the chances of each */
+const PEST_DROPS={beetle:['dungball','irishell'],wasp:['paperscrap','royaljelly'],rat:['button','lostring'],saddleback:['bristle','cocoon'],seagull:['gullfeather','stolenfry'],ghost:['ecto','locket'],crab:['shellshard','pearl'],crow:['blackfeather','spoon'],raccoon:['trinket','mask'],woo:['chewball','collar'],vghost:['wisp','ribbon'],goat:['goathair','bell'],boar:['tusk','truffle'],bear:['bearfur','honeycomb'],hoa:['citation','gavel']};
+const DROP_P=0.45, RARE_P=0.06;
 /* the troubles anyone can be in, with how long they last (turns) and a tag colour */
 const STATUS={poison:{name:"Poison",tag:"PSN",col:'#a05ad8',turns:3}, blind:{name:"Blind",tag:"BLD",col:'#5a5a6a',turns:3},
   sleep:{name:"Asleep",tag:"SLP",col:'#5a8ad8',turns:2}, weak:{name:"Weak",tag:"WK",col:'#d88a3a',turns:3},
   scared:{name:"Scared",tag:"SCR",col:'#6a4aa8',turns:2}, bound:{name:"Bound",tag:"BND",col:'#8a6a3a',turns:1}};
 const GEAR=[
-  {id:'boots',  name:"Sturdy Boots",   cost:240, desc:"walk 35% faster"},
+  {id:'boots',  name:"Sturdy Boots",   cost:240, desc:"jog 50% faster with B (see Settings)"},
   {id:'can',    name:"Watering Can",   cost:300, desc:"+25% song growth"},
   {id:'charm',  name:"Frog Charm",     cost:340, desc:"frogs heal 2x as often"},
   {id:'polish', name:"Flute Polish",   cost:420, desc:"+30% song damage"},
@@ -177,23 +202,23 @@ const MOVES=[
    flavor:"A quick, no-nonsense boot to the pest."},
   {id:'sprout',name:"Sprout Strike",   lv:1, mp:3,  notes:4,  pow:1.0,  heal:0, fx:'sprout', song:true,
    flavor:"A peppy tune that makes roots burst up underfoot."},
-  {id:'karate',name:"Karate Kick",     lv:2, mp:0,  hpCost:0.1, pow:1.1, heal:0, fx:'kick',
+  {id:'karate',name:"Karate Kick",     lv:10,mp:0,  hpCost:0.1, pow:1.1, heal:0, fx:'kick',
    flavor:"Hi-YAH! She puts her whole heart (and a little of her health) into it."},
   {id:'lull',  name:"Frog Lullaby",    lv:3, mp:4,  notes:4,  pow:0,    heal:16,fx:'lull', song:true,
    flavor:"A croaky little bedtime song. The frogs harmonize, mostly in tune."},
-  {id:'waltz', name:"Bramble Waltz",   lv:5, mp:6,  notes:6,  pow:1.7,  heal:0, fx:'waltz', song:true,
+  {id:'waltz', name:"Bramble Waltz",   lv:5, mp:6,  notes:6,  pow:1.3,  heal:0, fx:'waltz', song:true, all:true,
    flavor:"One-two-three, thorns-thorns-thorns! Brambles whirl into the foe."},
   {id:'req',   name:"Wasp Requiem",    lv:7, mp:7,  notes:6,  pow:1.3,  heal:0, fx:'req', weaken:true, song:true,
    flavor:"Summons an angry swarm."},
-  {id:'thorn', name:"Thorn Nocturne",  lv:9, mp:9,  notes:8,  pow:2.5,  heal:0, fx:'thorn', song:true,
+  {id:'thorn', name:"Thorn Nocturne",  lv:9, mp:9,  notes:8,  pow:2.0,  heal:0, fx:'thorn', song:true, all:true,
    flavor:"A moody midnight melody that grows a forest of thorns."},
-  {id:'hymn',  name:"Harvest Hymn",    lv:11,mp:12, notes:10, pow:3.2,  heal:12,fx:'hymn', song:true,
+  {id:'hymn',  name:"Harvest Hymn",    lv:11,mp:12, notes:10, pow:2.6,  heal:12,fx:'hymn', song:true, all:true,
    flavor:"A golden anthem of plenty: smites the foe and feeds the soul."},
 ];
 /* a move or skill in words: its flavor, then what it does (MP is shown beside it) */
 function moveDesc(mv){
   const L=[];
-  if(mv.pow>0) L.push("one foe, power x"+mv.pow);
+  if(mv.pow>0) L.push((mv.all?"every foe":"one foe")+", power x"+mv.pow);
   if(mv.weaken) L.push("weakens the foe");
   if(mv.heal) L.push("heals the whole party ~"+mv.heal+" HP");
   if(mv.hpCost) L.push("costs "+Math.round(mv.hpCost*100)+"% of max HP");
@@ -248,8 +273,9 @@ const M_HOA={O:'#2b1c12',v:'#2f6fc4',h:'#6b4a2a',F:'#f2cd9e',s:'#1a1410',
   m:'#a04a3a',P:'#e8e2be',C:'#8a6d45',t:'#f7f3e0',K:'#c9b48a',W:'#f0f0f0'};
 /* a pest out in the garden: its battle picture, small, with a little bob (ghosts float) */
 /* a pest on the garden map; flip: facing right (the art faces left) */
-function drawPestWorld(c,sp,x,y,t,flip){
-  const P=PESTS[sp], bob=Math.abs(Math.sin(t/180+x))*(P.fly?3:1.5), lift=P.fly?8:0, s=P.boss?0.72:0.36;
+/* ph: its own phase, so each one bobs in its own steady rhythm */
+function drawPestWorld(c,sp,x,y,t,flip,ph){
+  const P=PESTS[sp], bob=Math.abs(Math.sin(t/180+(ph||0)))*(P.fly?3:1.5), lift=P.fly?8:0, s=P.boss?0.72:0.36;
   /* its shadow: cast along the ground, or for a flyer a soft patch below it */
   groundShadow(c,cc=>{ if(flip) cc.scale(-1,1); drawEnemyArt(cc,sp,0,0,s); },x,y,P.boss?20:9,lift);
   c.globalAlpha=P.night?.85:1;

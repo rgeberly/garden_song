@@ -132,7 +132,7 @@ function drawSungNote(c,p,x,y){
 function buildWorld(){ /* nothing to build — the map is an image */ }
 function drawMap(cam){
   const map=currentMap();                /* this season's painting */
-  if(!map.complete) return;
+  if(!map||!map.complete) return;
   b.save(); b.scale(1/SC,1/SC); b.imageSmoothingEnabled=true;   /* drawn zoomed out */
   b.drawImage(map,Math.round(-cam.x*SC),Math.round(-cam.y*SC),WORLD_W*SC,WORLD_H*SC);
   b.restore();

@@ -14,7 +14,7 @@ function openShop(){
 }
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
-  if(shop.tab===0) return UNLOCK_ORDER.filter(s=>G.unlocked.includes(s)).map(s=>{ const S=SPECIES[s];
+  if(shop.tab===0) return bySeason(UNLOCK_ORDER.filter(s=>G.unlocked.includes(s))).map(s=>{ const S=SPECIES[s];
     return {type:'seed',id:s,name:S.name+" seed",cost:S.cost,
       desc:S.flavor+" "+(S.kind==='raised'?"Raised beds only. ":S.kind==='tree'?"Grows in a stone ring. ":"")+
         "Needs "+S.grow+" growth (about "+Math.ceil(S.grow/SONG_GROWTH)+" songs), "+growNeed(s,S.best)+
@@ -33,7 +33,7 @@ function shopItems(){
     .concat(sellGoods().map(k=>({type:'good',id:k,sell:true,name:GOODS[k].name,cost:goodsPrice(k),art:{good:k},
       desc:"Sells for "+goodsPrice(k)+"c each."+(GOODS[k].eat?" Or eat it.":""),note:"you have x"+G.goods[k],btn:"Sell 1  ·  "+goodsPrice(k)+"c"})));
   if(l.length){ const n=cropList().reduce((a,sp)=>a+G.crops[sp],0)+sellGoods().reduce((a,k)=>a+G.goods[k],0), total=sellAllTotal();
-    l.push({type:'sellall',sell:true,name:"Sell all",cost:total,art:{shop:'harvest basket'},
+    l.unshift({type:'sellall',sell:true,name:"Sell all",cost:total,art:{shop:'harvest basket'},
       desc:"Sell all "+n+" things you are carrying.",btn:"Sell all  ·  "+total+"c"}); }
   return l;
 }

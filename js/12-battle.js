@@ -41,7 +41,7 @@ function startBattle(pest){
         :listAnd(foes.map(f=>f.name))+" block your path!",
      over:null,pops:[],fx:[],anim:null,shout:null};
   B.party.forEach(id=>B.st[id]={});
-  G.scene='battle'; setMusic(boss?'boss':'battle'); blip(220,0.1,0.2); partyImg();
+  G.scene='battle'; setMusic(boss?'boss':'battle'); blip(220,0.1,0.2); partyImg(); backdropImg();
   setTimeout(nextActor,900);
 }
 const standing=id=>member(id).hp>0;
@@ -60,7 +60,10 @@ function focus(f){ if(!f) return; const p=foeSpot(f); EX=p.x; EY=p.y-p.lift-52*p
 function foeBox(f){ const p=foeSpot(f), a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[f.sp], k=p.s/SC;
   const w=a?a.r[2]*k:60*p.s, h=a?a.r[3]*k:60*p.s;
   return {x:p.x-(a?a.ax*k:w/2),y:p.y-p.lift-(a?a.ay*k:h),w,h}; }
-function pop(txt,x,y,col){ B.pops.push({txt,x,y,t:1100,col}); }
+function pop(txt,x,y,col,size){ B.pops.push({txt,x,y,t:1100,col,size}); }
+/* Critical hits: a party member's hit lands extra hard now and then, more often the
+   luckier they are */
+const CRIT_MUL=1.75, critChance=id=>0.03+statOf(id,'luk')*0.004;
 function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++)
   B.fx.push({x,y,vx:rnd(-1,1)*(spd||0.13),vy:rnd(-0.19,0.03),t:520,col,g:0.001}); }
 function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:kind==='enemy'?null:actor(),...extra}; }
@@ -191,7 +194,7 @@ function setSub(i){ B.sub=i; if(i<B.top) B.top=i; if(i>=B.top+SUB_ROWS) B.top=i-
 function openSub(kind){ B.menu=kind; B.sub=0; B.top=0; blip(520,0.04,0.08,'triangle'); }
 function battleKey(k){
   if(!B)return;
-  if(B.over){ if(!winGuard()) endBattle(); return; }
+  if(B.over){ if(!winSkip()&&!winGuard()) endBattle(); return; }
   if(B.inspect){ B.inspect=null; return; }
   if(B.turn!=='player')return;
   if(B.menu==='target'){
@@ -218,7 +221,7 @@ function battleKey(k){
 const inRect=(r,x,y)=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h;
 function battleTouch(x,y){
   if(!B)return;
-  if(B.over){ if(!winGuard()) endBattle(); return; }
+  if(B.over){ if(!winSkip()&&!winGuard()) endBattle(); return; }
   if(B.inspect){ B.inspect=null; return; }
   const W=battleWins(), who=whoAt(x,y);
   if(B.turn==='player'&&B.menu==='target'){
@@ -261,7 +264,7 @@ function useSub(x){
   }
   if(!canPay(x,id)){ B.log=x.hpCost?"Too worn out for that!":id==='kaitlyn'?"Not enough Music Points!":"Not enough MP!"; blip(150,0.08,0.2); return; }
   if(x.hpCost) chooseFoe(f=>useKarate(x,f));
-  else if(x.notes){ if(x.pow>0) chooseFoe(f=>useSong(x,f)); else useSong(x,null); }
+  else if(x.notes){ if(x.pow>0&&!x.all) chooseFoe(f=>useSong(x,f)); else useSong(x,x.all?liveFoes()[0]:null); }
   else if(x.heal) useSkill(x,null);
   else chooseFoe(f=>useSkill(x,f));
 }
@@ -274,8 +277,12 @@ function tryFlee(){
   else { B.log="Couldn't get away!"; afterAction(); }
 }
 function hitFoe(f,dmg,label){
-  f.hp=Math.max(0,f.hp-dmg); f.shake=340; f.flash=200; focus(f);
-  pop("-"+dmg,EX,EY-10,'#ffd24a'); thud(); B.log=label;
+  const crit=B.turn!=='enemy'&&Math.random()<critChance(actor());
+  if(crit){ const d=Math.round(dmg*CRIT_MUL); label=label.replace(String(dmg),String(d))+"  Critical hit!"; dmg=d; }
+  f.hp=Math.max(0,f.hp-dmg); f.shake=crit?520:340; f.flash=crit?320:200; focus(f);
+  if(crit){ pop("-"+dmg+"!",EX,EY-10,'#ff9a3a',52); pop("CRITICAL!",EX,EY-42,'#fff07a',28); B.critT=260; blip(980,0.05,0.18,'square'); }
+  else pop("-"+dmg,EX,EY-10,'#ffd24a');
+  thud(); B.log=label;
   if(f.hp>0&&f.st.sleep&&Math.random()<0.4){ f.st.sleep=0; B.log+="  It wakes up!"; }   /* a hit may wake it */
   if(f.hp<=0&&liveFoes().length) B.log+="  The "+f.name+" runs off!";
 }
@@ -332,9 +339,12 @@ function useSong(mv,f){
           M.hp=Math.min(M.maxhp,M.hp+h); pop("+"+h,s.x,headOf(id),'#8fe07a'); });
       }
       if(mv.pow>0&&f){
-        const dmg=soften(songPower()*mv.pow*(0.35+acc*1.1),foeDef(f),true);
-        hitFoe(f,dmg,mv.name+" hits for "+dmg+"!  ("+Math.round(acc*100)+"%)");
-        if(mv.weaken&&f.hp>0){ f.st.weak=STATUS.weak.turns; B.log+="  Its attack drops!"; }
+        /* a song for everyone hits every pest still there */
+        const T=mv.all?liveFoes():[f];
+        T.forEach(t=>{ const dmg=soften(songPower()*mv.pow*(0.35+acc*1.1),foeDef(t),true);
+          hitFoe(t,dmg,mv.name+" hits for "+dmg+"!  ("+Math.round(acc*100)+"%)");
+          if(mv.weaken&&t.hp>0){ t.st.weak=STATUS.weak.turns; B.log+="  Its attack drops!"; } });
+        if(T.length>1) B.log=mv.name+" sweeps over every pest!  ("+Math.round(acc*100)+"%)";
       } else B.log=mv.name+" heals the party.";
     },{tgt:f});
   }});
@@ -458,7 +468,9 @@ function foeHits(f,sk,targets,charged){
 }
 
 /* ---------- victory: rewards are given at once, the screen then shows them ---------- */
-const SEED_LOOT=0.10, WIN_DELAY=250, WIN_FILL=900, WIN_GUARD=350;
+/* A win: everyone strikes their victory pose for POSE_MS, then the results fade in over
+   the whole screen and each EXP bar fills (WIN_FILL ms, ticking as it goes). */
+const SEED_LOOT=0.10, POSE_MS=2500, RESULTS_FADE=400, WIN_DELAY=POSE_MS+RESULTS_FADE+150, WIN_FILL=1400, WIN_GUARD=WIN_DELAY+300;
 /* the victory window, along the bottom under the party: the rewards, then a row (name,
    level, EXP bar) for each one standing */
 const VW={top:32,step:38,foot:30};
@@ -477,14 +489,21 @@ function winRewards(){
   const xp=B.foes.reduce((a,f)=>a+f.xp,0);
   const coins=Math.round(B.foes.reduce((a,f)=>a+f.coin,0)*(bonus?1.5:1));
   const from={}; up.forEach(id=>{ const M=member(id); from[id]={lv:M.lv,xp:M.xp,next:M.next}; });
-  B.win={xp,coins,bonus,seed,from,who:up,t:0};
+  /* drops: each pest may leave an ordinary thing, or (rarely) a special one */
+  const drops=[];
+  B.foes.forEach(f=>{ const D=PEST_DROPS[f.sp]; if(!D) return;
+    const k=Math.random()<RARE_P?D[1]:Math.random()<DROP_P?D[0]:null;
+    if(k){ G.goods[k]=(G.goods[k]||0)+1; drops.push(k); } });
+  B.win={xp,coins,bonus,seed,from,who:up,t:0,drops,tick:0};
   G.coins+=coins; if(seed) G.seeds[seed]=(G.seeds[seed]||0)+1;
-  G.pests=G.pests.filter(p=>p!==B.pest);
+  G.pests=G.pests.filter(p=>p!==B.pest); G.mtnPests=G.mtnPests.filter(p=>p!==B.pest);
   B.foes.forEach(f=>G.lore.beat[f.sp]=(G.lore.beat[f.sp]||0)+1);      /* for the Bestiary */
   up.forEach(id=>addXpTo(id,xp));          /* everyone still standing learns from it */
 }
 /* a moment's pause so the key that won the fight doesn't also close the screen */
 const winGuard=()=>B.over==='win'&&B.win&&B.win.t<WIN_GUARD;
+/* a key or tap during the poses skips ahead to the results */
+function winSkip(){ if(B.over==='win'&&B.win&&B.win.t<POSE_MS){ B.win.t=POSE_MS; return true; } return false; }
 /* a member's EXP bar as it fills, levelling up the same way addXpTo does */
 function xpShown(id){
   const w=B.win, k=clamp((w.t-WIN_DELAY)/WIN_FILL,0,1), f=w.from[id||'kaitlyn'];
@@ -497,7 +516,7 @@ function endBattle(){
     say((B.boss?"The HOA President retreats! ":"Won!  ")+"+"+w.coins+"c"+(w.bonus?" (lucky!)":"")+"  +"+w.xp+"xp"+(w.seed?"  + a seed":"")); }
   else if(B.over==='lose'){
     G.player.hp=Math.max(4,Math.floor(G.player.maxhp*0.4));
-    G.pests=G.pests.filter(p=>p!==B.pest); G.player.x=338; G.player.y=396; G.indoors=false; G.area='garden';
+    G.pests=G.pests.filter(p=>p!==B.pest); G.mtnPests=G.mtnPests.filter(p=>p!==B.pest); G.player.x=338; G.player.y=396; G.indoors=false; G.area='garden';
     const lost=Math.floor(G.coins*0.5); G.coins-=lost;
     say("A frog nudged you awake by the pool. You dropped "+lost+"c."); }
   else { B.pest.x+=rnd(-60,60); B.pest.y+=rnd(-60,60); say("You slipped away."); }
@@ -742,7 +761,8 @@ function drawBattleBackdrop(dt){
     const f=BACK_HORIZON[season()]||0.5, r=im.naturalWidth/im.naturalHeight;
     const h=Math.max((T1-HORIZON)/(1-f),(HORIZON-T0)/f,LW/r), w=h*r;
     b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,(LW-w)/2,HORIZON-f*h,w,h); b.restore();
-  } else drawnBackdrop(P,T0,T1);
+  } else if(typeof BACKDROPS==='undefined'||!BACKDROPS.includes(season())) drawnBackdrop(P,T0,T1);
+  else { b.fillStyle='#000'; b.fillRect(0,T0,LW,T1-T0); }        /* its painting is still loading */
   backdropLife(P,T0,T1,dt);
 }
 /* the stand-in: sky, clouds, trees, hedge and a striped lawn */
@@ -1006,18 +1026,17 @@ function drawBattle(dt){
         gauge(W.party.x+150,y+20,50,5,M.mp,memberMaxMp(m),'#4aa8f0','#b0e0ff'); });
       if(pick&&!picking) winCursor(W.cmd.x+6,cmdTop(W)+B.idx*CMD_ROW,W.cmd.w-12,CMD_ROW-2);
     }
-  } else if(won){
-    const h=vwHeight(B.win.who.length), y0=BAND_BOT()-8-h;
-    rpgWin({x:14,y:y0,w:332,h});
-    B.win.who.forEach((id,i)=>{ const x=xpShown(id); gauge(30,y0+VW.top+i*VW.step+19,300,6,x.xp,x.next,'#f0c84a','#fff0b0'); });
-    if(B.win.seed) drawShopPic(SPECIES[B.win.seed].name.toLowerCase()+" seed",42,y0+h-14,14,18);
-  } else rpgWin({x:60,y:300+dn,w:240,h:84});
+  } else if(won&&B.win.t>=POSE_MS) drawResultsBack();
+  else if(won){}
+  else rpgWin({x:60,y:300+dn,w:240,h:84});
   const tail=(x,y,a)=>{ b.globalAlpha=a; b.fillStyle='#0a0f2a'; b.beginPath(); b.moveTo(x-7,y-1); b.lineTo(x+7,y-1); b.lineTo(x,y+8); b.fill();
     b.fillStyle='#e6eaf6'; b.beginPath(); b.moveTo(x-5,y-2); b.lineTo(x+5,y-2); b.lineTo(x,y+5.5); b.fill(); b.globalAlpha=1; };
   if(shoutAt){ const a=Math.min(1,B.shout.t/300); b.globalAlpha=a; rpgWin(shoutAt); b.globalAlpha=1; tail(shoutAt.kx,shoutAt.y+shoutAt.h,a); }
   if(bannerAt&&!B.inspect){ b.globalAlpha=Math.min(1,B.banner.t/250); rpgWin(bannerAt); b.globalAlpha=1; }
   const insp=B.inspect?inspectLayout():null, IY=FW.y+FW.h+8;   /* under the pests' window */
   if(insp) rpgWin({x:INSPECT.x,y:IY,w:INSPECT.w,h:insp.h});
+  /* a critical hit flashes the whole scene */
+  if(B.critT>0){ B.critT-=dt; b.fillStyle='rgba(255,250,220,'+(Math.max(0,B.critT)/260*0.45)+')'; b.fillRect(0,BAND_TOP(),LW,BAND_BOT()-BAND_TOP()); }
   blit();
 
   if(!B.over){
@@ -1069,7 +1088,7 @@ function drawBattle(dt){
   if(bannerAt&&!B.inspect){ m.globalAlpha=Math.min(1,B.banner.t/250); TS(B.banner.txt,bannerAt.cx,bannerAt.y+17,24,'#ffe08a','center',true); m.globalAlpha=1; }
   B.pops.forEach(p=>{ p.t-=dt; p.y-=dt*0.03;
     const hop=Math.max(0,Math.sin((1100-p.t)/140))*6*Math.max(0,(p.t-600)/500);
-    m.globalAlpha=Math.min(1,p.t/400); TO(p.txt,p.x,p.y-hop,40,p.col,'center',true,1.6); m.globalAlpha=1; });
+    m.globalAlpha=Math.min(1,p.t/400); TO(p.txt,p.x,p.y-hop,p.size||40,p.col,'center',true,p.size?2:1.6); m.globalAlpha=1; });
   B.pops=B.pops.filter(p=>p.t>0);
   if(insp){
     const {I,rows}=insp, X=INSPECT.x+INSPECT.pad;
@@ -1078,22 +1097,13 @@ function drawBattle(dt){
     rows.forEach((r,i)=>TS(r.t,X,IY+42+i*15,r.size,r.col,null,r.bold));
     TS(IS_TOUCH?"tap to close":"any key to close",INSPECT.x+INSPECT.w-INSPECT.pad,IY+insp.h-8,15,'#8a94c4','right');
   }
+  if(won&&B.win.t>=POSE_MS){ drawResultsWords(); return; }
   if(won){
     const w=B.win, pop=clamp(w.t/280,0,1);
     /* the banner drops in and settles */
     const size=Math.round(58+(1-pop)*30), by=96-(1-pop)*20;
     m.globalAlpha=pop; TO("VICTORY!",180,by,size,'#ffd24a','center',true,2.2);
     T("VICTORY!",180,by-size*0.04,size,'rgba(255,250,210,.35)','center',true); m.globalAlpha=1;
-    const h=vwHeight(w.who.length), y0=BAND_BOT()-8-h;
-    TS("EXP +"+Math.round(w.xp*xs.k)+(w.who.length>1?" each":""),30,y0+19,20,'#ffe08a',null,true);
-    TS((w.bonus?"lucky!  ":"")+"+"+Math.round(w.coins*xs.k)+"c",330,y0+19,20,'#ffe08a','right',true);
-    TS("(have "+(G.coins-w.coins+Math.round(w.coins*xs.k))+"c)",330-TW((w.bonus?"lucky!  ":"")+"+"+Math.round(w.coins*xs.k)+"c",20,true)-8,y0+19,15,'#aab6e8','right');
-    w.who.forEach((id,i)=>{ const x=xpShown(id), f=w.from[id], y=y0+VW.top+i*VW.step+14;
-      TS(PARTY_INFO[id].name+"  Lv."+x.lv,30,y,19,'#f4f6ff',null,true);
-      if(x.lv>f.lv&&Math.floor(G.t/240)%2===0) TS("LEVEL UP!",170,y,17,'#ffb04a',null,true);
-      TS(x.xp+" / "+x.next,330,y,15,'#c8d4ff','right'); });
-    if(w.seed) TS("Found: "+SPECIES[w.seed].name+" seed!",56,y0+h-9,18,'#b8f0a0',null,true);
-    else TS("No seeds this time.",180,y0+h-9,16,'#8a94c4','center');
     return;
   }
   if(B.over){
@@ -1102,6 +1112,54 @@ function drawBattle(dt){
   }
 }
 
+/* ---------------- the results ----------------
+   After the poses, a window over the whole screen: what was won (coins and the purse,
+   anything left behind, a seed) and a row per member standing (portrait, level, the EXP
+   bar filling with a tick, LEVEL UP!). Room for five. */
+const RES={pad:10, head:96, row:62};
+function resultsBox(){ const T0=BAND_TOP(), T1=BAND_BOT(); return {x:RES.pad,y:T0+RES.pad,w:LW-RES.pad*2,h:T1-T0-RES.pad*2}; }
+function drawResultsBack(){
+  const w=B.win, a=clamp((w.t-POSE_MS)/RESULTS_FADE,0,1), R=resultsBox();
+  b.save(); b.globalAlpha=a;
+  b.fillStyle='rgba(6,10,30,.55)'; b.fillRect(0,BAND_TOP(),LW,BAND_BOT()-BAND_TOP());
+  rpgWin(R);
+  w.who.forEach((id,i)=>{ const y=R.y+RES.head+i*RES.row, x=xpShown(id);
+    b.fillStyle='#0a0f2a'; b.fillRect(R.x+12,y+4,44,RES.row-12);
+    const im=portraitImg(id);
+    if(im){ const ph=RES.row-14, pw=ph*im.naturalWidth/im.naturalHeight;
+      b.save(); b.beginPath(); b.rect(R.x+13,y+5,42,RES.row-14); b.clip(); b.imageSmoothingEnabled=true;
+      b.drawImage(im,R.x+34-pw/2,y+5,pw,ph); b.restore(); }
+    gauge(R.x+66,y+36,R.w-80,7,x.xp,x.next,'#f0c84a','#fff0b0'); });
+  const dy=R.y+RES.head+w.who.length*RES.row+8;
+  (w.drops||[]).forEach((k,i)=>drawGoodIcon(b,k,R.x+26,dy+30+i*22,18));
+  if(w.seed) drawShopPic(SPECIES[w.seed].name.toLowerCase()+" seed",R.x+26,dy+30+(w.drops||[]).length*22,14,18);
+  b.restore();
+  /* the bars fill with a ticking sound */
+  const k=clamp((w.t-WIN_DELAY)/WIN_FILL,0,1);
+  if(k>0&&k<1&&w.t-w.tick>70){ w.tick=w.t; if(AC) blip(520+k*520,0.025,0.05,'triangle'); }
+}
+function drawResultsWords(){
+  const w=B.win, a=clamp((w.t-POSE_MS)/RESULTS_FADE,0,1), R=resultsBox(), xs=xpShown(w.who[0]);
+  m.globalAlpha=a;
+  TO("VICTORY!",180,R.y+40,44,'#ffd24a','center',true,2);
+  const got=Math.round(w.coins*xs.k);
+  TS("EXP +"+Math.round(w.xp*xs.k)+(w.who.length>1?" each":""),R.x+16,R.y+72,20,'#ffe08a',null,true);
+  TS((w.bonus?"lucky!  ":"")+"+"+got+"c",R.x+R.w-16,R.y+66,21,'#ffe08a','right',true);
+  TS("purse: "+(G.coins-w.coins+got)+"c",R.x+R.w-16,R.y+84,15,'#aab6e8','right');
+  w.who.forEach((id,i)=>{ const x=xpShown(id), f=w.from[id], y=R.y+RES.head+i*RES.row;
+    TS(PARTY_INFO[id].name,R.x+66,y+20,21,'#f4f6ff',null,true);
+    TS("Lv."+x.lv,R.x+R.w-16,y+20,19,x.lv>f.lv?'#ffe08a':'#c8d4ff','right',true);
+    if(x.lv>f.lv&&Math.floor(G.t/240)%2===0) TS("LEVEL UP!",R.x+66+TW(PARTY_INFO[id].name,21,true)+12,y+20,17,'#ffb04a',null,true);
+    TS(x.xp+" / "+x.next+" EXP",R.x+R.w-16,y+56,14,'#aab6e8','right'); });
+  const dy=R.y+RES.head+w.who.length*RES.row+8;
+  TS("Found",R.x+16,dy+12,17,'#c8d4ff',null,true);
+  const L=(w.drops||[]).map(k=>[GOODS[k].name,GOODS[k].value>=40?'#ffb0ff':'#f4f6ff',GOODS[k].value>=40?"  ★ rare!":""]);
+  if(w.seed) L.push([SPECIES[w.seed].name+" seed",'#b8f0a0',""]);
+  if(!L.length) TS("nothing this time",R.x+44,dy+34,16,'#8a94c4');
+  L.forEach(([n,c,r],i)=>TS(n+r,R.x+44,dy+36+i*22,18,c,null,true));
+  if(!winGuard()&&xs.k>=1) TS(IS_TOUCH?"tap to continue":"J to continue",180,R.y+R.h-14,16,'#8a94c4','center');
+  m.globalAlpha=1;
+}
 /* ---------------- level up ----------------
    Each level gained (LV_UPS, from battles, songs and the rest) gets its own blue
    screen once she's back in the garden: who, the new level, every stat with what it

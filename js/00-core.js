@@ -237,11 +237,27 @@ function drawBattleRow(c,name,idx,cx,footY,zoom){
    (1 in battle, smaller on the garden map) */
 function drawEnemyArt(c,species,cx,footY,s){
   const a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[species];
-  if(!a||!IMG_EN.complete||!IMG_EN.naturalWidth) return false;
+  if(!a){ drawPestStandIn(c,species,cx,footY,s||1); return true; }        /* no picture yet */
+  if(!IMG_EN.complete||!IMG_EN.naturalWidth) return false;
   const [sx,sy,w,h]=a.r, k=(s||1)/SC;
   c.save(); c.translate(cx,footY); c.scale(k,k); c.imageSmoothingEnabled=true;
   c.drawImage(IMG_EN,sx,sy,w,h,-a.ax,-a.ay,w,h); c.restore();
   return true;
+}
+/* a pest with no picture yet: a simple four-legged animal in its colour, facing left,
+   about 70 px tall at s=1 (times its big) */
+function drawPestStandIn(c,sp,cx,footY,s){
+  const P=PESTS[sp], k=s*(P.big||1), col=P.col, dk='rgba(20,14,10,.55)';
+  c.save(); c.translate(cx,footY); c.scale(k,k);
+  c.fillStyle=col; [-26,-12,8,20].forEach(x=>c.fillRect(x,-20,7,20));
+  c.fillStyle=dk; [-26,-12,8,20].forEach(x=>c.fillRect(x,-3,7,3));
+  c.fillStyle=col; c.beginPath(); c.ellipse(0,-32,34,17,0,0,7); c.fill();
+  c.beginPath(); c.arc(-34,-44,13,0,7); c.fill();
+  c.beginPath(); c.moveTo(-40,-55); c.lineTo(-34,-66); c.lineTo(-29,-55); c.fill();
+  c.fillStyle=dk; c.beginPath(); c.ellipse(-44,-40,6,4,0,0,7); c.fill();
+  c.fillStyle='#ffffff'; c.beginPath(); c.arc(-38,-47,2.6,0,7); c.fill();
+  c.fillStyle='#1a1410'; c.beginPath(); c.arc(-39,-47,1.3,0,7); c.fill();
+  c.restore();
 }
 /* the whole portrait image at its own size (times s), top-left at x,y */
 function portrait(c,x,y,s){

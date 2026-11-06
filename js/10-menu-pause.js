@@ -8,7 +8,7 @@ function bonusLines(){
   const d=Math.round((( gearOn('polish')?1.3:1)*fluteMul()-1)*100);
   L.push(["Song damage", (d>=0?"+":"")+d+"%"]);
   L.push(["Kick power", gearOn('kickers')?"+60%":"—"]);
-  L.push(["Walk speed", gearOn('boots')?"+35%":"—"]);
+  L.push(["Jog speed", gearOn('boots')?"+50% (B)":"—"]);
   L.push(["Max MP", maxMp()+(gearOn('cloth')?"  (+8)":"")]);
   L.push(["Harmony cap", (gearOn('trellis')?"x2.6":"x1.8")+(G.yard.fountain?" +0.2":"")]);
   return L;
@@ -125,7 +125,10 @@ const pageRowsY=()=>pagesWho()?92:SYSTABS[sys.tab]==='Party'?44:48;
 function openSys(){ if(G.cast) return; G.code=exportCode(); sys={tab:0,idx:0,focus:'tabs',who:0,top:0}; G.scene='sys'; }
 /* the Settings page: each row a choice that A (or left/right) steps through */
 const SETTINGS=[{id:'diff',name:"Difficulty",opts:DIFF_ORDER,label:v=>DIFFICULTY[v].name,
-  about:v=>DIFFICULTY[v].about,get:()=>G.diff,set:v=>{ G.diff=v; }}];
+  about:v=>DIFFICULTY[v].about,get:()=>G.diff,set:v=>{ G.diff=v; }},
+  {id:'jog',name:"Jogging",opts:JOG_ORDER,label:v=>JOG_MODES[v],
+   about:v=>(gearOn('boots')?"":"Needs the Sturdy Boots. ")+{hold:"Hold B to jog, let go to walk.",walk:"Jog all the time; hold B to slow to a walk.",toggle:"Press B to switch between jogging and walking."}[v],
+   get:()=>G.jogMode,set:v=>{ G.jogMode=v; G.jogOn=false; }}];
 function stepSetting(S,d){ const o=S.opts, i=o.indexOf(S.get());
   S.set(o[(i+d+o.length)%o.length]); blip(520+o.indexOf(S.get())*80,.05,.1,'triangle'); autoSave(); }
 const allMembers=()=>['kaitlyn'].concat(Object.keys(G.allies));
@@ -172,6 +175,7 @@ function loreLines(){
     add("HP "+st.hp+"    Attack "+Math.round(st.atk)+"    Defense "+Math.round(st.def)+"    Agility "+Math.round(st.agi),'#f4f6ff');
     add(P.about);
     add("Moves: "+P.skills.map(s=>s.name).join(", "),'#b8f0a0');
+    const D=PEST_DROPS[S.k]; if(D) add("Drops: "+GOODS[D[0]].name+"  ·  rare: "+GOODS[D[1]].name,'#ffd0a0');
     add("Leaves behind "+P.xp+" EXP and "+P.coin+"c",'#c8d4ff');
     add("Beaten "+n+" time"+(n===1?"":"s"),'#aab6e8');
   } else { const g=GOODS[S.k], F=G.lore.fish[S.k];
@@ -221,10 +225,10 @@ function sysRows(){
   const t=SYSTABS[sys.tab];
   if(t==='Party'){ const res=Object.keys(G.allies).filter(id=>!G.party.includes(id));
     return {h:68,rows:G.party.map(id=>({id})).concat([{head:"Reserves"}],res.map(id=>({id})))}; }
-  if(t==='Status') return {h:28,rows:STATS.map(k=>({stat:k}))};
+  if(t==='Status') return {h:28,rows:STATS.map(k=>({stat:k})).concat([{rename:true}])};
   if(t==='Skills') return {h:34,rows:skillBook(whoId()).map(s=>({skill:s}))};
   if(t==='Items') return {h:34,rows:cropList().map(sp=>({crop:sp})).concat(goodsList().map(k=>({good:k}))).concat(
-    Object.keys(G.seeds).filter(k=>G.seeds[k]>0).map(sp=>({seed:sp})))};
+    bySeason(Object.keys(G.seeds).filter(k=>G.seeds[k]>0)).map(sp=>({seed:sp})))};
   if(t==='Gear') return {h:34,rows:FLUTE_META.order.map(id=>({flute:id})).concat(ownedGearList().map(g=>({gear:g})))};
   if(t==='Settings') return {h:44,rows:SETTINGS.map(S=>({set:S}))};
   if(t==='Lore') return loreRows();
@@ -242,6 +246,7 @@ function sysActivate(i){
     const was=G.party.includes(R.id);
     if(toggleParty(R.id)){ say(PARTY_INFO[R.id].name+(was?" will wait at home.":" joins you!")); blip(was?400:620,.06,.1,'triangle'); autoSave(); }
     else { say("The party is full (3 at most)."); blip(150,.08,.2); }
+  } else if(t==='Status'){ if(R.rename) renameMember(whoId());
   } else if(t==='Skills'){
     const s=R.skill, id=whoId();
     if(member(id).lv<s.lv){ blip(150,.08,.2); return; }
@@ -335,12 +340,13 @@ function sysTouch(x,y){
   /* the first tap picks a row, a second tap on it uses it */
   const R=sysRows(), j=Math.floor((y-P.y-pageRowsY())/R.h), i=sys.top+j;
   if(j>=0&&j<rowsFit()&&i<R.rows.length&&!R.rows[i].head){
-    if(sys.focus==='list'&&sys.idx===i&&SYSTABS[sys.tab]!=='Status') sysActivate(i);
+    if(sys.focus==='list'&&sys.idx===i&&(SYSTABS[sys.tab]!=='Status'||R.rows[i].rename)) sysActivate(i);
     else { sys.focus='list'; sys.idx=i; } }
 }
 /* what the highlighted row means, for the footer */
 function sysFoot(){
   const R=sysRows().rows[sys.idx], t=SYSTABS[sys.tab]; if(!R) return null;
+  if(t==='Status'&&R.rename) return ["Rename",IS_TOUCH?"Tap again to give "+PARTY_INFO[whoId()].name+" a new name.":"Press J to give "+PARTY_INFO[whoId()].name+" a new name."];
   if(t==='Status') return [STAT_NAME[R.stat],{hp:"Health. At 0 you're out of the fight.",mp:"Music Points, spent on songs and skills.",
     str:"Power of plain attacks.",agi:"Who moves first in battle.",def:"Softens the hits you take.",
     int:"Power of songs, spells and special moves.",luk:"Better odds of seeds and bonus coins."}[R.stat]];
@@ -380,7 +386,7 @@ function drawSys(){
       const im=portraitImg(r.id); if(im){ const ph=R.h-16, pw=ph*im.naturalWidth/im.naturalHeight;
         b.save(); b.beginPath(); b.rect(P.x+31,y+7,44,R.h-16); b.clip(); b.imageSmoothingEnabled=true; b.drawImage(im,P.x+53-pw/2,y+7,pw,ph); b.restore(); }
       gauge(P.x+86,y+32,150,5,M.hp,M.maxhp,'#e8504a','#ffa8a0'); gauge(P.x+86,y+46,150,5,M.mp,memberMaxMp(r.id),'#4aa8f0','#b0e0ff'); }
-    if(t==='Status'){ const v=statOf(whoId(),r.stat), mx={hp:300,mp:120}[r.stat]||80; gauge(P.x+150,y+12,90,5,v,mx,'#f0c84a','#fff0b0'); }
+    if(t==='Status'&&r.stat){ const v=statOf(whoId(),r.stat), mx={hp:300,mp:120}[r.stat]||80; gauge(P.x+150,y+12,90,5,v,mx,'#f0c84a','#fff0b0'); }
     if(t==='Items'&&r.crop) drawCropIcon(b,r.crop,P.x+46,y+R.h/2-1,24);
     if(t==='Items'&&r.good) drawGoodIcon(b,r.good,P.x+46,y+R.h/2-1,22);
     if(t==='Items'&&r.seed) drawShopPic(SPECIES[r.seed].name.toLowerCase()+" seed",P.x+46,y+R.h/2-1,18,26);
@@ -389,7 +395,7 @@ function drawSys(){
     if(t==='Lore') loreRowPic(r,P,y,R.h);
   });
   if(t==='Status'){ const id=whoId(), M=member(id);
-    gauge(P.x+20,P.y+pageRowsY()+STATS.length*R.h+12,P.w-40,6,M.xp,M.next,'#f0c84a','#fff0b0'); }
+    gauge(P.x+20,P.y+pageRowsY()+(STATS.length+1)*R.h+12,P.w-40,6,M.xp,M.next,'#f0c84a','#fff0b0'); }
   /* a window over the page: the page dims behind it, and its words are left out below */
   if(modal()){ b.fillStyle='rgba(4,6,20,.6)'; b.fillRect(0,BAND_TOP(),LW,BAND_BOT()-BAND_TOP()); }
   if(sys.ask){ rpgWin({x:PICK.x,y:PICK.y,w:PICK.w,h:48+2*PICK.row+22});
@@ -432,6 +438,7 @@ function drawSys(){
       const where=r.id==='kaitlyn'?"Leader":isHurt(r.id)?"Hurt · back in "+(G.allies[r.id].hurtUntil-G.day)+" day(s)"
         :G.party.includes(r.id)?"In the party":"Waiting at home";
       TS(where,P.x+86,y+62,15,G.party.includes(r.id)?'#b8f0a0':isHurt(r.id)?'#ffb0a8':'#aab6e8'); }
+    else if(t==='Status'&&r.rename) TS("✎  Rename "+PARTY_INFO[whoId()].name,P.x+38,y+17,18,'#ffe08a',null,sel);
     else if(t==='Status'){ const id=whoId(), v=statOf(id,r.stat)+(r.stat==='mp'&&id==='kaitlyn'&&gearOn('cloth')?8:0);
       TS(STAT_NAME[r.stat],P.x+38,y+17,19,'#e4e8ff',null,sel);
       TS(r.stat==='hp'?member(id).hp+"/"+v:r.stat==='mp'?member(id).mp+"/"+v:String(v),P.x+142,y+17,19,'#ffffff','right',true); }
@@ -459,7 +466,7 @@ function drawSys(){
   if(t==='Items'&&!R.rows.length) TS("Nothing yet — harvest some crops!",P.x+P.w/2,P.y+90,17,'#aab6e8','center');
   if(t==='Gear'&&!ownedGearList().length) TS("Accessories you buy show up here.",P.x+P.w/2,rowY(3)+22,16,'#aab6e8','center');
   if(t==='Save') TS("Slot "+G.slot+" · Lv."+G.player.lv+" · "+G.coins+"c · "+SEASON_NAME[season()]+" Day "+G.day,P.x+P.w/2,P.y+250,17,'#c8d4ff','center');
-  if(t==='Status'){ const id=whoId(), M=member(id), y=P.y+pageRowsY()+STATS.length*R.h+8;
+  if(t==='Status'){ const id=whoId(), M=member(id), y=P.y+pageRowsY()+(STATS.length+1)*R.h+8;
     TS("EXP "+M.xp+" / "+M.next+" to Lv."+(M.lv+1),P.x+20,y,17,'#ffe08a',null,true); }
   if(sys.top>0) TS("▲",P.x+P.w-20,P.y+pageRowsY()-4,14,'#c8d4ff','center');
   if(sys.top+fit<R.rows.length) TS("▼",P.x+P.w-20,P.y+P.h-footH()-10,14,'#c8d4ff','center');

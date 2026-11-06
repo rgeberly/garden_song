@@ -9,7 +9,7 @@ function plotAccepts(plot,s){
   return k==='bed';
 }
 function openSeedMenu(plot){
-  const items=Object.keys(G.seeds).filter(s=>G.seeds[s]>0&&plotAccepts(plot,s));
+  const items=bySeason(Object.keys(G.seeds).filter(s=>G.seeds[s]>0&&plotAccepts(plot,s)));
   if(!items.length){ say(plot.tree?"No saplings — buy one at the stall.":"No seeds for this bed."); return; }
   menu={items,idx:0,plot}; G.scene='menu';
 }

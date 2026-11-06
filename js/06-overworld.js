@@ -32,6 +32,7 @@ function interact(){
   if(frog){
     if(G.frogT<=0){ G.party.forEach(id=>member(id).hp=member(id).maxhp); G.frogT=gearOn('charm')?12000:25000;
       say(G.party.length>1?"A frog croaks a healing chord. Everyone's HP is full!":"A frog croaks a healing chord. HP full!");
+      G.croak={t:0,x:frog.x,y:frog.y};
       if(AC){flute(2,AC.currentTime,.7,.6);flute(9,AC.currentTime+.05,.8,.5);} }
     else say("The frog blinks sleepily.");
     return;
@@ -67,7 +68,8 @@ function harvest(plot){
   autoSave();
 }
 /* the pests that can turn up now (ghosts only come out after dark) */
-const pestPool=()=>Object.keys(PESTS).filter(k=>!PESTS[k].boss&&PESTS[k].min<=G.gardenLv&&(!PESTS[k].night||isNight()));
+const pestPool=()=>G.area==='mountain'?mtnPool():
+  Object.keys(PESTS).filter(k=>!PESTS[k].boss&&!PESTS[k].where&&PESTS[k].min<=G.gardenLv&&(!PESTS[k].night||isNight()));
 function spawnPest(){
   if(G.pests.length>=(G.lureT>0?5:3)) return;
   /* with nothing growing, pests still turn up now and then and just wander, so
@@ -108,7 +110,7 @@ function walk(dt,speed,blocked){
   if(mm>0.15){
     dx/=mm; dy/=mm; P.aimX=dx; P.aimY=dy;
     /* boosts (boots, coffee, a snack); on the touch pad they grow with how far it's pushed */
-    const boost=(gearOn('boots')?1.35:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1);
+    const boost=(jogging()?1.5:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1);
     const onPad=padId!==null&&!(keys['w']||keys['a']||keys['s']||keys['d']||keys['arrowup']||keys['arrowdown']||keys['arrowleft']||keys['arrowright']);
     const mul=(onPad?1+(boost-1)*padAmp:boost)*(G.swim?0.62:1);
     const sp=speed*mul*dt;
@@ -181,6 +183,7 @@ function updateWorld(dt){
           Object.assign(p.target,{deadSp:p.target.sp,sp:null,stage:0,growth:0,health:100,dead:true,sungDay:0,fullDay:0}); } } }
   }
   if(G.frogT>0) G.frogT-=dt;
+  if(G.croak){ G.croak.t+=dt; if(G.croak.t>CROAK_MS) G.croak=null; }
   if(G.msgT>0) G.msgT-=dt;
   G.wildT-=dt;
   if(G.wildT<=0){ G.wildT=rnd(5000,12000); if(WILD.length<4) spawnWild(); }
@@ -199,6 +202,21 @@ function camera(){ const vh=VIEW_H/WORLD_ZOOM, [W,H]=areaSize();
 const toView=(wx,wy,cam)=>[(wx-cam.x)*WORLD_ZOOM,(wy-cam.y)*WORLD_ZOOM];
 /* how wide the soft patch under each yard decoration is (garden px) */
 const DECOR_SHADOW_W={fountain:22,arch:28,lantern:12,bath:14};
+/* a frog's healing croak: green rings ripple out from it, notes rise, and sparkles
+   lift off Kaitlyn as she's healed */
+const CROAK_MS=1800;
+function drawCroakFx(cam){
+  const c=G.croak, k=c.t/CROAK_MS, fx=c.x-cam.x, fy=c.y-cam.y, P=G.player, kx=P.x-cam.x, ky=P.y-cam.y;
+  for(let i=0;i<3;i++){ const q=clamp(k*1.5-i*0.2,0,1); if(q<=0||q>=1) continue;
+    b.globalAlpha=(1-q)*0.7; b.strokeStyle=i%2?'#c8f0a0':'#7cd06a'; b.lineWidth=3-i*0.6;
+    b.beginPath(); b.ellipse(fx,fy,q*140,q*80,0,0,7); b.stroke(); }
+  for(let i=0;i<4;i++){ const q=(k*1.4+i/4)%1;
+    noteGlyph(b,Math.round(fx+Math.sin(i*2+q*5)*10),Math.round(fy-14-q*34),i%2?'#c8f0a0':'#fff6d8',Math.sin(q*Math.PI)*(1-k)); }
+  for(let i=0;i<8;i++){ const q=clamp(k*1.6-i*0.07,0,1), a=i*0.8;
+    b.globalAlpha=Math.sin(q*Math.PI)*0.9;
+    px(b,Math.round(kx+Math.cos(a)*14),Math.round(ky-q*40-6+Math.sin(a)*4),3,3,i%2?'#a8f0a0':'#e8ffd8'); }
+  b.globalAlpha=1;
+}
 function drawWorld(){
   if(G.area!=='garden'){ drawPlace(); return; }
   if(G.indoors){ drawHouse(); return; }
@@ -227,7 +245,7 @@ function drawWorld(){
       groundShadow(b,c=>drawDecor(c,id,0,0,G.t),x-cam.x,y-cam.y,DECOR_SHADOW_W[id]||16);
       drawDecor(b,id,x-cam.x,y-cam.y,G.t); }}); });
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k)}));
-  G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face)}));
+  G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3))}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
   /* Bling, at her own size like Kaitlyn (the zoom undone around her) */
   const bl=blingHere();
@@ -261,6 +279,7 @@ function drawWorld(){
   /* the front layer (tree tops and the like) goes over everyone */
   const fr=frontImg(season()); if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,WORLD_W,WORLD_H); }
   if(G.cast) drawCastFx(cam);
+  if(G.croak) drawCroakFx(cam);
   /* shadows drift across the ground in world space, so they stay put
      relative to the garden while the camera moves */
   const day=daylight();

@@ -57,6 +57,8 @@ CREATURE_W = {'bluebird': 66, 'monarch': 48, 'music note': 39}
 CREATURE_CELL = 256
 # ...and these, where the background caught inside is off-white too (between legs, inside loops)
 SHOP_SOFT_HOLES = {'music stand': 40}
+# ...and these, white themselves on white: cut out by their outline instead
+SHOP_CUTOUT = {'snowdrop'}
 # Shop pictures with a pale painted shadow under them (the game draws its own): below this
 # share of the picture's height, pale greyish beige is cleared.
 SHOP_FLOOR = {'music stand': 0.65}
@@ -69,6 +71,9 @@ PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70)}
 # js/17-places.js) and the walls' grid (world px per cell). The mountain's walls come from
 # its painting unless maps/mountain_collision is there; MOUNTAIN_OPEN marks parts of the
 # painting as open anyway (shares of its width and height: x, y, w, h).
+# Enemies with white background caught between their legs: clear pure-white pockets
+# whose middle is below this share of the picture's height, at least this big (px).
+ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200)}
 PLACE_SIZE = {'mountain': (1080, 1446)}
 PLACE_GRID = 4
 MOUNTAIN_OPEN = [(0.34, 0.90, 0.21, 0.10)]
@@ -77,7 +82,8 @@ MOUNTAIN_OPEN = [(0.34, 0.90, 0.21, 0.10)]
 ENEMIES = {'dung beetle': ('beetle', 190), 'paper wasp': ('wasp', 220), 'garden rat': ('rat', 250),
            'saddleback': ('saddleback', 190), 'seagull': ('seagull', 230), 'hermit crab': ('crab', 240),
            'spiteful crow': ('crow', 260), 'shy ghost': ('ghost', 250), 'raccoon': ('raccoon', 230),
-           'tricky woo': ('woo', 250), 'vengeful ghost': ('vghost', 300), 'hoa president': ('hoa', 360)}
+           'tricky woo': ('woo', 250), 'vengeful ghost': ('vghost', 300), 'hoa president': ('hoa', 360),
+           'mountain goat': ('goat', 240), 'wild boar': ('boar', 230), 'black bear': ('bear', 320)}
 PORTRAIT_H = 312        # Kaitlyn's portrait.png height, in px
 STANCE_HOLE = 400       # white showing through a coil of a battle stance is background too
 SCENE_W = 1080          # story pictures fill the 360-wide screen at 3 device px each
@@ -177,6 +183,19 @@ def remove_edge_colour(a, tol=14):
         big = st[1:, 4].max()
         for i in range(1, n):
             if st[i, 4] < big * 0.002: out[lab == i, 3] = 0
+    return out
+
+
+def clear_low_pockets(a, below, least):
+    """Clear pure-white pockets of background caught inside a picture (between legs)
+    whose middle is below this share of its height and at least `least` px big, for
+    pictures whose subject has white parts of its own higher up."""
+    c = a[..., :3].astype(np.float32)
+    white = (a[..., 3] > 200) & ((255 - c.min(axis=2)) < 14) & ((c.max(axis=2) - c.min(axis=2)) < 10)
+    n, lab, st, cen = cv2.connectedComponentsWithStats(white.astype(np.uint8), connectivity=8)
+    out = a.copy()
+    for i in range(1, n):
+        if st[i, 4] >= least and cen[i][1] > below * a.shape[0]: out[lab == i, 3] = 0
     return out
 
 
@@ -282,8 +301,12 @@ def main():
     shop, smeta = [], {}
     for f in pics('shop items'):
         name = os.path.splitext(os.path.basename(f))[0].strip().lower()
-        im = (remove_white(load(f), SHOP_SOFT_HOLES[name], soft_holes=True) if name in SHOP_SOFT_HOLES
-              else remove_white(load(f), SHOP_HOLES.get(name, 0)))
+        src = load(f)
+        edge = np.concatenate([src[0, :, :3], src[-1, :, :3], src[:, 0, :3], src[:, -1, :3]])
+        if np.median(edge, axis=0).min() < 200: im = remove_edge_colour(src)          # a plain coloured background
+        elif name in SHOP_CUTOUT: im = cutout(src)
+        elif name in SHOP_SOFT_HOLES: im = remove_white(src, SHOP_SOFT_HOLES[name], soft_holes=True)
+        else: im = remove_white(src, SHOP_HOLES.get(name, 0))
         if name in SHOP_FLOOR:
             hsv = cv2.cvtColor(np.ascontiguousarray(im[..., :3]), cv2.COLOR_BGR2HSV)
             floor = (hsv[..., 2] > 140) & (hsv[..., 1] < 85); floor[:int(im.shape[0] * SHOP_FLOOR[name])] = False
@@ -366,7 +389,9 @@ def main():
         name = os.path.splitext(os.path.basename(f))[0].strip().lower()
         if name not in ENEMIES: continue
         key, h = ENEMIES[name]
-        im = trim(remove_edge_colour(load(f)), 0)
+        im = remove_edge_colour(load(f))
+        if key in ENEMY_POCKETS: im = clear_low_pockets(im, *ENEMY_POCKETS[key])
+        im = trim(im, 0)
         s = h / im.shape[0]
         if s > 1:   # small pixel art: hard-edged enlargement
             im = cv2.resize(im, (round(im.shape[1] * s), round(im.shape[0] * s)), interpolation=cv2.INTER_NEAREST)

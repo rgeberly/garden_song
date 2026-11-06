@@ -297,10 +297,17 @@ const SONG_MINUTES=10;              /* singing to a plant takes this long (game 
 function noteGlyph(c,x,y,col,a){
   c.globalAlpha=a; px(c,x+3,y,3,11,col); px(c,x,y+9,5,5,col); px(c,x+6,y-2,3,5,col); c.globalAlpha=1;
 }
+/* a little potted plant at the foot of each lane, growing with the combo: the crop
+   being sung to (its sprout, young and mature pictures), or a drawn sprout */
 function rhythmPlant(c,x,base,grow,pulse){
   const h=9+Math.round(grow*26)+(pulse?2:0);
   px(c,x-9,base,18,11,'#2b1c12'); px(c,x-8,base+2,16,8,'#a8653a');
   px(c,x-8,base+2,16,2,'#c9865a');
+  const sp=R_&&R_.plot&&R_.plot.sp;
+  if(sp&&cropsReady()){
+    const key=grow<0.34?'sprout':(grow<0.7?'baby ':'mature ')+SPECIES[sp].name.toLowerCase(), a=CROP_ART[key];
+    if(a){ const tall=(grow<0.34?18:grow<0.7?30:40)+(pulse?2:0);
+      if(drawCropArt(c,key,x,base+3,tall*SC/a.ay)) return; } }
   px(c,x-2,base-h,3,h,'#4a8a3e');
   for(let i=5;i<h;i+=6){
     px(c,x-2-Math.min(8,i/2),base-i,6,3,'#5fae4c');

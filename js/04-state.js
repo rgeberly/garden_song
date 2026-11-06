@@ -11,7 +11,7 @@ const G={
   crops:{},                                 /* harvested, not yet sold or eaten */
   coffeeT:0, swim:false, mpTick:0, wildT:4000,
   snackT:0, calmT:0, lureT:0,               /* timed effects from eating crops (ms) */
-  pests:[], pestTimer:9000,
+  pests:[], pestTimer:9000, mtnPests:[],   /* pests in the garden, and on the mountain trail */
   msg:'', msgT:0, frogT:0, t:0, code:'',
   clock:6*60, day:1, indoors:false,      /* game minutes since midnight; see 14-daytime.js */
   party:['kaitlyn'], allies:{},          /* who fights (up to 3); allies' own stats */
@@ -21,6 +21,9 @@ const G={
   diff:'normal',                         /* DIFFICULTY, from the Settings tab */
   slot:1,                                /* which save slot this game lives in */
   lore:{beat:{},fish:{}},                /* pests beaten (times) and fish caught ({n,best cm}), for the Lore tab */
+  rod:0,
+  jogMode:'hold', jogOn:false,
+  names:{},                              /* names the player has given (id: name) */           /* how B jogs (with the Sturdy Boots): JOG_MODES */                                 /* which rod and reel she has (RODS in 18-fishing.js; 0: none yet) */
 };
 /* Difficulty: spawn scales how often pests turn up on the map, hp and atk their HP and
    attack in battle. */
@@ -29,6 +32,11 @@ const DIFFICULTY={
   normal:{name:"Normal",spawn:1,   hp:1,  atk:1,   about:"The garden as it was meant to be."},
   hard:  {name:"Hard",  spawn:1,   hp:1.5,atk:1.5, about:"Pests have half again as much HP and hit half again as hard."}};
 const DIFF_ORDER=['easy','normal','hard'];
+/* Jogging (with the Sturdy Boots on): hold B to jog, hold B to walk, or B switches */
+const JOG_MODES={hold:"Hold B to jog",walk:"Hold B to walk",toggle:"B switches"}, JOG_ORDER=['hold','walk','toggle'];
+const jogWanted=()=>{ const held=btnBHeld||keys['h']||keys['escape']||keys['shift'];
+  return G.jogMode==='walk'?!held:G.jogMode==='toggle'?G.jogOn:held; };
+const jogging=()=>gearOn('boots')&&!G.swim&&jogWanted();
 const diff=()=>DIFFICULTY[G.diff]||DIFFICULTY.normal;
 /* the equipped flute's power (FLUTE_INFO) */
 const fluteMul=()=>(FLUTE_INFO[G.flute||'recorder']||{mul:1}).mul;
@@ -55,11 +63,21 @@ const PARTY_MAX=3, HURT_DAYS=2;
 const STATS=['hp','mp','str','agi','def','int','luk'];
 const STAT_NAME={hp:"HP",mp:"MP",str:"Strength",agi:"Agility",def:"Defense",int:"Intelligence",luk:"Luck"};
 const PARTY_INFO={
-  kaitlyn:{name:"Kaitlyn", skills:"Skills", attack:"Quick Kick", pow:0.55, role:"Gardener · plays the golden flute",
+  kaitlyn:{name:"Kaitlyn", skills:"Skills", attack:"Quick Kick", pow:0.55, role:"Gardener · plays the flute · talks to her tomatoes, and they listen",
            base:{hp:30,mp:16,str:6,agi:6,def:4,int:7,luk:5}, grow:{hp:6,mp:2,str:2,agi:1.4,def:1.3,int:2,luk:1}},
-  bling:  {name:"Bling",   skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite",
+  bling:  {name:"Bling",   skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite · small, shy, and secretly very brave",
            base:{hp:24,mp:8,str:3,agi:9,def:3,int:5,luk:7}, grow:{hp:4,mp:1.5,str:1,agi:2,def:1,int:1.5,luk:1.5}},
 };
+/* names: the ones they start with, and any the player has given them */
+const BORN_NAMES={}; for(const id in PARTY_INFO) BORN_NAMES[id]=PARTY_INFO[id].name;
+function applyNames(){ for(const id in PARTY_INFO) PARTY_INFO[id].name=(G.names&&G.names[id])||BORN_NAMES[id]; }
+function renameMember(id){
+  const v=prompt("A new name for "+PARTY_INFO[id].name+":",PARTY_INFO[id].name);
+  if(v===null) return;
+  const n=v.trim().slice(0,12);
+  if(!n){ say("Names can't be blank."); return; }
+  G.names[id]=n; applyNames(); say("From now on, "+n+"!"); autoSave();
+}
 const member=id=>id==='kaitlyn'?G.player:G.allies[id];
 function statOf(id,k,lv){ const I=PARTY_INFO[id]; lv=lv||member(id).lv;
   return Math.floor(I.base[k]+I.grow[k]*(lv-1)+1e-9); }
@@ -123,7 +141,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,
+    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.jogMode,nm:G.names,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
 }
@@ -139,10 +157,14 @@ function applySave(o){
   for(const id in G.allies){ const A=G.allies[id];          /* older saves had no EXP for friends */
     if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; A.maxhp=statOf(id,'hp'); }
   P.maxhp=statOf('kaitlyn','hp');
+  G.jogMode=o.jm||'hold';
+  G.names=o.nm||{}; applyNames();
   G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};
   G.lore=o.lr||{beat:{},fish:{}};
+  /* saves from before rods were sold: anyone who has fished keeps a starter rod */
+  G.rod=o.rd!==undefined?o.rd:Object.keys(G.lore.fish).length||Object.keys(G.goods).some(k=>GOODS[k]&&GOODS[k].kind==='fish')?1:0;
   /* saves from before the Lore tab: the fish in the bag were surely caught */
   for(const k in G.goods) if(GOODS[k]&&GOODS[k].kind==='fish'&&G.goods[k]>0&&!G.lore.fish[k]) G.lore.fish[k]={n:G.goods[k],best:0};
   /* a place whose layout changed since the save: don't leave her stuck in a tree */
