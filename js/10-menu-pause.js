@@ -1,5 +1,5 @@
 /* ================================================================
-   PAUSE MENU: party, status, skills, items, gear, save
+   PAUSE MENU: party, status, skills, items, gear, settings, save
    ================================================================ */
 function bonusLines(){
   const L=[];
@@ -117,12 +117,17 @@ function eatCrop(sp,id){
    the tabs closes the menu). Status and Skills show one member at a time: left/right
    (or the arrows by the name) changes who. */
 let sys={tab:0,idx:0,focus:'tabs',who:0,top:0};
-const SYSTABS=['Party','Status','Skills','Items','Gear','Save'];
-const SAVE_ACTIONS=["Copy save code","Paste a save code","Save in this browser"];
-const SYSW={page:{x:8,y:8,w:256,h:464}, tab:{x:270,y:8,w:82,h:34,step:40}, info:{x:270,y:256,w:82,h:216}};
+const SYSTABS=['Party','Status','Skills','Items','Gear','Settings','Save'];
+const SAVE_ACTIONS=["Copy save code","Paste a save code","Save now","Quit to title"];
+const SYSW={page:{x:8,y:8,w:256,h:464}, tab:{x:270,y:8,w:82,h:31,step:36}, info:{x:270,y:262,w:82,h:210}};
 /* rows start this far down the page (Status and Skills have a portrait above them) */
 const pageRowsY=()=>pagesWho()?92:SYSTABS[sys.tab]==='Party'?44:48;
 function openSys(){ if(G.cast) return; G.code=exportCode(); sys={tab:0,idx:0,focus:'tabs',who:0,top:0}; G.scene='sys'; }
+/* the Settings page: each row a choice that A (or left/right) steps through */
+const SETTINGS=[{id:'diff',name:"Difficulty",opts:DIFF_ORDER,label:v=>DIFFICULTY[v].name,
+  about:v=>DIFFICULTY[v].about,get:()=>G.diff,set:v=>{ G.diff=v; }}];
+function stepSetting(S,d){ const o=S.opts, i=o.indexOf(S.get());
+  S.set(o[(i+d+o.length)%o.length]); blip(520+o.indexOf(S.get())*80,.05,.1,'triangle'); autoSave(); }
 const allMembers=()=>['kaitlyn'].concat(Object.keys(G.allies));
 const whoId=()=>{ const L=allMembers(); return L[((sys.who%L.length)+L.length)%L.length]; };
 function ownedGearList(){ return GEAR.filter(g=>G.gear[g.id]&&g.id!=='silver'&&g.id!=='dizi'); }
@@ -136,9 +141,10 @@ function sysRows(){
   if(t==='Items') return {h:34,rows:cropList().map(sp=>({crop:sp})).concat(goodsList().map(k=>({good:k}))).concat(
     Object.keys(G.seeds).filter(k=>G.seeds[k]>0).map(sp=>({seed:sp})))};
   if(t==='Gear') return {h:34,rows:FLUTE_META.order.map(id=>({flute:id})).concat(ownedGearList().map(g=>({gear:g})))};
+  if(t==='Settings') return {h:44,rows:SETTINGS.map(S=>({set:S}))};
   return {h:44,rows:SAVE_ACTIONS.map((a,i)=>({save:i}))};
 }
-const footH=()=>['Status','Skills','Items','Gear'].includes(SYSTABS[sys.tab])?78:0;
+const footH=()=>['Status','Skills','Items','Gear','Settings'].includes(SYSTABS[sys.tab])?78:0;
 const rowsFit=()=>{ const R=sysRows(); return Math.max(1,Math.floor((SYSW.page.h-pageRowsY()-footH()-8)/R.h)); };
 function sysSee(i){ const n=rowsFit(); if(i<sys.top) sys.top=i; if(i>=sys.top+n) sys.top=i-n+1; }
 function sysSetTab(t){ sys.tab=(t+SYSTABS.length)%SYSTABS.length; sys.idx=0; sys.top=0; }
@@ -158,10 +164,12 @@ function sysActivate(i){
   } else if(t==='Items'){
     const k=R.crop||(R.good?'g:'+R.good:null); if(!k) return;
     if(R.good&&!goodEffect(R.good)){ eatGood(R.good); return; }
-    /* something that helps one person: choose who (if there's a choice) */
+    /* something that helps one person: choose who (if there's a choice); anything else
+       is asked about first */
     if(oneTarget(k)&&G.party.length>1){ sys.pick={k,idx:0}; return; }
-    feed(k,'kaitlyn');
+    sys.ask={k,idx:0};
   }
+  else if(t==='Settings') stepSetting(R.set,1);
   else if(t==='Gear'){
     if(R.flute){ const id=R.flute;
       if(fluteOwned(id)){ G.flute=id; say(FLUTE_INFO[id].name+" equipped."); if(AC) flute(11,AC.currentTime,.3,.5); }
@@ -174,7 +182,8 @@ function sysActivate(i){
     else if(i===1){ const s=prompt("Paste your save code:");
       if(s){ if(importCode(s)){ say("Game loaded!"); G.scene='world'; setMusic(areaMusic()); }
              else say("That code didn't work."); } }
-    else { autoSave(); say("Saved in this browser."); G.scene='world'; }
+    else if(i===2){ autoSave(); say("Saved in slot "+G.slot+"."); G.scene='world'; }
+    else { autoSave(); toTitle(); }
   }
 }
 const pagesWho=()=>SYSTABS[sys.tab]==='Status'||SYSTABS[sys.tab]==='Skills';
@@ -183,7 +192,9 @@ function oneTarget(k){
   const e=isGoodKey(k)?goodEffect(k.slice(2)):EAT[k];
   return !!e&&!!(e.hp||e.mp);
 }
-function feed(k,id){ sys.pick=null; if(isGoodKey(k)) eatGood(k.slice(2),id); else eatCrop(k,id); }
+function feed(k,id){ sys.pick=null; sys.ask=null; if(isGoodKey(k)) eatGood(k.slice(2),id); else eatCrop(k,id); }
+/* a window over the page (who has it, or are you sure) */
+const modal=()=>sys.pick||sys.ask;
 /* move the highlight, stepping over section headings */
 function sysStep(d){ const L=sysRows().rows, n=L.length; if(!n) return;
   for(let g=0;g<n;g++){ sys.idx=(sys.idx+d+n)%n; if(!L[sys.idx].head) break; }
@@ -196,6 +207,11 @@ function sysKey(k){
     else if(isOk(k)) feed(sys.pick.k,P[sys.pick.idx]);
     else if(isBack(k)) sys.pick=null;
     return; }
+  if(sys.ask){
+    if(isUp(k)||isDown(k)) sys.ask.idx=1-sys.ask.idx;
+    else if(isOk(k)){ if(sys.ask.idx===0) feed(sys.ask.k,'kaitlyn'); else sys.ask=null; }
+    else if(isBack(k)) sys.ask=null;
+    return; }
   if(sys.focus==='tabs'){
     if(isUp(k)) sysSetTab(sys.tab-1);
     else if(isDown(k)) sysSetTab(sys.tab+1);
@@ -207,6 +223,7 @@ function sysKey(k){
   if(isUp(k)&&n) sysStep(-1);
   else if(isDown(k)&&n) sysStep(1);
   else if((isLeft(k)||isRight(k))&&pagesWho()){ sys.who+=isLeft(k)?-1:1; sys.idx=0; sys.top=0; }
+  else if((isLeft(k)||isRight(k))&&SYSTABS[sys.tab]==='Settings'){ const R=sysRows().rows[sys.idx]; if(R) stepSetting(R.set,isLeft(k)?-1:1); }
   else if(isOk(k)) sysActivate(sys.idx);
   else if(isBack(k)) sys.focus='tabs';
   else if(k==='m') G.scene='world';
@@ -217,6 +234,10 @@ function sysTouch(x,y){
   if(sys.pick){ const j=Math.floor((y-PICK.y-40)/PICK.row);
     if(x>PICK.x&&x<PICK.x+PICK.w&&j>=0&&j<G.party.length){ if(sys.pick.idx===j) feed(sys.pick.k,G.party[j]); else sys.pick.idx=j; }
     else sys.pick=null;
+    return; }
+  if(sys.ask){ const j=Math.floor((y-PICK.y-40)/PICK.row);
+    if(x>PICK.x&&x<PICK.x+PICK.w&&j===0) feed(sys.ask.k,'kaitlyn');
+    else sys.ask=null;
     return; }
   if(x>=T.x&&x<=T.x+T.w&&y>=T.y&&y<T.y+SYSTABS.length*T.step){ sysSetTab(Math.floor((y-T.y)/T.step)); sys.focus='tabs'; return; }
   if(x<P.x||x>P.x+P.w||y<P.y||y>P.y+P.h) return;
@@ -243,6 +264,7 @@ function sysFoot(){
                                :[SPECIES[R.seed].name+" seed  x"+G.seeds[R.seed],"Plant it in an empty garden spot."];
   if(t==='Gear') return R.flute?[FLUTE_INFO[R.flute].name,"Songs x"+FLUTE_INFO[R.flute].mul.toFixed(2)+(fluteOwned(R.flute)?(G.flute===R.flute?" · equipped":" · A to equip"):" · not owned yet")]
                                :[R.gear.name+(gearOn(R.gear.id)?"  ·  on":"  ·  off"),cap(R.gear.desc)+". A to switch "+(gearOn(R.gear.id)?"off.":"on.")];
+  if(t==='Settings'){ const S=R.set; return [S.name+":  "+S.label(S.get()),S.about(S.get())+(IS_TOUCH?"  Tap again to change.":"  ◀ ▶ or J to change.")]; }
   if(t==='Party'&&R.id) return null;
   return null;
 }
@@ -276,14 +298,19 @@ function drawSys(){
   });
   if(t==='Status'){ const id=whoId(), M=member(id);
     gauge(P.x+20,P.y+pageRowsY()+STATS.length*R.h+12,P.w-40,6,M.xp,M.next,'#f0c84a','#fff0b0'); }
+  /* a window over the page: the page dims behind it, and its words are left out below */
+  if(modal()){ b.fillStyle='rgba(4,6,20,.6)'; b.fillRect(0,BAND_TOP(),LW,BAND_BOT()-BAND_TOP()); }
+  if(sys.ask){ rpgWin({x:PICK.x,y:PICK.y,w:PICK.w,h:48+2*PICK.row+22});
+    winCursor(PICK.x+6,PICK.y+40+sys.ask.idx*PICK.row,PICK.w-12,PICK.row-2); }
   if(sys.pick){ const h=48+G.party.length*PICK.row; rpgWin({x:PICK.x,y:PICK.y,w:PICK.w,h});
     winCursor(PICK.x+6,PICK.y+40+sys.pick.idx*PICK.row,PICK.w-12,PICK.row-2);
     G.party.forEach((id,i)=>{ const M=member(id), y=PICK.y+40+i*PICK.row;
       gauge(PICK.x+150,y+12,110,5,M.hp,M.maxhp,'#e8504a','#ffa8a0'); gauge(PICK.x+150,y+26,110,5,M.mp,memberMaxMp(id),'#4aa8f0','#b0e0ff'); }); }
-  if(footH()) rpgWin({x:P.x+6,y:P.y+P.h-footH()-4,w:P.w-12,h:footH()});
+  if(footH()&&!modal()) rpgWin({x:P.x+6,y:P.y+P.h-footH()-4,w:P.w-12,h:footH()});
   blit();
+  if(modal()){ drawModalWords(); return; }      /* the dimmed page's words stay hidden */
   /* words */
-  SYSTABS.forEach((n,i)=>TS(n,T.x+T.w/2,T.y+i*T.step+22,20,i===sys.tab?'#ffe08a':'#e4e8ff','center',i===sys.tab));
+  SYSTABS.forEach((n,i)=>TS(n,T.x+T.w/2,T.y+i*T.step+21,n.length>6?17:20,i===sys.tab?'#ffe08a':'#e4e8ff','center',i===sys.tab));
   TS(G.coins+"c",I.x+I.w-8,I.y+24,22,'#ffe08a','right',true);
   TS(SEASON_NAME[season()],I.x+8,I.y+52,17,'#c8d4ff');
   TS("Day "+G.day,I.x+8,I.y+72,17,'#c8d4ff');
@@ -327,17 +354,16 @@ function drawSys(){
         TS(eq?"equipped":own?"":"locked",P.x+P.w-12,y+21,15,eq?'#b8f0a0':'#7c84b0','right'); }
       else { const on=gearOn(r.gear.id); TS(r.gear.name,P.x+66,y+21,19,on?'#f4f6ff':'#7c84b0',null,sel);
         TS(on?"on":"off",P.x+P.w-12,y+21,15,on?'#b8f0a0':'#ff9a8a','right',true); } }
+    else if(t==='Settings'){ const S=r.set;
+      TS(S.name,P.x+38,y+28,20,'#f4f6ff',null,sel);
+      TS("◀  "+S.label(S.get())+"  ▶",P.x+P.w-14,y+28,19,'#ffe08a','right',true); }
     else TS(SAVE_ACTIONS[r.save],P.x+P.w/2+10,y+28,21,'#f4f6ff','center',sel);
   });
   if(t==='Items'&&!R.rows.length) TS("Nothing yet — harvest some crops!",P.x+P.w/2,P.y+90,17,'#aab6e8','center');
   if(t==='Gear'&&!ownedGearList().length) TS("Accessories you buy show up here.",P.x+P.w/2,rowY(3)+22,16,'#aab6e8','center');
-  if(t==='Save') TS("Lv."+G.player.lv+" · "+G.coins+"c · "+SEASON_NAME[season()]+" Day "+G.day,P.x+P.w/2,P.y+210,17,'#c8d4ff','center');
+  if(t==='Save') TS("Slot "+G.slot+" · Lv."+G.player.lv+" · "+G.coins+"c · "+SEASON_NAME[season()]+" Day "+G.day,P.x+P.w/2,P.y+250,17,'#c8d4ff','center');
   if(t==='Status'){ const id=whoId(), M=member(id), y=P.y+pageRowsY()+STATS.length*R.h+8;
     TS("EXP "+M.xp+" / "+M.next+" to Lv."+(M.lv+1),P.x+20,y,17,'#ffe08a',null,true); }
-  if(sys.pick){ TS("Who has the "+itemName(sys.pick.k)+"?",PICK.x+PICK.w/2,PICK.y+26,20,'#f4f6ff','center',true);
-    G.party.forEach((id,i)=>{ const M=member(id), y=PICK.y+40+i*PICK.row;
-      TS(PARTY_INFO[id].name,PICK.x+38,y+22,20,'#f4f6ff',null,i===sys.pick.idx);
-      TS(M.hp+"/"+M.maxhp,PICK.x+PICK.w-14,y+10,13,'#ffb0a8','right'); TS(M.mp+"/"+memberMaxMp(id),PICK.x+PICK.w-14,y+38,13,'#a8d8ff','right'); }); }
   if(sys.top>0) TS("▲",P.x+P.w-20,P.y+pageRowsY()-4,14,'#c8d4ff','center');
   if(sys.top+fit<R.rows.length) TS("▼",P.x+P.w-20,P.y+P.h-footH()-10,14,'#c8d4ff','center');
   const f=footH()&&(sys.focus==='list'?sysFoot():null);
@@ -346,4 +372,15 @@ function drawSys(){
       wrapLines(f[1],15,P.w-36).slice(0,3).forEach((ln,i)=>TS(ln,P.x+16,fy+41+i*15,15,'#c8d4ff')); }
     else TS(IS_TOUCH?"Tap a row to see it; tap again to use it.":"Press J to look closer.",P.x+P.w/2,fy+44,15,'#8a94c4','center'); }
   if(G.msgT>0) TS(G.msg,P.x+P.w/2,P.y+P.h-(footH()?footH()+14:12),15,'#ffe08a','center');
+}
+/* the words of the window over the page */
+function drawModalWords(){
+  if(sys.ask){ const k=sys.ask.k, e=isGoodKey(k)?goodEffect(k.slice(2)):EAT[k];
+    TS((isGoodKey(k)&&GOODS[k.slice(2)].kind==='food'?"Use the ":"Eat the ")+itemName(k)+"?",PICK.x+PICK.w/2,PICK.y+26,20,'#f4f6ff','center',true);
+    ["Yes","No"].forEach((t,i)=>TS(t,PICK.x+48,PICK.y+40+i*PICK.row+25,21,'#f4f6ff',null,i===sys.ask.idx));
+    TS(isGoodKey(k)?effText(e):eatText(k),PICK.x+PICK.w/2,PICK.y+48+2*PICK.row+8,15,'#b8f0a0','center'); }
+  if(sys.pick){ TS("Who has the "+itemName(sys.pick.k)+"?",PICK.x+PICK.w/2,PICK.y+26,20,'#f4f6ff','center',true);
+    G.party.forEach((id,i)=>{ const M=member(id), y=PICK.y+40+i*PICK.row;
+      TS(PARTY_INFO[id].name,PICK.x+38,y+22,20,'#f4f6ff',null,i===sys.pick.idx);
+      TS(M.hp+"/"+M.maxhp,PICK.x+PICK.w-14,y+10,13,'#ffb0a8','right'); TS(M.mp+"/"+memberMaxMp(id),PICK.x+PICK.w-14,y+38,13,'#a8d8ff','right'); }); }
 }

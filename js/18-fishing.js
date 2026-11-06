@@ -6,10 +6,13 @@
    (drag it up); with keys hold J or Space to reel and W / up to pull. Pulling the
    rod back yanks the fish a good way closer (pump it: pull, ease down while
    reeling, pull again) but both tighten the line, and the fish fights back in
-   bursts: let the line snap (tension in the red too long) or go slack and it's
-   gone. The usual pad and buttons are hidden here; Stop is top right.
+   bursts, running line out. Past DRAG the reel's drag lets line slip instead of
+   breaking it, so a snap is rare; a slack line (stop reeling) loses it. The usual pad and buttons are hidden here; Stop is top right.
    ================================================================ */
-const FISH_MIN=15, HOOK_MS=900, SNAP_MS=650, SLACK_MS=2600;
+const FISH_MIN=15, HOOK_MS=900, SNAP_MS=2000, SLACK_MS=2600;
+/* the reel's drag: past this tension the line slips out instead of breaking; the scale
+   of the tension gauge (it only snaps above 1, held there for SNAP_MS) */
+const DRAG=0.85, T_MAX=1.15;
 const REEL={x:286,r:54}, ROD={x:62,h:84}, FSTOP={x:LW-70,y:14,w:60,h:26};
 let FS=null;
 /* the reel sits near the bottom right of the screen, where a thumb can reach it */
@@ -70,7 +73,7 @@ function updateFishing(dt){
     const g=GOODS[FS.fish], s=dt/1000;
     /* how hard she's reeling: finger turns per second, or the key held */
     const key=keys['j']||keys[' ']||keys['enter'];
-    const want=key?0.85:clamp(FS.spin/s/14,0,1.5); FS.spin=0;
+    const want=key?0.9:clamp(FS.spin/s/18,0,1.5); FS.spin=0;
     FS.reel+= (want-FS.reel)*Math.min(1,s*8);
     if(key) FS.ang+=s*9;
     /* the rod: raising it pulls the fish in, lowering it doesn't push it back */
@@ -81,8 +84,11 @@ function updateFishing(dt){
     /* the fish: a steady tug, with bursts that get stronger the bigger it is */
     FS.burst-=dt; if(FS.burst<=-ri(900,2400)/g.power) FS.burst=ri(500,1100);
     FS.pull=g.power*(FS.burst>0?0.9:0.3+0.15*Math.sin(FS.t/300));
-    FS.dist=clamp(FS.dist-(FS.reel*0.3*s+yank*0.22)*(1.15-FS.pull*0.3)+FS.pull*0.05*s,0,1.3);
-    const target=FS.reel*0.62+FS.pull*0.42+FS.lift*0.32;
+    /* the fish runs (harder in a burst), reeling and pulling the rod bring it in */
+    let target=FS.reel*0.45+FS.pull*0.35+FS.lift*0.25, slip=0;
+    if(target>DRAG){ slip=(target-DRAG)*0.3*s; target=DRAG+(target-DRAG)*0.3; }      /* the drag gives */
+    FS.slipping=slip>0;
+    FS.dist=clamp(FS.dist-(FS.reel*0.42*s+yank*0.22)*(1.15-FS.pull*0.3)+FS.pull*0.11*s+slip,0,1.3);
     FS.tension+=(target-FS.tension)*Math.min(1,s*3);
     FS.snapT=FS.tension>1?FS.snapT+dt:Math.max(0,FS.snapT-dt*2);
     FS.slackT=FS.tension<0.12?FS.slackT+dt:0;
@@ -135,8 +141,9 @@ function drawFishing(dt){
   if(FS.phase==='reel'){
     const gx=16, gy=170, gh=180;
     b.fillStyle='#0a0f2a'; b.beginPath(); b.roundRect(gx-2,gy-2,18,gh+4,6); b.fill();
-    [['#d84a3a',0,0.2],['#e8c84a',0.2,0.38],['#5ac85a',0.38,0.85],['#e8c84a',0.85,1]].forEach(([c,a,z])=>{ b.fillStyle=c; b.fillRect(gx,gy+a*gh,14,(z-a)*gh); });
-    const ty=gy+(1-clamp(FS.tension/1.05,0,1))*gh; b.fillStyle='#ffffff'; b.fillRect(gx-4,ty-2,22,4);
+    const at=t=>1-t/T_MAX;          /* a tension's place on the gauge, top = tight */
+    [['#d84a3a',0,at(1)],['#e8c84a',at(1),at(DRAG)],['#5ac85a',at(DRAG),at(0.15)],['#e8c84a',at(0.15),1]].forEach(([c,a,z])=>{ b.fillStyle=c; b.fillRect(gx,gy+a*gh,14,(z-a)*gh); });
+    const ty=gy+clamp(at(FS.tension),0,1)*gh; b.fillStyle='#ffffff'; b.fillRect(gx-4,ty-2,22,4);
     gauge(70,T0+60,220,8,1.3-FS.dist,1.3,'#8fe07a','#e0ffd0');
   }
   /* the reel to wind */
@@ -174,6 +181,7 @@ function drawFishing(dt){
     TS(IS_TOUCH?"wind the reel":"hold J / Space to reel",REEL.x,reelY()+REEL.r+22,15,'#e8eef8','center');
     TS(IS_TOUCH?"pull the rod ▲":"W / ↑ to pull the rod",IS_TOUCH?ROD.x:ROD.x+40,reelY()+REEL.r+22,15,'#e8eef8','center');
     if(FS.tension>1) say2("Too tight — ease off!",T0+90,20,'#ff8a7a');
+    else if(FS.slipping) say2("Zzzz! The drag gives — keep reeling!",T0+90,20,'#ffe08a');
     else if(FS.tension<0.15) say2("The line's slack — reel!",T0+90,20,'#ffe08a'); }
   else if(FS.phase==='caught'){ const g=GOODS[FS.fish];
     say2("You caught a "+g.name+"!",190,24,'#ffe08a'); say2(FS.size+" cm · sells for "+goodsPrice(FS.fish)+"c",222,18,'#c8d4ff');

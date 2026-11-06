@@ -58,8 +58,7 @@ function padRepeat(dt){
   else if(d&&(padRep-=dt)<=0){ padRep=PAD_EVERY; onPress(d); }
 }
 function onTouch(x,y,id,hy){
-  if(G.scene==='title'){ if(!titleWoken){ titleMusic(); return; }
-    const by=BAND_BOT()-104; if(y>by&&y<by+36) openSys(); else startGame(); return; }   /* the Load button (drawTitle) */
+  if(G.scene==='title'){ if(!titleWoken){ titleMusic(); return; } titleTouch(x,y); return; }
   if(G.scene==='rhythm'){ rhythmTouch(x,y,id); return; }
   if(G.scene==='battle'){ battleTouch(x,y); return; }
   if(G.scene==='menu'){ menuTouch(x,y); return; }
@@ -92,7 +91,7 @@ function setPad(x,y){ const dx=x-PAD.cx,dy=y-PAD.cy,mm=Math.hypot(dx,dy)||1;
   padAmp = clamp((mm-7)/(PAD.r*0.8-7),0,1); }
 function onPress(k){
   if(G.scene==='title'&&!titleWoken){ initAudio(); titleMusic(); }    /* the first press wakes the music */
-  else if(G.scene==='title'&&isOk(k)) startGame();
+  else if(G.scene==='title') titleKey(k);
   else if(G.scene==='world'&&(isOk(k)||k==='e')) interact();
   else if(G.scene==='world'&&k==='m') openSys();
   else if(G.scene==='menu') menuKey(k);

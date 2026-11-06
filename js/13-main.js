@@ -67,7 +67,7 @@ function drawTitle(){
   /* a dark band behind the words at the bottom */
   const fade=b.createLinearGradient(0,bot-110,0,bot); fade.addColorStop(0,'rgba(10,16,12,0)'); fade.addColorStop(1,'rgba(10,16,12,.7)');
   b.fillStyle=fade; b.fillRect(0,bot-110,LW,110);
-  b.fillStyle='rgba(20,28,22,.55)'; b.beginPath(); b.roundRect(90,bot-104,180,34,8); b.fill();   /* the Load button */
+  if(titleWoken) drawTitleMenuBack(bot);
   blit();
   const ta=clamp((G.t-titleT0-600)/1400,0,1), ty=top+66+(1-ta)*10;
   m.globalAlpha=ta;
@@ -75,10 +75,122 @@ function drawTitle(){
   TO("Garden Song",180,ty+40,54,'#ffcf3a','center',true,2);
   TS("play the golden flute · grow the garden",180,ty+68,22,'#fff6e0','center');
   m.globalAlpha=1;
-  T("Load a save code",180,bot-81,26,'#e8dcc0','center',true);
-  if(Math.floor(G.t/500)%2===0) TS(titleWoken?"TAP ANYWHERE TO BEGIN":"♪  TAP TO START  ♪",180,bot-36,28,'#f7f0dc','center',true);
+  if(titleWoken) drawTitleMenuWords(bot);
+  else if(Math.floor(G.t/500)%2===0) TS("♪  TAP TO START  ♪",180,bot-36,28,'#f7f0dc','center',true);
   TS(IS_TOUCH?"move: stick    act: A    back: B":"move: stick / WASD    act: A / J / space    back: H / esc",
     180,bot-16,20,'#b8d0b0','center');
+}
+/* ---------- the title's menu ----------
+   Once the music is awake: Continue (the slot played last), New Game, Load Game and
+   pasting a save code. New Game, Load Game and the code open the slot list (TM.mode
+   'slots', TM.for which), where a slot that's already in use asks before it's started
+   over (TM.ask). */
+let TM={mode:'main',idx:0,ask:null,for:null,err:null};
+function titleItems(){
+  const L=[];
+  if(SLOTS[lastSlot-1]) L.push({id:'continue',name:"Continue"});
+  L.push({id:'new',name:"New Game"});
+  if(SLOTS.some(s=>s)) L.push({id:'load',name:"Load Game"});
+  L.push({id:'code',name:"Load a save code"});
+  return L;
+}
+const TBTN={x:70,w:220,h:32,step:40};
+const tbtnY=(bot,i,n)=>bot-34-(n-i)*TBTN.step;
+const TSLOT={x:20,w:320,row:50,top:44};
+const tslotY=bot=>bot-34-(TSLOT.top+(SAVE_SLOTS+1)*TSLOT.row+10);
+const TASK={x:40,w:280,h:120};
+const taskY=bot=>tslotY(bot)+40;
+function titleKey(k){
+  if(TM.ask){
+    if(isUp(k)||isDown(k)||isLeft(k)||isRight(k)) TM.ask.idx=1-TM.ask.idx;
+    else if(isOk(k)){ const n=TM.ask.n; if(TM.ask.idx===0) slotChosen(n); TM.ask=null; }
+    else if(isBack(k)) TM.ask=null;
+    return; }
+  const n=TM.mode==='main'?titleItems().length:SAVE_SLOTS+1;
+  if(isUp(k)) TM.idx=(TM.idx+n-1)%n;
+  else if(isDown(k)) TM.idx=(TM.idx+1)%n;
+  else if(isOk(k)) titlePick(TM.idx);
+  else if(isBack(k)&&TM.mode==='slots'){ TM={mode:'main',idx:0,ask:null}; }
+}
+function titleTouch(x,y){
+  const bot=BAND_BOT();
+  if(TM.ask){ const Y=taskY(bot);
+    if(y>Y+TASK.h-46&&y<Y+TASK.h-10&&x>TASK.x&&x<TASK.x+TASK.w){ const yes=x<TASK.x+TASK.w/2, n=TM.ask.n; TM.ask=null; if(yes) slotChosen(n); }
+    else TM.ask=null;
+    return; }
+  if(TM.mode==='main'){ const L=titleItems();
+    L.forEach((it,i)=>{ const Y=tbtnY(bot,i,L.length); if(x>TBTN.x&&x<TBTN.x+TBTN.w&&y>Y&&y<Y+TBTN.h){ TM.idx=i; titlePick(i); } });
+    return; }
+  const Y=tslotY(bot), j=Math.floor((y-Y-TSLOT.top)/TSLOT.row);
+  if(x>TSLOT.x&&x<TSLOT.x+TSLOT.w&&j>=0&&j<=SAVE_SLOTS){ TM.idx=j; titlePick(j); }
+  else TM={mode:'main',idx:0,ask:null};
+}
+function titlePick(i){
+  TM.err=null;
+  if(TM.mode==='main'){ const it=titleItems()[i]; if(!it) return;
+    blip(520,0.04,0.08,'triangle');
+    if(it.id==='continue'){ beginSlot(lastSlot,'load'); return; }
+    const empty=SLOTS.findIndex(s=>!s), used=SLOTS.findIndex(s=>s);
+    TM={mode:'slots',for:it.id,ask:null,idx:it.id==='load'?Math.max(0,used):Math.max(0,empty)};
+    return; }
+  if(i===SAVE_SLOTS){ TM={mode:'main',idx:0,ask:null}; return; }          /* Back */
+  const n=i+1, used=!!SLOTS[i];
+  if(TM.for==='load'){ if(used) beginSlot(n,'load'); else blip(150,.08,.2); return; }
+  if(used){ TM.ask={n,idx:1}; return; }                                    /* start over in a used slot? */
+  slotChosen(n);
+}
+/* a slot for a new game, or for a pasted code */
+function slotChosen(n){
+  if(TM.for==='new'){ beginSlot(n,'fresh'); return; }
+  const s=prompt("Paste your save code:"); if(!s) return;
+  if(importCode(s)) beginSlot(n,'have'); else { TM.err="That code didn't work."; blip(150,.08,.2); }
+}
+/* play slot n: load it, start it fresh, or keep the game just pasted in */
+function beginSlot(n,how){
+  G.slot=n; lastSlot=n; storeSet('kgs7_last',String(n));
+  TM={mode:'main',idx:0,ask:null};
+  if(how==='load'){ autoLoad().then(()=>startGame()); return; }
+  if(how==='fresh') newGameState();
+  startGame(); autoSave();
+}
+/* back to the title (from the menu's Save tab): the slots are read again */
+function toTitle(){
+  G.scene='title'; titleT0=null; TM={mode:'main',idx:0,ask:null};
+  readSlots(); titleMusic();
+}
+const slotText=s=>s?"Lv."+s.lv+" · "+SEASON_NAME[seasonOf(s.day)]+", Day "+s.day+" · "+s.coins+"c":"Empty";
+function drawTitleMenuBack(bot){
+  if(TM.mode==='main'){ const L=titleItems();
+    L.forEach((it,i)=>{ const Y=tbtnY(bot,i,L.length);
+      b.fillStyle=i===TM.idx?'rgba(255,214,110,.35)':'rgba(20,28,22,.6)'; b.beginPath(); b.roundRect(TBTN.x,Y,TBTN.w,TBTN.h,8); b.fill(); });
+    return; }
+  const Y=tslotY(bot);
+  rpgWin({x:TSLOT.x,y:Y,w:TSLOT.w,h:TSLOT.top+(SAVE_SLOTS+1)*TSLOT.row+10});
+  winCursor(TSLOT.x+6,Y+TSLOT.top+TM.idx*TSLOT.row,TSLOT.w-12,TSLOT.row-4);
+  if(TM.ask){ const A=taskY(bot); b.fillStyle='rgba(4,6,20,.55)'; b.fillRect(0,BAND_TOP(),LW,bot-BAND_TOP());
+    rpgWin({x:TASK.x,y:A,w:TASK.w,h:TASK.h});
+    [0,1].forEach(i=>{ const bx=TASK.x+14+i*(TASK.w/2-7);
+      b.fillStyle=i===TM.ask.idx?'rgba(255,214,110,.35)':'rgba(150,180,255,.15)'; b.beginPath(); b.roundRect(bx,A+TASK.h-44,TASK.w/2-21,34,6); b.fill(); }); }
+}
+function drawTitleMenuWords(bot){
+  if(TM.mode==='main'){ const L=titleItems();
+    L.forEach((it,i)=>{ const Y=tbtnY(bot,i,L.length);
+      TS(it.name,180,Y+23,24,i===TM.idx?'#ffe08a':'#f7f0dc','center',true); });
+    if(TM.err) TS(TM.err,180,tbtnY(bot,0,L.length)-10,17,'#ff9a8a','center');
+    return; }
+  const Y=tslotY(bot);
+  if(TM.ask){ const A=taskY(bot);
+    TS("Start over in Slot "+TM.ask.n+"?",180,A+30,22,'#f4f6ff','center',true);
+    TS("The game saved there will be erased.",180,A+52,16,'#ffb0a8','center');
+    ["Yes, start over","No"].forEach((t,i)=>TS(t,TASK.x+14+i*(TASK.w/2-7)+(TASK.w/2-21)/2,A+TASK.h-21,18,i===TM.ask.idx?'#ffe08a':'#f4f6ff','center',true));
+    return; }                               /* the slot list's words stay hidden behind it */
+  TS(TM.for==='load'?"Load which game?":TM.for==='new'?"Start a new game in…":"Put the pasted game in…",TSLOT.x+14,Y+28,22,'#f4f6ff',null,true);
+  SLOTS.forEach((s,i)=>{ const y=Y+TSLOT.top+i*TSLOT.row;
+    TS("Slot "+(i+1),TSLOT.x+40,y+20,21,'#f4f6ff',null,i===TM.idx);
+    TS(slotText(s),TSLOT.x+40,y+38,16,s?'#c8d4ff':'#7c84b0');
+    if(s&&i+1===lastSlot) TS("last played",TSLOT.x+TSLOT.w-14,y+20,14,'#ffe08a','right'); });
+  TS("Back",TSLOT.x+40,Y+TSLOT.top+SAVE_SLOTS*TSLOT.row+28,21,'#c8d4ff',null,TM.idx===SAVE_SLOTS);
+  if(TM.err) TS(TM.err,180,Y-10,17,'#ff9a8a','center');
 }
 const AREA_SCENES=['world','sys','shop','menu','tshop','ask','fishing','story','levelup'];
 let last=performance.now();
@@ -141,6 +253,8 @@ function boot(){
   if(assetsReady<IMG_TOTAL){ drawLoading(); requestAnimationFrame(boot); return; }
   booted=true;
   buildWorld();
+  FRESH_SAVE=saveObj();                    /* a new game starts from exactly this */
+  readSlots();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(boot);

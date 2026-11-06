@@ -18,7 +18,17 @@ const G={
   story:{},                              /* how far each story has got; see 16-story.js */
   daily:{},                              /* once-a-day things: the day each was last done */
   area:'garden', goods:{}, gearOff:{},              /* where she is (17-places.js); things gathered and caught */
+  diff:'normal',                         /* DIFFICULTY, from the Settings tab */
+  slot:1,                                /* which save slot this game lives in */
 };
+/* Difficulty: spawn scales how often pests turn up on the map, hp and atk their HP and
+   attack in battle. */
+const DIFFICULTY={
+  easy:  {name:"Easy",  spawn:0.75,hp:1,  atk:0.75,about:"Pests turn up a quarter less often and hit a quarter softer."},
+  normal:{name:"Normal",spawn:1,   hp:1,  atk:1,   about:"The garden as it was meant to be."},
+  hard:  {name:"Hard",  spawn:1,   hp:1.5,atk:1.5, about:"Pests have half again as much HP and hit half again as hard."}};
+const DIFF_ORDER=['easy','normal','hard'];
+const diff=()=>DIFFICULTY[G.diff]||DIFFICULTY.normal;
 /* the equipped flute's power (FLUTE_INFO) */
 const fluteMul=()=>(FLUTE_INFO[G.flute||'recorder']||{mul:1}).mul;
 /* an accessory works when it's owned and not switched off in the Gear tab */
@@ -112,7 +122,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,
+    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
 }
@@ -128,7 +138,7 @@ function applySave(o){
   for(const id in G.allies){ const A=G.allies[id];          /* older saves had no EXP for friends */
     if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; A.maxhp=statOf(id,'hp'); }
   P.maxhp=statOf('kaitlyn','hp');
-  G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{};
+  G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};
   /* a place whose layout changed since the save: don't leave her stuck in a tree */
@@ -139,14 +149,36 @@ function applySave(o){
 }
 function importCode(s){ try{ return applySave(JSON.parse(decodeURIComponent(escape(atob(s.trim()))))); }catch(e){ return false; } }
 /* Saves go to Claude's artifact storage when the game runs as an artifact, and to
-   this browser's localStorage everywhere else (a website, or python serve.py). */
-function autoSave(){
-  try{ if(window.storage){ window.storage.set('kgs7',exportCode()).catch(()=>{}); return; } }catch(e){}
-  try{ localStorage.setItem('kgs7',exportCode()); }catch(e){}
+   this browser's localStorage everywhere else (a website, or python serve.py). There are
+   SAVE_SLOTS games side by side; slot 1 keeps the key the single save always had, and
+   kgs7_last remembers the one played last. */
+const SAVE_SLOTS=3, slotKey=n=>n>1?'kgs7_'+n:'kgs7';
+function storeGet(k){
+  try{ if(window.storage) return window.storage.get(k).then(r=>r&&r.value||null).catch(()=>null); }catch(e){}
+  try{ return Promise.resolve(localStorage.getItem(k)); }catch(e){ return Promise.resolve(null); }
 }
-function autoLoad(){
-  try{ if(window.storage){ window.storage.get('kgs7')
-    .then(r=>{ if(r&&r.value) importCode(r.value); }).catch(()=>{}); return; } }catch(e){}
-  try{ const s=localStorage.getItem('kgs7'); if(s) importCode(s); }catch(e){}
+function storeSet(k,v){
+  try{ if(window.storage){ window.storage.set(k,v).catch(()=>{}); return; } }catch(e){}
+  try{ localStorage.setItem(k,v); }catch(e){}
+}
+function autoSave(){ storeSet(slotKey(G.slot||1),exportCode()); }
+/* load this slot's game (resolves true if there was one) */
+function autoLoad(){ return storeGet(slotKey(G.slot||1)).then(s=>!!(s&&importCode(s))); }
+/* what's in each slot, for the title screen: null (empty) or {lv,day,coins} */
+const SLOTS=Array(SAVE_SLOTS).fill(null); let lastSlot=1;
+function peekSave(s){
+  try{ const o=JSON.parse(decodeURIComponent(escape(atob(s.trim())))); if(!o||o.v!==7) return null;
+    return {lv:o.p[0],coins:o.c,day:o.t?o.t[0]:1}; }catch(e){ return null; }
+}
+function readSlots(){
+  return Promise.all(SLOTS.map((_,i)=>storeGet(slotKey(i+1)))).then(L=>{ L.forEach((s,i)=>SLOTS[i]=s?peekSave(s):null); })
+    .then(()=>storeGet('kgs7_last')).then(v=>{ const n=+v;
+      lastSlot=n>=1&&n<=SAVE_SLOTS&&SLOTS[n-1]?n:(SLOTS.findIndex(x=>x)+1||1); });
+}
+/* a brand-new game: the state everything starts in (taken before anything loads) */
+let FRESH_SAVE=null;
+function newGameState(){
+  applySave(JSON.parse(JSON.stringify(FRESH_SAVE)));
+  G.pests=[]; LV_UPS.length=0; G.cast=null; G.swim=false; G.msgT=0;
 }
 setInterval(()=>{ if(G.scene==='world') autoSave(); },15000);

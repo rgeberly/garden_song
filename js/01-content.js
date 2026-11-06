@@ -71,7 +71,8 @@ const sellPrice=sp=>Math.round(SPECIES[sp].value*(G.yard.arch?1.15:1));
      double. pow scales its attack; st a status it may leave (chance p): poison,
      blind, sleep, weak, scared; drain heals it by that share of the damage; miss a
      chance to miss. fx is the effect drawn (see drawFoeFx). lv: the level it turns up
-   at (stats grow from there, see pestStats); fly: hovers in battle; about: its flavor. */
+   at (stats grow from there, see pestStats); fly: hovers in battle; size: drawn bigger (the HOA
+   President towers over Kaitlyn); about: its flavor. */
 const PESTS={
   beetle :{name:"Dung Beetle",  hp:26, atk:4, def:3, agi:3,  xp:14, coin:5, min:1, col:'#a8781e',lv:1,
           about:"Rolls its lunch around all day. Proud of it, too.",skills:[
@@ -105,7 +106,7 @@ const PESTS={
     {name:"Pinch",kind:'hit',pow:1,w:3,fx:'pinch'},
     {name:"Shell Up",kind:'guard',w:1,fx:'shell'},
     {name:"Claw Crush",kind:'hit',pow:1.5,w:1,fx:'pinch'}]},
-  crow   :{name:"Spiteful Crow",hp:36, atk:7, def:3, agi:11, xp:28, coin:11,min:3, col:'#3a5aa8',lv:4,fly:true,
+  crow   :{name:"Spiteful Crow",hp:36, atk:7, def:3, agi:11, xp:28, coin:11,min:3, col:'#3a5aa8',lv:4,
           about:"Clever, petty and remembers your face. Forever.",skills:[
     {name:"Peck",kind:'hit',pow:1,w:3,fx:'peck'},
     {name:"Mocking Caw",kind:'hit',pow:0.4,w:2,st:'blind',p:0.8,fx:'caw'},
@@ -126,7 +127,7 @@ const PESTS={
     {name:"Spectral Grasp",kind:'hit',pow:1.1,w:3,drain:0.5,fx:'chill'},
     {name:"Curse",kind:'hit',pow:0.5,w:1,st:'weak',p:1,fx:'curse'},
     {name:"Gather Gloom",kind:'charge',w:1,fx:'gloom'}]},
-  hoa    :{name:"HOA President",hp:130,atk:12,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,lv:12,
+  hoa    :{name:"HOA President",hp:130,atk:12,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,size:1.4,lv:12,
           about:"Clipboard in hand and a bylaw for everything. Even your gnomes.",skills:[
     {name:"Citation",kind:'hit',pow:1.2,w:3,fx:'paper'},
     {name:"Noise Complaint",kind:'all',pow:0.8,w:2,fx:'megaphone'},
@@ -248,11 +249,12 @@ const M_HOA={O:'#2b1c12',v:'#2f6fc4',h:'#6b4a2a',F:'#f2cd9e',s:'#1a1410',
 /* a pest out in the garden: its battle picture, small, with a little bob (ghosts float) */
 /* a pest on the garden map; flip: facing right (the art faces left) */
 function drawPestWorld(c,sp,x,y,t,flip){
-  const P=PESTS[sp], bob=Math.abs(Math.sin(t/180+x))*(P.night?3:1.5);
-  c.globalAlpha=.25; c.fillStyle='#1a2810'; c.beginPath(); c.ellipse(x,y,9,3,0,0,7); c.fill();
+  const P=PESTS[sp], bob=Math.abs(Math.sin(t/180+x))*(P.fly?3:1.5), lift=P.fly?8:0, s=P.boss?0.72:0.36;
+  /* its shadow: cast along the ground, or for a flyer a soft patch below it */
+  groundShadow(c,cc=>{ if(flip) cc.scale(-1,1); drawEnemyArt(cc,sp,0,0,s); },x,y,P.boss?20:9,lift);
   c.globalAlpha=P.night?.85:1;
   c.save(); if(flip){ c.translate(x,0); c.scale(-1,1); c.translate(-x,0); }
-  if(!drawEnemyArt(c,sp,x,y-bob-(P.night?6:0),P.boss?0.42:0.36)) px(c,x-6,y-8,12,8,P.col);
+  if(!drawEnemyArt(c,sp,x,y-bob-lift,s)) px(c,x-6,y-8,12,8,P.col);
   c.restore(); c.globalAlpha=1;
 }
 

@@ -52,7 +52,7 @@ const PLACES={
             [0,245,100,260],[585,470,135,150],[0,560,330,160],[0,500,60,60],[240,530,120,60],[370,630,110,90],
             [620,620,100,100],[660,330,60,140]],
     exits:[{x:505,y:705,r:40,to:'garden',label:"Back to the garden"}],
-    arrive:{garden:{x:505,y:672,dir:0}},
+    arrive:{garden:{x:505,y:650,dir:0}},
     people:[
       {name:"Mabel",x:132,y:262,col:'#c8584a',hair:'#e8e0d0',shop:'cafe',
        lines:["Welcome to the café, dear! Something warm for the road?"]},
@@ -75,7 +75,7 @@ const PLACES={
     cliffs:true, pond:{x:800,y:1420,rx:120,ry:70}, plaza:{x:810,y:230,r:64},
     trees:[],                                     /* filled in by mountainTrees() */
     exits:[{x:540,y:1790,r:40,to:'garden',label:"Back to the garden"}],
-    arrive:{garden:{x:540,y:1755,dir:0}},
+    arrive:{garden:{x:540,y:1728,dir:0}},
     gather:[[470,1700],[610,1560],[250,1500],[380,1380],[250,1240],[420,1110],[640,1230],[850,1120],
             [690,950],[860,900],[560,780],[350,880],[370,640],[520,560],[640,450],[880,520],[730,300],
             [900,300],[180,1660],[960,1640]],
@@ -100,7 +100,10 @@ const areaSize=()=>{ const P=G.area!=='garden'&&PLACES[G.area]; return [placeW(P
   }
 })();
 /* where each place's door back to the garden leaves you in the garden */
-const GARDEN_ARRIVE={town:{x:226,y:96,dir:2}, mountain:{x:288,y:44,dir:4}};
+const GARDEN_ARRIVE={town:{x:100,y:104,dir:2}, mountain:{x:306,y:44,dir:4}};
+/* A path out (a garden zone, a place's exit) takes her through once she has stepped off
+   it: she arrives standing on one, and shouldn't bounce straight back. */
+let exitArmed=false;
 /* the garden's way out to each place (garden px), with its prompt */
 const GARDEN_EXITS=[{x:214,y:96,r:22,to:'town',label:"Path to town"},{x:288,y:30,r:22,to:'mountain',label:"Trail to the mountain"}];
 
@@ -109,7 +112,7 @@ function goTo(area){
   travel(()=>{
     const from=G.area; G.area=area; G.swim=false;
     const a=area==='garden'?GARDEN_ARRIVE[from]:PLACES[area].arrive.garden;
-    G.player.x=a.x; G.player.y=a.y; G.player.dir=a.dir; G.player.moving=false;
+    G.player.x=a.x; G.player.y=a.y; G.player.dir=a.dir; G.player.moving=false; exitArmed=false;
     if(area==='mountain') gatherToday();
   });
 }
@@ -165,7 +168,6 @@ function placeInteract(){
 }
 function placeLabel(){
   const R=PROMPT_REACH;
-  if(nearPlaceExit(R)) return nearPlaceExit(R).label;
   const who=nearPerson(R); if(who) return who.shop?who.name+" (shop)":who.name;
   if(nearGather(R)>=0) return "Gather";
   if(nearPond(R)) return season()==='winter'?"Frozen":"Fish";
@@ -175,6 +177,10 @@ function updatePlace(dt){
   if(updateCast(dt)) return;
   walk(dt,WALK_SPEED,(x,y)=>placeSolid(x,y+9));
   const [W,H]=areaSize(), P=G.player; P.x=clamp(P.x,21,W-21); P.y=clamp(P.y,24,H-30);
+  /* the way back to the garden is a path: walking onto it takes her home */
+  const ex=nearPlaceExit();
+  if(ex&&exitArmed){ goTo(ex.to); return; }
+  if(!ex) exitArmed=true;
   for(const k of ['coffeeT','snackT','calmT','lureT']) if(G[k]>0) G[k]=Math.max(0,G[k]-dt);
   if(G.msgT>0) G.msgT-=dt;
 }

@@ -81,9 +81,8 @@ function spawnWild(){
 }
 function drawWild(c,w,cam){
   const x=w.x-cam.x, y=w.y+Math.sin(w.t/w.per)*w.amp-cam.y;
-  /* a faint shadow on the ground below */
-  c.globalAlpha=w.bird?.18:.1; c.fillStyle='#2b3a20';
-  c.beginPath(); c.ellipse(x,w.y-cam.y+24,w.bird?8:5,w.bird?3:2,0,0,7); c.fill(); c.globalAlpha=1;
+  /* a soft shadow on the ground below */
+  groundShadow(c,null,x,w.y-cam.y+24,w.bird?10:6,24);
   const F=typeof CREATURE_ART!=='undefined'&&CREATURE_ART[w.kind];
   if(F&&IMG_CREATURES.complete&&IMG_CREATURES.naturalWidth){
     const [sx,sy,fw,fh]=F[Math.floor(w.t/(creatureKind(w.kind).cycle/F.length))%F.length];
@@ -140,6 +139,32 @@ function drawMap(cam){
 }
 const inPool=(x,y)=> x>POOL.x+F(.02)&&x<POOL.x+POOL.w-F(.02)&&
                      y>POOL.y+F(.02)&&y<POOL.y+POOL.h-F(.01);
+/* Walk-through zones (maps/transitions, as assets/sprites/garden_zones.png on the walls'
+   grid): 1 the path to town, 2 the trail to the mountain, 3 the house door. Walking into
+   a path takes her there; the door still waits for A. */
+let ZONES=null;
+(function loadZones(){
+  if(typeof GARDEN_ZONES==='undefined'||!GARDEN_ZONES) return;
+  const im=new Image();
+  im.onload=()=>{ const C=MAP_META.cells, cv=document.createElement('canvas'); cv.width=cv.height=C;
+    const g=cv.getContext('2d'); g.imageSmoothingEnabled=false; g.drawImage(im,0,0,C,C);
+    const d=g.getImageData(0,0,C,C).data, Z=new Uint8Array(C*C);
+    for(let i=0,j=0;i<Z.length;i++,j+=4){ const r=d[j], gr=d[j+1], bl=d[j+2];
+      Z[i]=r>200&&gr<80?1:r>200&&gr>150?2:bl>200&&r<80?3:0; }
+    ZONES=Z; };
+  im.src='assets/sprites/garden_zones.png';
+})();
+function zoneAt(x,y){
+  if(!ZONES) return 0;
+  const C=MAP_META.cells, cx=Math.floor(x/WORLD_W*C), cy=Math.floor(y/WORLD_H*C);
+  return cx<0||cy<0||cx>=C||cy>=C?0:ZONES[cy*C+cx];
+}
+/* the zone under her feet, or a little ahead of her while she's walking (the trail's zone
+   is right at the map's edge, where she can't quite stand) */
+function herZone(reach){
+  const P=G.player, fx=P.x, fy=P.y+9, r=reach||24;
+  return zoneAt(fx,fy)||(P.moving?zoneAt(fx+(P.aimX||0)*r,fy+(P.aimY||0)*r):0);
+}
 function solidAt(x,y){
   if(x<8||y<8||x>WORLD_W-8||y>WORLD_H-8) return true;
   for(const id in DECOR_SOLID){ if(!G.yard[id]) continue;

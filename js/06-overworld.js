@@ -1,8 +1,9 @@
 /* ================================================================
    WORLD SCENE
    ================================================================ */
+/* into the garden with whatever game is loaded (see the title's menu in 13-main.js) */
 function startGame(){ G.scene='world'; initMusic(); setMusic(areaMusic());
-  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); partyImg(); autoLoad(); }
+  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); partyImg(); }
 /* "near" checks take a reach factor: 1 for what A/J acts on, PROMPT_REACH for when the
    overhead prompt shows, so prompts only appear once she is right beside something */
 const PROMPT_REACH=0.5;
@@ -16,7 +17,8 @@ function nearestPlot(f=1){
 const nearestFrog=(f=1)=>FROGS.find(fr=>Math.hypot(fr.x-G.player.x,fr.y-G.player.y)<32*f);
 const nearestPest=()=>G.pests.find(p=>Math.hypot(p.x-G.player.x,p.y-G.player.y)<26);
 const nearStall=(f=1)=>Math.hypot(STALL.x-G.player.x,STALL.y+6-G.player.y)<44*f;
-const nearDoor=(f=1)=>Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y)<46*f;
+const nearDoor=(f=1)=>ZONES?herZone(10*f)===3||zoneAt(G.player.x,G.player.y+9-8*f)===3
+                          :Math.hypot(HOUSE_DOOR.x-G.player.x,HOUSE_DOOR.y-G.player.y)<46*f;
 function interact(){
   if(G.cast) return;                       /* mid-song */
   if(G.area!=='garden'){ placeInteract(); return; }
@@ -24,7 +26,7 @@ function interact(){
   if(nearBling()){ talkBling(); return; }
   if(nearStall()){ openShop(); return; }
   if(nearDoor()){ travel(enterHouse); return; }
-  const way=nearGardenExit(); if(way){ goTo(way.to); return; }
+  const way=!ZONES&&nearGardenExit(); if(way){ goTo(way.to); return; }
   if(G.swim){ G.party.forEach(id=>member(id).mp=memberMaxMp(id)); say("Music Points fully restored!"); return; }
   const frog=nearestFrog();
   if(frog){
@@ -104,7 +106,7 @@ function walk(dt,speed,blocked){
   dx+=padVec.x; dy+=padVec.y;
   const mm=Math.hypot(dx,dy);
   if(mm>0.15){
-    dx/=mm; dy/=mm;
+    dx/=mm; dy/=mm; P.aimX=dx; P.aimY=dy;
     /* boosts (boots, coffee, a snack); on the touch pad they grow with how far it's pushed */
     const boost=(gearOn('boots')?1.35:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1);
     const onPad=padId!==null&&!(keys['w']||keys['a']||keys['s']||keys['d']||keys['arrowup']||keys['arrowdown']||keys['arrowleft']||keys['arrowright']);
@@ -135,6 +137,10 @@ function updateWorld(dt){
   const P=G.player;
   walk(dt,WALK_SPEED,(x,y)=>solidAt(x,y+9));
   P.x=clamp(P.x,21,WORLD_W-21); P.y=clamp(P.y,24,WORLD_H-30);
+  /* walking down the path to town or up the trail takes her there */
+  const z=herZone();
+  if((z===1||z===2)&&exitArmed){ goTo(z===1?'town':'mountain'); return; }
+  if(z!==1&&z!==2) exitArmed=true;
   const wasSwim=G.swim;
   G.swim=season()!=='winter'&&inPool(P.x,P.y+9);   /* frozen in winter: she walks on the ice */
   if(G.swim&&!wasSwim){ say("Ahh. Music Points restoring..."); blip(500,0.12,0.15,'sine'); }
@@ -145,7 +151,7 @@ function updateWorld(dt){
   /* lantern and lemongrass keep pests away, muscadine draws them in */
   const pestMul=(G.yard.lantern?1.4:1)*(G.calmT>0?2:1)*(G.lureT>0?0.5:1);
   G.pestTimer-=dt;
-  if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul; spawnPest(); }
+  if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul/diff().spawn; spawnPest(); }
   const meanLv=G.party.reduce((a,id)=>a+member(id).lv,0)/G.party.length;
   for(const p of G.pests){
     if(Math.hypot(p.x-P.x,p.y-(P.y+6))<20){ startBattle(p); return; }
@@ -191,6 +197,8 @@ function camera(){ const vh=VIEW_H/WORLD_ZOOM, [W,H]=areaSize();
           y:clamp(Math.round(G.player.y-vh/2+15),0,H-vh)}; }
 /* where a world point lands in the garden view, in logical screen px */
 const toView=(wx,wy,cam)=>[(wx-cam.x)*WORLD_ZOOM,(wy-cam.y)*WORLD_ZOOM];
+/* how wide the soft patch under each yard decoration is (garden px) */
+const DECOR_SHADOW_W={fountain:22,arch:28,lantern:12,bath:14};
 function drawWorld(){
   if(G.area!=='garden'){ drawPlace(); return; }
   if(G.indoors){ drawHouse(); return; }
@@ -210,11 +218,14 @@ function drawWorld(){
       if(!p.tree) drawSoil(b,x,y);
       if(p.dead) drawRuined(b,x,y,p.tree);
       else if(p.sp){ if(p.sungDay===G.day) drawSungGlow(b,p,x,y);
+        if(p.stage>0) groundShadow(b,c=>drawPlant(c,0,0,p.sp,p.stage,p.tree),x,y,p.tree?14:8);
         drawPlant(b,x,y,p.sp,p.stage,p.tree);
         drawMeter(b,x,y+(p.tree?26:14),p.growth/plantNeed(p),p.stage>=3);
         if(p.sungDay===G.day) drawSungNote(b,p,x,y); } }}); });
   Object.keys(DECOR_SPOT).forEach(id=>{ if(!G.yard[id])return;
-    const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>drawDecor(b,id,x-cam.x,y-cam.y,G.t)}); });
+    const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>{
+      groundShadow(b,c=>drawDecor(c,id,0,0,G.t),x-cam.x,y-cam.y,DECOR_SHADOW_W[id]||16);
+      drawDecor(b,id,x-cam.x,y-cam.y,G.t); }}); });
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k)}));
   G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face)}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
@@ -225,6 +236,7 @@ function drawWorld(){
     drawBlingMap(b,sx,sy,BLING_W,bl.mood,bl.flip,bl.moving); b.restore(); }});
   /* the market stand stands over the painted table; drawn goods until its picture loads */
   ents.push({y:STAND_AT.y,f:()=>{
+    if(cropsReady()&&CROP_ART.stand) groundShadow(b,c=>drawCropArt(c,'stand',0,0),STAND_AT.x-cam.x,STAND_AT.y-cam.y,40);
     if(drawCropArt(b,'stand',STAND_AT.x-cam.x,STAND_AT.y-cam.y)) return;
     const x=STALL.x-cam.x,y=STALL.y-cam.y;
     px(b,x-16,y-10,32,10,'#6b4a2a'); px(b,x-16,y-10,32,2,'#8f6a3c');
@@ -282,7 +294,7 @@ function drawWorld(){
   if(nearBling(R)) label=blingLabel();
   else if(nearStall(R)) label="Shop";
   else if(nearDoor(R)) label="Go inside";
-  else if(nearGardenExit(R)) label=nearGardenExit(R).label;
+  else if(!ZONES&&nearGardenExit(R)) label=nearGardenExit(R).label;
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
   else if(p) label=p.dead?"Clear":!p.sp?"Plant":p.stage>=3?"Harvest":p.growth>=plantNeed(p)?"Ripe tomorrow":p.sungDay===G.day?"Sung today":"Play song";

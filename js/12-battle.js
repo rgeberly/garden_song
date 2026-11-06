@@ -26,8 +26,10 @@ function startBattle(pest){
   /* friends of the pest may tag along: one more for each extra member, half the time */
   const kinds=[pest.species];
   if(!boss) for(let i=1;i<party.length;i++) if(Math.random()<0.5){ const pool=pestPool(); kinds.push(pool[ri(0,pool.length-1)]); }
+  const D=diff();                      /* the Settings tab's difficulty */
   const foes=kinds.map((sp,i)=>{ const lv=i?pestLevel(sp):(pest.lv||PESTS[sp].lv), S=pestStats(sp,lv);
-    return {sp,lv,...S,maxhp:S.hp,hp:i?S.hp:Math.min(S.hp,pest.hp||S.hp),name:PESTS[sp].name,boss:!!PESTS[sp].boss,
+    S.hp=Math.round(S.hp*D.hp); S.atk*=D.atk;
+    return {sp,lv,...S,maxhp:S.hp,hp:S.hp,name:PESTS[sp].name,boss:!!PESTS[sp].boss,
             slot:i,st:{},fade:0,flash:0,shake:0}; });
   /* two of a kind get letters */
   foes.forEach(f=>{ const same=foes.filter(g=>g.sp===f.sp); if(same.length>1) f.name+=" "+"ABC"[same.indexOf(f)]; });
@@ -51,7 +53,7 @@ const headOf=id=>slotOf(id).y-(id==='kaitlyn'?110:36);
 function slotOf(id){ const [x,y]=FORMATION[B.party.length][Math.max(0,B.party.indexOf(id))]; return {x,y}; }
 /* where a foe stands: feet, size and how high it hovers */
 function foeSpot(f){ const n=B.foes.length, [x,y]=FOE_FORM[n][f.slot];
-  return {x,y,s:FOE_SCALE[n],lift:PESTS[f.sp].fly?FLY_LIFT:0}; }
+  return {x,y,s:FOE_SCALE[n]*(PESTS[f.sp].size||1),lift:PESTS[f.sp].fly?FLY_LIFT:0}; }
 /* point EX,EY (where hits and effects land) at a foe */
 function focus(f){ if(!f) return; const p=foeSpot(f); EX=p.x; EY=p.y-p.lift-52*p.s; }
 /* a foe's picture, as a box (taps, tags and the target pointer) */
@@ -459,7 +461,7 @@ function foeHits(f,sk,targets,charged){
 const SEED_LOOT=0.10, WIN_DELAY=250, WIN_FILL=900, WIN_GUARD=350;
 /* the victory window, along the bottom under the party: the rewards, then a row (name,
    level, EXP bar) for each one standing */
-const VW={top:26,step:30,foot:22};
+const VW={top:32,step:38,foot:30};
 const vwHeight=n=>VW.top+n*VW.step+VW.foot;
 function winFight(){
   if(B.over) return;
@@ -565,7 +567,7 @@ function drawMember(c,id,x,y,k){
    A sprite drawn (feet at 0,0) into a spare canvas and filled with one colour: laid
    flat on the ground for its shadow (the light is up and to the left, so it falls
    down and to the right), or over the sprite for a white flash. */
-const SHAPE=document.createElement('canvas'), shapeC=SHAPE.getContext('2d'), SHAPE_W=200, SHAPE_H=170, SHAPE_FX=100, SHAPE_FY=160;
+const SHAPE=document.createElement('canvas'), shapeC=SHAPE.getContext('2d'), SHAPE_W=200, SHAPE_H=200, SHAPE_FX=100, SHAPE_FY=190;
 function silhouette(draw,col){
   if(SHAPE.width!==SHAPE_W*SC){ SHAPE.width=SHAPE_W*SC; SHAPE.height=SHAPE_H*SC; }
   shapeC.setTransform(1,0,0,1,0,0); shapeC.globalCompositeOperation='source-over'; shapeC.globalAlpha=1;
@@ -933,7 +935,8 @@ function drawBattle(dt){
     const p=foeSpot(f), me=A&&A.foe===f, sh=f.shake>0?Math.round(Math.sin(G.t/25)*3):0;
     const eL=me&&!A.self?Math.round(Math.sin(k*Math.PI)*(A.fx==='dive'?-110:A.fx==='zoom'?-150:-38)):0;
     const eY=me&&A.fx==='dive'?Math.round(Math.sin(k*Math.PI)*(40+p.lift)):0;
-    const night=PESTS[f.sp].night, bob=Math.round(Math.sin(G.t/420+f.slot*2.1)*(p.lift?4:2));
+    /* ground pests stand still on their shadows; flyers hover and bob */
+    const night=PESTS[f.sp].night, bob=p.lift?Math.sin(G.t/420+f.slot*2.1)*4:0;
     const x=p.x+sh+eL, y=p.y-p.lift+bob+eY, art=c=>drawEnemyArt(c,f.sp,0,0,p.s);
     castShadow(art,x,p.y,p.lift-eY,0.36*(1-f.fade));
     b.globalAlpha=(1-f.fade)*(night?.88:1)*(me&&A.fx==='fade'?1-Math.sin(k*Math.PI)*0.7:1);

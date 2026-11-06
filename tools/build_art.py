@@ -376,6 +376,16 @@ def main():
     if gcol:
         m = cv2.imread(gcol, cv2.IMREAD_GRAYSCALE)
         cv2.imwrite(os.path.join(OUT, 'map_collision.png'), np.where(cv2.resize(m, (360, 360), interpolation=cv2.INTER_AREA) > 128, 255, 0).astype(np.uint8))
+    # walk-through zones: maps/transitions, painted over the walls (red: the path to town,
+    # yellow: the trail to the mountain, blue: the house door), saved on the walls' grid in
+    # pure colours for the game to read
+    tr = find_pic(os.path.join(SRC, 'maps', 'transitions'))
+    if tr:
+        t = cv2.imread(tr)[..., ::-1].astype(int)
+        z = np.zeros(t.shape[:2] + (3,), np.uint8)
+        for col, out in (((237, 28, 36), (0, 0, 255)), ((255, 201, 14), (0, 255, 255)), ((0, 162, 232), (255, 0, 0))):
+            z[np.abs(t - np.array(col)).sum(2) < 90] = out          # BGR
+        cv2.imwrite(os.path.join(OUT, 'garden_zones.png'), cv2.resize(z, (360, 360), interpolation=cv2.INTER_NEAREST))
     hcol = find_pic(os.path.join(SRC, 'maps', 'house_collision'))
     if hcol:
         m = cv2.imread(hcol, cv2.IMREAD_GRAYSCALE)
@@ -419,6 +429,7 @@ def main():
         fh.write('const ENEMY_ART=' + json.dumps(emeta, separators=(',', ':')) + ';\n')
         fh.write('const NOTE_ART=' + json.dumps(nmeta, separators=(',', ':')) + ';\n')
         fh.write('const PLACE_MAPS=' + json.dumps(pmaps, separators=(',', ':')) + ';\n')
+        fh.write('const GARDEN_ZONES=' + ('true' if tr else 'false') + ';\n')
         fh.write('const BACKDROPS=' + json.dumps(sorted(backs)) + ';\n')
         fh.write('const RHYTHM_BG=' + ('true' if bg else 'false') + ';\n')
         fh.write('const FRONT_LAYERS=' + json.dumps(fronts) + ';\n')
