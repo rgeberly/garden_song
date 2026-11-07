@@ -174,8 +174,16 @@ const daylight=()=>sunAt(G.clock/60).strength;
    The clock stays still while it is open. */
 let ask=null;
 function askSleep(){
-  ask={idx:0}; padVec={x:0,y:0}; padId=null; btnHeld=false; G.scene='ask';
+  ask={idx:0,kind:'sleep'}; padVec={x:0,y:0}; padId=null; btnHeld=false; G.scene='ask';
 }
+/* the same window at the music stand: the songs she knows, and what each is worth */
+function askStand(){
+  ask={idx:0,kind:'stand'}; padVec={x:0,y:0}; padId=null; btnHeld=false; G.scene='ask';
+}
+function standChoices(){
+  return knownSongs().map(s=>({id:'song',name:s.name,song:s})).concat([{id:'no',name:"Not now"}]);
+}
+const askChoices=()=>ask&&ask.kind==='stand'?standChoices():sleepChoices();
 function sleepChoices(){
   const L=[{id:'night',name:"Sleep till morning"}];
   if(G.clock<12*60-30) L.push({id:'nap',name:"Nap till noon",to:12*60});
@@ -184,37 +192,50 @@ function sleepChoices(){
   return L;
 }
 const ASK={x:40,y:70,w:280,top:92,row:40};
-const askH=()=>ASK.top+sleepChoices().length*ASK.row+10;
+const askRow=()=>ask&&ask.kind==='stand'?52:ASK.row;   /* songs get room for their EXP line */
+const askH=()=>ASK.top+askChoices().length*askRow()+10;
 function askKey(k){
-  const n=sleepChoices().length;
+  const n=askChoices().length;
   if(isUp(k)||isLeft(k)) ask.idx=(ask.idx+n-1)%n;
   else if(isDown(k)||isRight(k)) ask.idx=(ask.idx+1)%n;
-  else if(isOk(k)||k==='e') askAnswer(sleepChoices()[ask.idx]);
+  else if(isOk(k)||k==='e') askAnswer(askChoices()[ask.idx]);
   else if(isBack(k)) askAnswer(null);
 }
 /* how far the window is moved down to sit in the middle of a taller garden view */
 const askY=()=>Math.max(0,Math.round(VIEW_H/2-162));
 function askTouch(x,y){
   y-=askY();
-  const L=sleepChoices(), j=Math.floor((y-ASK.y-ASK.top)/ASK.row);
+  const L=askChoices(), j=Math.floor((y-ASK.y-ASK.top)/askRow());
   if(x>ASK.x+16&&x<ASK.x+ASK.w-16&&j>=0&&j<L.length){ if(ask.idx===j) askAnswer(L[j]); else ask.idx=j; }
   else if(!(x>ASK.x&&x<ASK.x+ASK.w&&y>ASK.y&&y<ASK.y+askH())) askAnswer(null);
 }
 function askAnswer(c){ ask=null; G.scene='world';
-  if(c&&c.id==='night') goToSleep(false);
+  if(c&&c.id==='song') startPractice(c.song);
+  else if(c&&c.id==='night') goToSleep(false);
   else if(c&&c.id==='nap') goToSleep(false,c.to); }
 function drawAsk(){
   drawWorld();
   wipeBuf();
   b.globalAlpha=.45; px(b,0,0,LW,VIEW_H,'#0d1410'); b.globalAlpha=1;
   b.save(); b.translate(0,askY()); m.save(); m.translate(0,askY()*SC);
-  const L=sleepChoices();
+  const L=askChoices(), stand=ask.kind==='stand', tired=stand&&G.daily.practice===G.day;
   panel(ASK.x,ASK.y,ASK.w,askH());
-  L.forEach((c,i)=>{ const on=ask.idx===i, x=ASK.x+16, y=ASK.y+ASK.top+i*ASK.row, w=ASK.w-32, h=ASK.row-6;
+  L.forEach((c,i)=>{ const on=ask.idx===i, x=ASK.x+16, y=ASK.y+ASK.top+i*askRow(), w=ASK.w-32, h=askRow()-6;
     px(b,x,y,w,h,on?'#a8781e':'#2b1c12');
     px(b,x+2,y+2,w-4,h-4,c.id==='no'?'#e2d3ae':'#c8d8f0');
     if(on){ px(b,x+2,y+2,w-4,3,'#fff3c0'); fluteCursor(x+26,y+h/2); } });
   blit();
+  if(stand){
+    T("Practice which song?",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
+    T(tired?"You've practiced today. Come back tomorrow!":"Practice once a day for EXP.",LW/2,ASK.y+54,19,tired?'#9a4a2a':'#6a5a3a','center');
+    T(PRACTICE_SONGS.some(s=>!songKnown(s))?"Rosa's store in town sells sheet music.":"More songs to come as sheet music in town.",LW/2,ASK.y+73,16,'#7a6a4a','center');
+    L.forEach((c,i)=>{ const y=ASK.y+ASK.top+i*askRow()+20;
+      if(c.id!=='song'){ T(c.name,LW/2+12,y+9,22,'#3a2a1a','center',true); return; }
+      const hrs=(c.song.min||60)/60;
+      T(c.name,ASK.x+50,y,21,tired?'#8a7a5a':'#3a2a1a','left',true);
+      T("up to "+practiceXp(1,c.song)+" EXP · "+(hrs===1?"1 hour":hrs+" hours"),ASK.x+50,y+18,17,tired?'#9a8a6a':'#3a4a6a','left'); });
+    b.restore(); m.restore(); return;
+  }
   const early=G.clock<=EARLY_BED, t=clockText();
   T("Time for bed?",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
   T("It's "+t.h+":"+t.mm+" "+t.ap+".",LW/2,ASK.y+54,20,'#6a5a3a','center');

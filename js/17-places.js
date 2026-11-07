@@ -401,7 +401,10 @@ const TOWN_SHOPS={
     {name:"Honey Bun",cost:28,desc:"Restores 20 HP to everyone in the party. Goes in your bag.",buy:()=>addGood('bun')}]},
   store:{title:"Rosa's General Store", items:()=>UNLOCK_ORDER.filter(s=>G.unlocked.includes(s)).map(s=>({
     name:SPECIES[s].name+" seed",cost:SPECIES[s].cost,desc:"Needs "+SPECIES[s].grow+" growth · best in "+SEASON_NAME[SPECIES[s].best]+". You have "+(G.seeds[s]||0)+".",
-    buy:()=>{ G.seeds[s]=(G.seeds[s]||0)+1; }}))},
+    buy:()=>{ G.seeds[s]=(G.seeds[s]||0)+1; }})).concat(
+    /* sheet music: a new song to practice at the music stand */
+    PRACTICE_SONGS.filter(s=>!songKnown(s)).map(s=>({name:"Sheet music: "+s.name,cost:s.cost,
+      desc:"A new song to practice at home: up to "+practiceXp(1,s)+" EXP a day.",buy:()=>{ G.sheets.push(s.id); }})))},
   tools:{title:"Hollis Tools", items:()=>{
     /* the next rod and reel up (one set at a time), then the garden gear */
     const n=(G.rod||0)+1, L=n<RODS.length?[{name:RODS[n].name,cost:RODS[n].cost,desc:RODS[n].about+(n===1?" You need one to fish.":""),

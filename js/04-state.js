@@ -23,6 +23,7 @@ const G={
   lore:{beat:{},fish:{}},                /* pests beaten (times) and fish caught ({n,best cm}), for the Lore tab */
   rod:0,
   jogMode:'hold', jogOn:false,
+  sheets:[],                             /* practice songs bought as sheet music (PRACTICE_SONGS ids) */
   names:{},                              /* names the player has given (id: name) */           /* how B jogs (with the Sturdy Boots): JOG_MODES */                                 /* which rod and reel she has (RODS in 18-fishing.js; 0: none yet) */
 };
 /* Difficulty: spawn scales how often pests turn up on the map, hp and atk their HP and
@@ -123,7 +124,9 @@ function addXpTo(id,n){
     if(AC){flute(14,AC.currentTime,.3,.7);flute(18,AC.currentTime+.12,.4,.7);flute(21,AC.currentTime+.24,.6,.7);}
   }
 }
-const addXp=n=>addXpTo('kaitlyn',n);
+/* EXP from the garden and the music stand goes to everyone in the party, so friends keep up */
+const addXp=n=>G.party.forEach(id=>addXpTo(id,n));
+const xpEach=n=>"+"+n+" EXP"+(G.party.length>1?" each":"");
 function addGardenXp(n){
   G.gardenXp+=n;
   while(G.gardenXp>=G.gardenNext){
@@ -141,7 +144,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.jogMode,nm:G.names,
+    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.jogMode,nm:G.names,sh:G.sheets,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
 }
@@ -159,6 +162,7 @@ function applySave(o){
   P.maxhp=statOf('kaitlyn','hp');
   G.jogMode=o.jm||'hold';
   G.names=o.nm||{}; applyNames();
+  G.sheets=o.sh||[];
   G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};

@@ -63,7 +63,7 @@ function harvest(plot){
     plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage>=3&&plotArea(p)===plotArea(plot)){ xp+=harvestOne(p); n++; } });
   } else { xp=harvestOne(plot); n=1; }
   G.player.mp=Math.min(maxMp(),G.player.mp+2*n);
-  say((n>1?"Harvested "+n+" crops!":"Harvested a "+name+"!")+"  +"+xp+" xp");
+  say((n>1?"Harvested "+n+" crops!":"Harvested a "+name+"!")+"  "+xpEach(xp));
   if(AC){flute(6,AC.currentTime,.3,.6);flute(11,AC.currentTime+.1,.35,.6);flute(14,AC.currentTime+.2,.5,.6);}
   autoSave();
 }

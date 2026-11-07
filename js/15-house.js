@@ -70,17 +70,27 @@ const nearStand=()=>Math.hypot(G.player.x-HOUSE_STAND.x,G.player.y-HOUSE_STAND.y
 /* ---------- flute practice at the music stand ----------
    Once a day: the whole song, an hour of the day, and EXP worth about five fights
    with the pests about at her garden level, more the better she plays. */
-const PRACTICE_MIN=60;
-function practiceXp(acc){
+/* The songs she can practice. Each one's recordings go in the art folder as
+   rhythm/songs/practice_<file>_flute.wav and practice_<file>_backing.wav.
+   xp: times the usual practice EXP · min: minutes of the day it takes ·
+   cost: the price of its sheet music at Rosa's (0: she knows it from the start). */
+const PRACTICE_SONGS=[
+  {id:'croppies',name:"Grow Little Croppies",file:"Grow Little Croppies",xp:1,min:60,cost:0},
+];
+const songKnown=s=>!s.cost||G.sheets.includes(s.id);
+const knownSongs=()=>PRACTICE_SONGS.filter(songKnown);
+function practiceXp(acc,song){
   const L=Object.values(PESTS).filter(P=>!P.boss&&P.min<=G.gardenLv), avg=L.reduce((a,P)=>a+P.xp,0)/L.length;
-  return Math.round(5*avg*(0.3+acc*0.9));
+  return Math.round(5*avg*(0.3+acc*0.9)*((song&&song.xp)||1));
 }
-function startPractice(){
+/* the music stand opens a list of the songs she knows (askStand, in the bed's window) */
+function startPractice(song){
   if(G.daily.practice===G.day){ say("You've already practiced today. Your fingers need a rest!"); return; }
-  startRhythm(null,{practice:true,notes:0,name:"Practice: the garden song",mp:0,cb:(acc)=>{
+  const min=song.min||60;
+  startRhythm(null,{practice:true,notes:0,name:song.name,mp:0,cb:(acc)=>{
     G.daily.practice=G.day; G.scene='world';
-    const xp=practiceXp(acc); addXp(xp); passTime(PRACTICE_MIN);
-    say("An hour of practice ("+Math.round(acc*100)+"%): +"+xp+" EXP!"); autoSave(); }});
+    const xp=practiceXp(acc,song); addXp(xp); passTime(min);
+    say(song.name+" ("+Math.round(acc*100)+"%): "+xpEach(xp)+"!"); autoSave(); }});
 }
 /* a little wooden music stand with a page of music on it */
 function drawStand(x,y,k){
@@ -102,7 +112,7 @@ function drawStand(x,y,k){
 }
 function houseInteract(){
   if(nearBling()){ talkBling(); return; }
-  if(nearStand()){ startPractice(); return; }
+  if(nearStand()){ askStand(); return; }
   if(nearBed()){ askSleep(); return; }
   if(nearHouseDoor()){ travel(leaveHouse); return; }
   say("Home sweet home.");
