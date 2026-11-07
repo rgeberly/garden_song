@@ -83,11 +83,27 @@ function practiceXp(acc,song){
   const L=Object.values(PESTS).filter(P=>!P.boss&&P.min<=G.gardenLv), avg=L.reduce((a,P)=>a+P.xp,0)/L.length;
   return Math.round(5*avg*(0.3+acc*0.9)*((song&&song.xp)||1));
 }
+/* Song test: open the game with ?songtest on the end of its address, and the music stand
+   lists every recorded song (SONG_DATA) to play any number of times, for no EXP or time.
+   Autoplay hits every note, to hear how the notes line up with the recording. */
+const SONG_TEST=/[?&]songtest\b/.test(location.search);
+let songAuto=false;
+function songTitle(key){
+  if(key.startsWith('practice_')) return key.slice(9);
+  if(SPECIES[key]) return SPECIES[key].name+" (crop)";
+  const id=Object.keys(BATTLE_SONG).find(k=>BATTLE_SONG[k]===key), mv=id&&MOVES.find(m=>m.id===id);
+  const f=FIELD.find(f=>f.id===key);
+  return mv?mv.name+" (battle)":f?f.name+" (field)":key;
+}
+function testSong(key){
+  startRhythm(null,{practice:true,test:true,notes:0,name:songTitle(key),mp:0,song:key,
+    cb:acc=>{ G.scene='world'; say(songTitle(key)+": "+Math.round(acc*100)+"%"); }});
+}
 /* the music stand opens a list of the songs she knows (askStand, in the bed's window) */
 function startPractice(song){
   if(G.daily.practice===G.day){ say("You've already practiced today. Your fingers need a rest!"); return; }
   const min=song.min||60;
-  startRhythm(null,{practice:true,notes:0,name:song.name,mp:0,cb:(acc)=>{
+  startRhythm(null,{practice:true,notes:0,name:song.name,mp:0,song:'practice_'+song.file,cb:(acc)=>{
     G.daily.practice=G.day; G.scene='world';
     const xp=practiceXp(acc,song); addXp(xp); passTime(min);
     say(song.name+" ("+Math.round(acc*100)+"%): "+xpEach(xp)+"!"); autoSave(); }});

@@ -96,12 +96,32 @@ function fullStemChart(){
   notes.sort((a,z)=>a.t-z.t);
   return {notes,end:(P[P.length-1].b-off)*1000+1500,offset:off,stem:true,beat:600,bpm:100};
 }
+/* A song with its own recordings: all of its flute notes, on the lanes worked out when
+   it was built, starting a moment before the first note. */
+function songChart(D){
+  const off=Math.max(0,D.n[0].t-2.2);
+  const notes=D.n.map((n,i)=>{
+    const aStart=n.t, aEnd=n.t+n.d, t=(aStart-off)*1000, nx=D.n[Math.min(D.n.length-1,i+1)];
+    /* a held note lets go a moment before the next note in its lane, so there's time to press again */
+    const same=D.n.slice(i+1).find(q=>q.l===n.l), dur=Math.min(n.d*1000,same?(same.t-n.t)*1000-160:1e9);
+    if(n.d>=0.42&&dur>=300&&i<D.n.length-1)
+      return {t,lane:n.l,semi:n.s,type:'hold',dur,endLane:nx.l,done:false,score:0,reqLane:n.l,aStart,aEnd};
+    return {t,lane:n.l,semi:n.s,type:'tap',done:false,aStart,aEnd};
+  });
+  /* the count-in keeps the song's own beat (doubled or halved into a comfortable pace) */
+  let beat=60000/(D.bpm||100); while(beat<450) beat*=2; while(beat>750) beat/=2;
+  return {notes,end:(D.len-off)*1000+600,offset:off,stem:true,beat,bpm:60000/beat};
+}
+/* which song a rhythm game plays: the crop's, the battle song's, or the practice piece */
+const BATTLE_SONG={sprout:'sprout',lull:'lullaby',waltz:'waltz',req:'requiem',thorn:'nocturne',hymn:'hymn'};
+const songKey=(plot,bc)=>bc?bc.song:plot&&plot.sp;
 function startStemPlayback(chart,leadMs){
+  const SB=chart.bufs||STEM;               /* the song's own recordings, or the shared ones */
   const t0=AC.currentTime+leadMs/1000;     /* song time 0 lands after the count-in */
-  const bs=AC.createBufferSource(); bs.buffer=STEM.backing;
+  const bs=AC.createBufferSource(); bs.buffer=SB.backing;
   const bg=AC.createGain(); bg.gain.value=0.8;
   bs.connect(bg); bg.connect(master);
-  const fs=AC.createBufferSource(); fs.buffer=STEM.flute;
+  const fs=AC.createBufferSource(); fs.buffer=SB.flute;
   const fg=AC.createGain(); fg.gain.value=0.0001;
   fs.connect(fg); fg.connect(master);
   bs.start(t0,chart.offset); fs.start(t0,chart.offset);
@@ -130,7 +150,8 @@ function fluteOn(n){
 const STEM_WAIT=5000;
 function startRhythm(plot,bc,waited){
   initAudio();
-  if(STEM.loading&&(waited||0)<STEM_WAIT){
+  const D=songData(songKey(plot,bc)), SB=D&&loadSong(songKey(plot,bc));
+  if((D?SB&&!SB.ready&&!SB.failed:STEM.loading)&&(waited||0)<STEM_WAIT){
     if(!waited&&!bc) say("Tuning the flute...");
     setTimeout(()=>startRhythm(plot,bc,(waited||0)+150),150); return;
   }
@@ -138,9 +159,11 @@ function startRhythm(plot,bc,waited){
   const bpm=bc?112:96+G.gardenLv*2;
   const seed=(plot?plot.x*7+plot.y*13:917)+count*31;
   const haveFlute=typeof STEM_PHRASES!=='undefined'&&STEM_PHRASES.length, useStem=STEM.ready&&haveFlute;
-  const chart=!haveFlute?makeChart(bc&&bc.practice?64:count,seed,bc&&bc.practice?100:bpm)
+  const chart=D?songChart(D)
+             :!haveFlute?makeChart(bc&&bc.practice?64:count,seed,bc&&bc.practice?100:bpm)
              :bc&&bc.practice?fullStemChart():stemChart(count,seed);
-  if(!useStem) chart.stem=false;            /* hits play a drawn flute instead */
+  if(D){ if(SB&&SB.ready) chart.bufs=SB; else chart.stem=false; }
+  else if(!useStem) chart.stem=false;       /* hits play a drawn flute instead */
   /* Count-in: "3, 2, 1, Go!" one beat each, ending just before the first note
      starts to fall, so there is time to get your fingers on H J K L. */
   const first=chart.notes.length?chart.notes[0].t:0;
@@ -229,6 +252,9 @@ function updateRhythm(dt){
   if(!R_)return;
   if(R_.play&&AC) R_.time=(AC.currentTime-R_.play.t0)*1000;
   else R_.time+=dt;
+  /* song test autoplay: press each note right on time (and hold the long ones) */
+  if(songAuto&&R_.battle&&R_.battle.test&&!R_.done) for(const n of R_.chart.notes)
+    if(!n.done&&!n.auto&&n.t<=R_.time){ n.auto=1; const L=n.lane; laneDown(L); setTimeout(()=>laneUp(L),n.type==='hold'?n.dur:60); }
   /* a soft woodblock tick on each count, a brighter one on "Go!" */
   const cb=countBeat();
   if(cb>=0&&cb<COUNT_BEATS&&cb!==R_.count.last){ R_.count.last=cb;

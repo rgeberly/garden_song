@@ -330,7 +330,7 @@ function useKarate(mv,f){
 const songPower=()=>statOf('kaitlyn','int')*1.3*(gearOn('polish')?1.3:1)*fluteMul()*weakMul('kaitlyn');
 function useSong(mv,f){
   G.player.mp-=mv.mp; B.turn='busy';
-  startRhythm(null,{notes:mv.notes,name:mv.name,mp:mv.mp,cb:(acc)=>{
+  startRhythm(null,{notes:mv.notes,name:mv.name,mp:mv.mp,song:BATTLE_SONG[mv.id],cb:(acc)=>{
     G.scene='battle'; B.menu='cmd'; playOne('flute',0.5);
     anim(mv.fx,1500,()=>{
       if(mv.heal){       /* healing songs reach the whole party */

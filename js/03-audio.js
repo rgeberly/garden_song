@@ -43,6 +43,20 @@ function loadStems(){
     .then(([bk,fl])=>{ STEM.backing=bk; STEM.flute=fl; STEM.ready=true; STEM.loading=false; })
     .catch(()=>{ STEM.loading=false; STEM.failed=true; });
 }
+/* ---- each song's own recordings (SONG_DATA, made by tools/build_songs.py) ----
+   Loaded the first time the song is played, then kept. */
+const SONG_DIR='assets/audio/songs/', SONG_BUF={};
+const songData=key=>typeof SONG_DATA!=='undefined'&&key&&SONG_DATA[key]||null;
+function loadSong(key){
+  const D=songData(key); if(!D||!AC) return null;
+  if(!SONG_BUF[key]){ const S=SONG_BUF[key]={ready:false,failed:false};
+    Promise.all(['backing','flute'].map(k=>fetch(SONG_DIR+D.file+'_'+k+'.m4a')
+        .then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); })
+        .then(bf=>new Promise((res,rej)=>AC.decodeAudioData(bf,res,rej)))))
+      .then(([bk,fl])=>{ S.backing=bk; S.flute=fl; S.ready=true; })
+      .catch(()=>{ S.failed=true; }); }
+  return SONG_BUF[key];
+}
 function flute(semi,t,dur=0.5,vol=1,dest){
   if(!AC) return;
   const out=dest||sfxGain,f=hz(semi),g=AC.createGain();
