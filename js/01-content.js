@@ -31,8 +31,10 @@ const SPECIES={
   beet      :{name:"Beet",      kind:'bed',fruit:'#9a2050',dk:'#5a1030',cost:22,value:46, xp:8, notes:10,grow:720, best:'winter',
               flavor:"Earthy, sweet and impossible to beat."},
   /* pricey and quick, but not much of a meal */
-  pumpkin   :{name:"Pumpkin",   kind:'raised',fruit:'#f08a2a',dk:'#a4520f',cost:56,value:132,xp:18,notes:12,grow:820,best:'fall',
+  pumpkin   :{name:"Pumpkin",   kind:'ground',fruit:'#f08a2a',dk:'#a4520f',cost:56,value:132,xp:18,notes:12,grow:820,best:'fall',
               flavor:"Big, round and quick to grow, but mostly just good for pie."},
+  collards  :{name:"Collard Greens",kind:'raised',fruit:'#3f8a4a',dk:'#1f5a2c',cost:42,value:104,xp:17,notes:13,grow:1050,best:'winter',
+              flavor:"A little frost only makes them sweeter. Worth the long simmer."},
 };
 const SPECIES_ORDER=Object.keys(SPECIES);
 /* seeds in the order of the seasons they do best in (for the shop and the bag) */
@@ -40,7 +42,7 @@ const SEASON_RANK={spring:0,summer:1,fall:2,winter:3};
 const bySeason=L=>L.slice().sort((a,z)=>SEASON_RANK[SPECIES[a].best]-SEASON_RANK[SPECIES[z].best]||SPECIES_ORDER.indexOf(a)-SPECIES_ORDER.indexOf(z));
 /* the order the shop gets them in: three to start, one more each garden level */
 const UNLOCK_ORDER=['strawberry','tomato','sunflower','radish','blueberry','carrot','lemongrass','beet',
-  'squash','melon','pumpkin','satsuma','muscadine','avocado'];
+  'squash','melon','collards','pumpkin','satsuma','muscadine','avocado'];
 const unlockedFor=lv=>UNLOCK_ORDER.slice(0,2+lv);
 /* What eating a harvested crop does (from the Items menu). hp/mp restore; the rest
    are timed in real ms: speed = walk 25% faster, calm = pests come half as often,
@@ -53,6 +55,7 @@ const EAT={
   muscadine: {lure:120000},          avocado:  {hp:30,mp:30},
   radish:    {hp:5},                 carrot:   {mp:6},
   beet:      {hp:10,mp:3},           pumpkin:  {hp:6},
+  collards:  {hp:14,mp:5},
 };
 function eatText(sp){
   const e=EAT[sp]||{}, L=[];

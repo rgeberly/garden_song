@@ -6,6 +6,7 @@ function plotAccepts(plot,s){
   const k=SPECIES[s].kind;
   if(plot.tree) return k==='tree';
   if(k==='raised') return !!plot.raised;
+  if(k==='ground') return !plot.raised;
   return k==='bed';
 }
 function openSeedMenu(plot){

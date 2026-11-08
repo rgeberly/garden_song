@@ -16,7 +16,7 @@ const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
   if(shop.tab===0) return bySeason(UNLOCK_ORDER.filter(s=>G.unlocked.includes(s))).map(s=>{ const S=SPECIES[s];
     return {type:'seed',id:s,name:S.name+" seed",cost:S.cost,
-      desc:S.flavor+" "+(S.kind==='raised'?"Raised beds only. ":S.kind==='tree'?"Grows in a stone ring. ":"")+
+      desc:S.flavor+" "+(S.kind==='raised'?"Raised beds only. ":S.kind==='ground'?"Ground plots only. ":S.kind==='tree'?"Grows in a stone ring. ":"")+
         "Needs "+S.grow+" growth (about "+Math.ceil(S.grow/SONG_GROWTH)+" songs), "+growNeed(s,S.best)+
         " in "+SEASON_NAME[S.best]+". Sells for "+sellPrice(s)+"c.",
       note:"you have x"+(G.seeds[s]||0)}; });
