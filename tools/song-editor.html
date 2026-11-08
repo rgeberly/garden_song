@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Song Editor</title>
+<!-- The rhythm game's note editor. Run the game locally (python serve.py) and open
+     http://localhost:8000/tools/song-editor.html. Saving writes tools/song_edits.json and
+     js/data/songs.js through serve.py, so the game's song test plays the edit on reload. -->
+<style>
+:root{--bg:#10162a;--panel:#1a2240;--line:#2c3760;--ink:#eef2ff;--dim:#9aa6d4;--gold:#ffd772;--bad:#ff8a8a;--ok:#9fe39a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,Segoe UI,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header .grp{display:flex;gap:6px;align-items:center}
+h1{font-size:16px;margin:0 6px 0 0;color:var(--gold)}
+select,button,input[type=number]{font:inherit;color:var(--ink);background:#26305a;border:1px solid #3b4a86;border-radius:6px;padding:5px 9px}
+button{cursor:pointer}button:hover{background:#2f3b70}button:disabled{opacity:.45;cursor:default}
+button.main{background:#3a5a2a;border-color:#5f8a44}button.main:hover{background:#46702f}
+label{color:var(--dim);display:flex;gap:4px;align-items:center;cursor:pointer}
+a{color:#a8c8ff}
+#status{margin-left:auto;color:var(--dim)}#status.bad{color:var(--bad)}#status.ok{color:var(--ok)}
+main{display:flex;height:calc(100% - var(--hh,58px))}
+#scroll{flex:0 0 auto;overflow-y:auto;overflow-x:hidden;border-right:1px solid var(--line);position:relative}
+canvas{display:block;touch-action:none}
+aside{flex:1;overflow:auto;padding:14px 18px;min-width:240px}
+aside h2{font-size:15px;margin:0 0 8px;color:var(--gold)}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0}
+.row span{width:70px;color:var(--dim)}
+.row input,.row select{width:110px}
+.help{color:var(--dim);font-size:13px;border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
+.help b{color:var(--ink)}.help p{margin:5px 0}
+.big{font-size:22px;color:var(--ink)}
+aside h3{font-size:14px;margin:14px 0 4px;color:var(--gold)}
+.hint{color:var(--dim);font-size:13px;margin:6px 0}
+.warn{color:#ffc58a;font-size:13px;margin:8px 0;padding:6px 9px;border:1px solid #8a5a2a;border-radius:6px;background:#2a2018}
+.row.on span{color:var(--gold)}
+#fE{width:200px}
+.bend span{width:56px}.bend input{width:76px}.bend select{width:84px}.bend button{padding:3px 8px}
+.row .tag{width:auto}
+.tag{display:inline-block;padding:1px 7px;border-radius:9px;background:#2a3566;color:var(--dim);font-size:12px}
+@media (max-width:760px){main{flex-direction:column}#scroll{flex:1 1 60%;border-right:0;border-bottom:1px solid var(--line)}aside{flex:0 0 auto}}
+</style>
+</head>
+<body>
+<header id="top">
+  <h1>Song Editor</h1>
+  <div class="grp"><select id="song" title="Song"></select><span id="count" class="tag"></span></div>
+  <div class="grp">
+    <button id="play" class="main" title="Play or pause (Space)">▶ Play</button>
+    <select id="speed" title="Playback speed"><option value="1">1×</option><option value="0.75">0.75×</option><option value="0.5">0.5×</option></select>
+  </div>
+  <div class="grp">
+    <label title="Like the game: you only hear the flute while a note is playing"><input type="checkbox" id="gate">Flute only on notes</label>
+    <label><input type="checkbox" id="backing" checked>Backing</label>
+    <label title="A tick where each note starts"><input type="checkbox" id="clicks">Ticks</label>
+  </div>
+  <div class="grp"><label>Zoom <input type="range" id="zoom" min="120" max="900" value="320"></label></div>
+  <div class="grp">
+    <button id="undo" title="Undo (Ctrl+Z)">Undo</button>
+    <button id="save" class="main" title="Save (Ctrl+S)">Save</button>
+    <button id="revert" title="Back to the last save">Discard changes</button>
+    <button id="reset" title="Forget all hand edits to this song and read the recording again">Automatic notes…</button>
+    <a href="../?songtest" target="_blank" title="The game, with every song at the music stand">Open song test ↗</a>
+  </div>
+  <span id="status"></span>
+</header>
+<main>
+  <div id="scroll"><canvas id="cv"></canvas></div>
+  <aside>
+    <div id="info"></div>
+    <div class="help">
+      <p><b>Like the rhythm game:</b> four lanes, time running upward. The first note is at the bottom. The bars on the left show how loud the flute is, so the dips are where it's tongued.</p>
+      <p><b>Click</b> a note to pick it, <b>drag</b> it to move it (up and down for time, sideways for lane), and <b>drag its top edge</b> to make it longer or shorter. A note at least 0.42 s long is a <b>hold</b> in the game.</p>
+      <p><b>Double-click</b> an empty spot to add a note. <b>Delete</b> removes the picked note.</p>
+      <p><b>Slides:</b> a hold slides from its lane to the next note's lane, like in the game. Drag the white bar at its top end <b>sideways</b> to end it in another lane. <b>Double-click</b> on a hold to add a bend (a diamond) there, then drag the diamond to the lane and time you want. <b>Delete</b> removes a picked diamond.</p>
+      <p><b>Click</b> an empty spot to move the play line there, then <b>Space</b> to play from it.</p>
+      <p>Keys for the picked note: <b>←/→</b> lane, <b>↑/↓</b> 10 ms later or earlier (Shift: 50 ms), <b>[ ]</b> shorter or longer, <b>Shift+←/→</b> the lane a hold's slide ends in, <b>P</b> play it.</p>
+      <p>Tick <b>Flute only on notes</b> to hear it the way the game plays it. Any part of the flute without a note goes quiet, which shows what's missing.</p>
+      <p><b>Save</b> writes the song for the game. Reload the song test tab to play it.</p>
+    </div>
+  </aside>
+</main>
+<script src="../js/data/songs.js"></script>
+<script>
+'use strict';
+/* ---------- layout (css px) ---------- */
+const GUT=46, ENV_W=96, LANE_W=66, LANES=4, PAD=40, LX=GUT+ENV_W+8, W=LX+LANES*LANE_W+12;
+const LANE_COL=['#7fd36b','#6bb8f0','#f08fc0','#ffd060'], HOLD=0.42;
+const NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const pitchName=s=>NAMES[((s%12)+12)%12]+(4+Math.floor(s/12));
+const $=id=>document.getElementById(id);
+const cv=$('cv'), g=cv.getContext('2d'), scroller=$('scroll');
+let AC=null, key=null, S=null, notes=[], saved='[]', sel=-1, undo=[], env=null, bufs=null;
+let pps=320, H=0, play=null, head=0, drag=null, dirtyDraw=true, bendSel=null;
+const readOnly=()=>!!(S&&S.parts);
+const isHold=n=>n.d>=HOLD, laneX=l=>LX+l*LANE_W+LANE_W/2;
+/* A hold slides, as in the game: from its lane, through its bends (b: [[seconds in, lane]]),
+   to its end lane (e; without one, the next note's lane, or its own for the last note). */
+const endLane=i=>{ const n=notes[i]; return n.e!=null?n.e:notes[i+1]?notes[i+1].l:n.l; };
+const pathOf=i=>{ const n=notes[i]; return [[0,n.l]].concat((n.b||[]).filter(q=>q[0]<n.d),[[n.d,endLane(i)]]); };
+/* how long a hold lasts in the game (s), or 0 if the game makes it a tap: as songHoldDur
+   in js/11-rhythm.js, it lets go 0.16 s before a note comes in the lane its slide is in
+   by then, and must still be 0.3 s long */
+function gameDur(i){
+  const n=notes[i]; if(!isHold(n)) return 0;
+  const P=pathOf(i), laneAt=s=>{ for(let j=1;j<P.length;j++) if(s<=P[j][0]){ const [a,la]=P[j-1],[z,lz]=P[j];
+    return Math.round(z>a?la+(lz-la)*(s-a)/(z-a):lz); } return P[P.length-1][1]; };
+  let d=n.d, by=null; const end=P[P.length-1][1];
+  for(let j=i+1;j<notes.length&&notes[j].t<n.t+n.d+0.16;j++)
+    if(!(j===i+1&&notes[j].l===end&&end!==n.l)&&laneAt(Math.min(notes[j].t-n.t,n.d))===notes[j].l&&notes[j].t-n.t-0.16<d){ d=notes[j].t-n.t-0.16; by=j; }
+  return {d:d>=0.3?d:0, by};
+}
+/* how far (px) a point is from a hold's slide */
+function nearPath(i,x,y){ const n=notes[i], P=pathOf(i).map(([dt,l])=>[laneX(l),yOf(n.t+dt)]); let best=1e9;
+  for(let j=1;j<P.length;j++){ const [ax,ay]=P[j-1],[bx,by]=P[j], dx=bx-ax, dy=by-ay, L=dx*dx+dy*dy;
+    const k=L?Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/L)):0; best=Math.min(best,Math.hypot(x-ax-k*dx,y-ay-k*dy)); }
+  return best; }
+const yOf=t=>H-PAD-t*pps, tOf=y=>(H-PAD-y)/pps;
+const laneOf=x=>Math.max(0,Math.min(LANES-1,Math.floor((x-LX)/LANE_W)));
+const snap=v=>Math.round(v*1000)/1000;
+const status=(txt,cls)=>{ const e=$('status'); e.textContent=txt||''; e.className=cls||''; };
+const changed=()=>JSON.stringify(notes)!==saved;
+function title(k){
+  if(k.startsWith('practice_')) return k.slice(9)+' (practice)';
+  return k[0].toUpperCase()+k.slice(1);
+}
+
+/* ---------- songs ---------- */
+function fillSongs(){
+  const sel=$('song'), keys=Object.keys(SONG_DATA).sort((a,b)=>a.startsWith('practice_')-b.startsWith('practice_')||a.localeCompare(b));
+  sel.innerHTML=keys.map(k=>'<option value="'+k+'">'+title(k)+'</option>').join('');
+  const want=new URLSearchParams(location.search).get('song');
+  sel.value=keys.includes(want)?want:keys[0];
+}
+async function openSong(k){
+  stop(); key=k; S=SONG_DATA[k];
+  notes=S.n.map(n=>JSON.parse(JSON.stringify(n))); saved=JSON.stringify(notes); sel=-1; bendSel=null; undo=[];
+  history.replaceState(null,'','?song='+encodeURIComponent(k));
+  layout(); head=0; scroller.scrollTop=H; env=null; bufs=null; info(); draw();
+  status('Loading the recording…');
+  try{
+    if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    const get=part=>fetch('../assets/audio/songs/'+S.file+'_'+part+'.m4a').then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); })
+      .then(b=>new Promise((res,rej)=>AC.decodeAudioData(b,res,rej)));
+    const [fl,bk]=await Promise.all([get('flute'),get('backing')]);
+    if(key!==k) return;
+    bufs={flute:fl,backing:bk}; env=envelope(fl); status(readOnly()?'Made of the crop songs: edit those, and this follows.':''); draw();
+  }catch(e){ status("Couldn't load this song's recording.",'bad'); }
+}
+/* how loud the flute is, every 10 ms, 0..1 */
+function envelope(buf){
+  const d=buf.getChannelData(0), step=Math.round(buf.sampleRate*0.01), out=new Float32Array(Math.ceil(d.length/step));
+  let pk=1e-6;
+  for(let i=0;i<out.length;i++){ let s=0; const a=i*step, b=Math.min(d.length,a+step);
+    for(let j=a;j<b;j++) s+=d[j]*d[j]; out[i]=Math.sqrt(s/Math.max(1,b-a)); pk=Math.max(pk,out[i]); }
+  for(let i=0;i<out.length;i++) out[i]/=pk;
+  return out;
+}
+function layout(){
+  pps=+$('zoom').value; H=Math.ceil(S.len*pps+PAD*2);
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr; cv.height=H*dpr; cv.style.width=W+'px'; cv.style.height=H+'px';
+  g.setTransform(dpr,0,0,dpr,0,0); dirtyDraw=true;
+}
+
+/* ---------- drawing ---------- */
+function draw(){
+  dirtyDraw=false;
+  g.fillStyle='#10162a'; g.fillRect(0,0,W,H);
+  /* lanes */
+  for(let l=0;l<LANES;l++){ g.fillStyle=l%2?'#151c36':'#131a31'; g.fillRect(LX+l*LANE_W,0,LANE_W,H); }
+  g.strokeStyle='#2c3760'; g.lineWidth=1;
+  for(let l=0;l<=LANES;l++){ g.beginPath(); g.moveTo(LX+l*LANE_W+.5,0); g.lineTo(LX+l*LANE_W+.5,H); g.stroke(); }
+  /* time grid: every 0.1 s, labelled every 0.5 s */
+  g.font='11px system-ui'; g.textAlign='right'; g.textBaseline='middle';
+  for(let i=0;i<=Math.ceil(S.len*10);i++){ const t=i/10, y=Math.round(yOf(t))+.5, major=i%5===0;
+    g.strokeStyle=major?'#34407099':'#23294a'; g.beginPath(); g.moveTo(major?GUT-6:LX,y); g.lineTo(W,y); g.stroke();
+    if(major){ g.fillStyle='#8a96c8'; g.fillText(t.toFixed(1)+'s',GUT-8,y); } }
+  /* where each part of a song made of others starts */
+  if(S.parts){ g.textAlign='left';
+    S.parts.forEach(([p,at])=>{ const y=Math.round(yOf(at))+.5; g.strokeStyle='#ffd77288'; g.beginPath(); g.moveTo(GUT,y); g.lineTo(W,y); g.stroke();
+      g.fillStyle='#ffd772'; g.fillText(title(p),LX+4,y-8); }); }
+  /* the flute's loudness */
+  if(env){ g.fillStyle='#4f6ab0';
+    for(let i=0;i<env.length;i++){ const t=i*0.01, y=yOf(t+0.01), h=Math.max(1,0.01*pps), w=env[i]*ENV_W;
+      g.fillRect(GUT+ENV_W-w,y,w,h); } }
+  else { g.fillStyle='#8a96c8'; g.textAlign='center'; g.fillText('loading…',GUT+ENV_W/2,yOf(0)-10); }
+  /* notes */
+  notes.forEach((n,i)=>drawNote(n,i,i===sel));
+  /* the play line */
+  const y=Math.round(yOf(head))+.5;
+  g.strokeStyle='#ffffff'; g.lineWidth=2; g.beginPath(); g.moveTo(GUT,y); g.lineTo(W,y); g.stroke(); g.lineWidth=1;
+  g.fillStyle='#ffffff'; g.beginPath(); g.moveTo(GUT,y-6); g.lineTo(GUT+9,y); g.lineTo(GUT,y+6); g.fill();
+}
+function drawNote(n,i,on){
+  const x=LX+n.l*LANE_W, y0=yOf(n.t), y1=yOf(n.t+n.d), col=LANE_COL[n.l], hold=isHold(n), cx=x+LANE_W/2;
+  const edit=on&&!readOnly();
+  if(hold){                              /* the hold's slide, bending lane to lane */
+    const P=pathOf(i).map(([dt,l])=>[laneX(l),yOf(n.t+dt)]);
+    const line=w=>{ g.lineWidth=w; g.lineJoin='round'; g.lineCap='butt'; g.beginPath();
+      P.forEach(([px,py],j)=>j?g.lineTo(px,py):g.moveTo(px,py)); g.stroke(); };
+    if(on){ g.strokeStyle='#ffffff'; line(40); }
+    g.globalAlpha=gameDur(i).d?0.9:0.35; g.strokeStyle=col; line(34); g.globalAlpha=1;   /* faint: a tap in the game */
+    /* the bends, and the end (drag it: up and down for length, sideways for the end lane) */
+    P.slice(1,-1).forEach(([px,py],j)=>{ const picked=on&&n.b&&n.b[j]===bendSel;
+      g.beginPath(); g.moveTo(px,py-7); g.lineTo(px+7,py); g.lineTo(px,py+7); g.lineTo(px-7,py); g.closePath();
+      g.fillStyle=picked?'#ffd772':'#ffffff'; g.fill(); g.lineWidth=1.5; g.strokeStyle='#0b0f1f'; g.stroke(); });
+    if(edit){ const [ex,ey]=P[P.length-1]; g.fillStyle='#ffffff'; g.fillRect(ex-14,ey-3,28,6);
+      g.strokeStyle='#0b0f1f'; g.lineWidth=1; g.strokeRect(ex-14+.5,ey-3+.5,27,5); }
+  } else {
+    g.globalAlpha=0.35; g.fillStyle=col; roundRect(x+22,y1,LANE_W-44,y0-y1,5); g.fill(); g.globalAlpha=1;
+    if(on){ g.strokeStyle='#ffffff'; g.lineWidth=3; roundRect(x+6,y1-2,LANE_W-12,y0-y1+16,8); g.stroke(); }
+    if(edit){ g.fillStyle='#ffffff'; g.fillRect(cx-12,y1-3,24,6); }    /* the handle for its length */
+  }
+  g.beginPath(); g.arc(cx,y0,12,0,7); g.fillStyle=col; g.fill();
+  g.lineWidth=on?3:1.5; g.strokeStyle=on?'#ffffff':'#0b0f1f'; g.stroke();
+  g.lineWidth=1;
+  g.fillStyle='#0b0f1f'; g.font='bold 10px system-ui'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(pitchName(n.s),cx,y0+.5);
+}
+function roundRect(x,y,w,h,r){ r=Math.max(0,Math.min(r,w/2,h/2)); g.beginPath(); g.moveTo(x+r,y);
+  g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+
+/* ---------- the picked note's details ---------- */
+function info(){
+  const el=$('info'), n=notes[sel];
+  $('count').textContent=notes.length+' notes'+(changed()?' · unsaved':'');
+  ['save','revert'].forEach(id=>$(id).disabled=readOnly()||!changed());
+  $('undo').disabled=!undo.length; $('reset').disabled=readOnly();
+  if(readOnly()){ el.innerHTML='<h2>'+title(key)+'</h2><p>This song is the crop songs played one after another, so its notes come from theirs. Edit a crop song and save, and this one follows.</p>'; return; }
+  if(!n){ el.innerHTML='<h2>'+title(key)+'</h2><p class="big">'+notes.length+' notes</p><p>Pick a note to change it, or double-click an empty spot to add one.</p><p><button id="addAt">Add a note at the play line</button></p>';
+    $('addAt').onclick=()=>addNote(head,1); return; }
+  const opts=[]; for(let s=-5;s<=31;s++) opts.push('<option value="'+s+'"'+(s===n.s?' selected':'')+'>'+pitchName(s)+'</option>');
+  el.innerHTML='<h2>Note '+(sel+1)+' of '+notes.length+'</h2>'+
+    '<div class="row"><span>Starts</span><input type="number" id="fT" step="0.01" min="0" value="'+n.t.toFixed(3)+'"> s</div>'+
+    '<div class="row"><span>Length</span><input type="number" id="fD" step="0.01" min="0.05" value="'+n.d.toFixed(3)+'"> s <span class="tag">'+(n.d>=HOLD?(gameDur(sel).d?'hold':'tap in the game'):'tap')+'</span></div>'+
+    '<div class="row"><span>Lane</span><select id="fL">'+[0,1,2,3].map(l=>'<option value="'+l+'"'+(l===n.l?' selected':'')+'>'+(l+1)+'</option>').join('')+'</select></div>'+
+    '<div class="row"><span>Pitch</span><select id="fS">'+opts.join('')+'</select></div>'+
+    '<div class="row"><button id="fP">▶ Hear it</button><button id="fX">Delete</button></div>'+slidePanel(n);
+  const set=(f)=>{ push(); f(notes[sel]); tidy(); };
+  if(isHold(n)){
+    $('fE').onchange=e=>set(n=>{ if(e.target.value==='') delete n.e; else n.e=+e.target.value; });
+    (n.b||[]).forEach((q,j)=>{
+      $('bT'+j).onchange=e=>set(n=>n.b[j][0]=snap(Math.max(0.02,Math.min(n.d-0.02,+e.target.value||0.02))));
+      $('bL'+j).onchange=e=>set(n=>n.b[j][1]=+e.target.value);
+      $('bX'+j).onclick=()=>{ bendSel=n.b[j]; removeBend(); }; });
+    $('fB').onclick=()=>{ const P=pathOf(sel); let a=0,z=n.d;           /* in the middle of the longest stretch */
+      for(let j=1;j<P.length;j++) if(P[j][0]-P[j-1][0]>z-a){ a=P[j-1][0]; z=P[j][0]; }
+      const mid=(a+z)/2; addBend(sel,mid,Math.round(slidePos(sel,mid))); };
+  }
+  $('fT').onchange=e=>set(n=>n.t=Math.max(0,Math.min(S.len-0.05,snap(+e.target.value||0))));
+  $('fD').onchange=e=>set(n=>n.d=Math.max(0.05,snap(+e.target.value||0.05)));
+  $('fL').onchange=e=>set(n=>n.l=+e.target.value);
+  $('fS').onchange=e=>set(n=>n.s=+e.target.value);
+  $('fP').onclick=()=>hearNote(notes[sel]);
+  $('fX').onclick=()=>removeNote();
+}
+
+/* the lane (a fraction while it's sliding) a hold's slide is at, dt seconds in */
+function slidePos(i,dt){ const P=pathOf(i);
+  for(let j=1;j<P.length;j++) if(dt<=P[j][0]){ const [a,la]=P[j-1],[z,lz]=P[j]; return z>a?la+(lz-la)*(dt-a)/(z-a):lz; }
+  return P[P.length-1][1]; }
+/* the picked hold's slide: where it ends, and its bends */
+function slidePanel(n){
+  if(!isHold(n)) return '<p class="hint">Make it '+HOLD+' s or longer and it becomes a hold, which can slide.</p>';
+  /* the game lets go of a hold before a note comes in the lane it's in, so it can be pressed again */
+  const G=gameDur(sel), by=G.by!=null?notes[G.by]:null, why=by?' Note '+(G.by+1)+' comes in lane '+(by.l+1)+' while the slide is in that lane, and the game lets go 0.16 s before it so it can be pressed again.':'';
+  const warn=!G.d?'<p class="warn">In the game this is a <b>tap</b>: a hold must last at least 0.3 s.'+why+' Slide away from that lane sooner, or move one of the notes.</p>'
+    :G.d<n.d-0.001?'<p class="hint">In the game it lets go after '+G.d.toFixed(2)+' s.'+why+'</p>':'';
+  const last=sel===notes.length-1, next=last?n.l:notes[sel+1].l, laneOpts=v=>[0,1,2,3].map(l=>'<option value="'+l+'"'+(l===v?' selected':'')+'>Lane '+(l+1)+'</option>').join('');
+  let h=warn+'<h3>Slide</h3>'+
+    '<div class="row"><span>Ends in</span><select id="fE" title="Shift+←/→"><option value=""'+(n.e==null?' selected':'')+'>Lane '+(next+1)+(last?' (its own: the last note)':' (the next note\'s)')+'</option>'+
+      [0,1,2,3].map(l=>'<option value="'+l+'"'+(l===n.e?' selected':'')+'>Lane '+(l+1)+'</option>').join('')+'</select></div>';
+  (n.b||[]).forEach((q,j)=>{ h+='<div class="row bend'+(q===bendSel?' on':'')+'"><span>Bend '+(j+1)+'</span>'+
+    '<input type="number" id="bT'+j+'" step="0.01" min="0.02" value="'+q[0].toFixed(3)+'" title="Seconds after the note starts">s'+
+    '<select id="bL'+j+'">'+laneOpts(q[1])+'</select><button id="bX'+j+'" title="Remove this bend">✕</button></div>'; });
+  h+='<div class="row"><button id="fB">+ Add a bend</button></div>'+
+    '<p class="hint">The slide goes from lane '+(n.l+1)+(n.b?' through each bend':'')+' to lane '+(endLane(sel)+1)+
+    ', in straight lines. To go up a lane and back for a trill, add a bend in the next lane and end in this one.</p>';
+  return h;
+}
+
+/* ---------- editing ---------- */
+function push(){ undo.push(JSON.stringify(notes)); if(undo.length>200) undo.shift(); }
+function tidy(){ const cur=notes[sel]; notes.sort((a,b)=>a.t-b.t); sel=cur?notes.indexOf(cur):-1;
+  notes.forEach(n=>{                     /* a tap has no slide; a hold's bends stay inside it, in order */
+    if(!isHold(n)){ delete n.e; delete n.b; return; }
+    if(n.b){ n.b=n.b.filter(q=>q[0]>0&&q[0]<n.d).sort((a,b)=>a[0]-b[0]); if(!n.b.length) delete n.b; } });
+  if(!(cur&&cur.b&&cur.b.includes(bendSel))) bendSel=null;
+  dirtyDraw=true; info(); }
+function addBend(i,dt,l){
+  const n=notes[i]; if(!n||!isHold(n)||readOnly()) return;
+  dt=snap(Math.max(0.02,Math.min(n.d-0.02,dt)));
+  push(); const q=[dt,l]; (n.b=n.b||[]).push(q); sel=i; bendSel=q; tidy();
+}
+function removeBend(){
+  const n=notes[sel]; if(!n||!n.b||!bendSel) return;
+  push(); n.b=n.b.filter(q=>q!==bendSel); bendSel=null; tidy();
+}
+function addNote(t,l){
+  if(readOnly()) return;
+  push();
+  const same=notes.filter(n=>n.l===l), near=same.sort((a,b)=>Math.abs(a.t-t)-Math.abs(b.t-t))[0];
+  const n={t:snap(Math.max(0,Math.min(S.len-0.1,t))),d:0.25,s:near?near.s:[S.lo,Math.round((2*S.lo+S.hi)/3),Math.round((S.lo+2*S.hi)/3),S.hi][l],l};
+  notes.push(n); sel=notes.length-1; tidy();
+}
+function removeNote(){ if(sel<0||readOnly()) return; push(); notes.splice(sel,1); sel=-1; tidy(); }
+function hit(x,y){
+  if(x<LX-12||x>LX+LANES*LANE_W+12) return null;
+  /* the picked note's handles first: a bend, or the end of its length */
+  const p=notes[sel];
+  if(p&&!readOnly()){
+    if(isHold(p)){ const P=pathOf(sel);
+      for(let j=1;j<P.length-1;j++) if(Math.hypot(x-laneX(P[j][1]),y-yOf(p.t+P[j][0]))<=10) return {i:sel,mode:'bend',q:p.b[j-1]};
+      const E=P[P.length-1]; if(Math.abs(x-laneX(E[1]))<=18&&Math.abs(y-yOf(p.t+p.d))<=7) return {i:sel,mode:'len'}; }
+    else if(Math.abs(x-laneX(p.l))<=LANE_W/2&&Math.abs(y-yOf(p.t+p.d))<=7&&y<yOf(p.t)-10) return {i:sel,mode:'len'};
+  }
+  for(let i=notes.length-1;i>=0;i--){ const n=notes[i], y0=yOf(n.t);
+    if(Math.hypot(x-laneX(n.l),y-y0)<=14) return {i,mode:'move'};
+    if(isHold(n)?nearPath(i,x,y)<=18:(n.l===laneOf(x)&&y<=y0&&y>=yOf(n.t+n.d)-4)) return {i,mode:'move',body:true}; }
+  return null;
+}
+cv.addEventListener('pointerdown',e=>{
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top, h=hit(x,y);
+  if(h&&!readOnly()){
+    sel=h.i; bendSel=h.q||null; const n=notes[sel];
+    drag={mode:h.mode,q:h.q,y0:y,x0:x,t:n.t,d:n.d,l:n.l,before:JSON.stringify(notes),moved:false};
+    cv.setPointerCapture(e.pointerId); info(); dirtyDraw=true;
+  } else if(h){ sel=h.i; bendSel=null; info(); dirtyDraw=true; }
+  else { sel=-1; bendSel=null; info(); seek(Math.max(0,Math.min(S.len,tOf(y)))); }
+});
+cv.addEventListener('pointermove',e=>{
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  if(!drag){ const h=hit(x,y); cv.style.cursor=h?(h.mode==='len'?'ns-resize':h.mode==='bend'?'move':'grab'):'crosshair'; return; }
+  const n=notes[sel]; if(!n) return;
+  if(Math.abs(y-drag.y0)>2||Math.abs(x-drag.x0)>6) drag.moved=true;
+  if(!drag.moved) return;
+  if(drag.mode==='len'){ n.d=Math.max(0.05,snap(drag.d+(drag.y0-y)/pps));
+    if(isHold(n)&&Math.abs(x-drag.x0)>LANE_W/2) n.e=laneOf(x); }          /* sideways: where the slide ends */
+  else if(drag.mode==='bend'){ drag.q[0]=snap(Math.max(0.02,Math.min(n.d-0.02,tOf(y)-n.t))); drag.q[1]=laneOf(x);
+    n.b.sort((a,b)=>a[0]-b[0]); }
+  else { n.t=Math.max(0,Math.min(S.len-0.05,snap(drag.t+(drag.y0-y)/pps)));
+    n.l=Math.max(0,Math.min(LANES-1,drag.l+laneOf(x)-laneOf(drag.x0))); }   /* grabbed anywhere along its slide */
+  dirtyDraw=true;
+});
+cv.addEventListener('pointerup',()=>{
+  if(drag&&drag.moved){ undo.push(drag.before); tidy(); }
+  drag=null;
+});
+cv.addEventListener('dblclick',e=>{
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  if(x<LX||x>LX+LANES*LANE_W) return;
+  const h=hit(x,y);
+  if(!h) addNote(tOf(y),laneOf(x));
+  else if(h.body&&isHold(notes[h.i])) addBend(h.i,tOf(y)-notes[h.i].t,laneOf(x));   /* on a hold: a bend there */
+});
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'){ if(e.key==='Enter') e.target.blur(); return; }
+  const n=notes[sel], k=e.key, step=e.shiftKey?0.05:0.01;
+  if(k===' '){ e.preventDefault(); toggle(); return; }
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==='z'){ e.preventDefault(); doUndo(); return; }
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==='s'){ e.preventDefault(); save(); return; }
+  if(!n||readOnly()) return;
+  const edit=f=>{ e.preventDefault(); push(); f(); tidy(); };
+  if(k==='Delete'||k==='Backspace'){ e.preventDefault(); if(bendSel) removeBend(); else removeNote(); }
+  else if(e.shiftKey&&(k==='ArrowLeft'||k==='ArrowRight')){ if(isHold(n)) edit(()=>n.e=Math.max(0,Math.min(LANES-1,endLane(sel)+(k==='ArrowLeft'?-1:1)))); }
+  else if(k==='ArrowLeft') edit(()=>n.l=Math.max(0,n.l-1));
+  else if(k==='ArrowRight') edit(()=>n.l=Math.min(LANES-1,n.l+1));
+  else if(k==='ArrowUp') edit(()=>n.t=Math.min(S.len-0.05,snap(n.t+step)));
+  else if(k==='ArrowDown') edit(()=>n.t=Math.max(0,snap(n.t-step)));
+  else if(k===']') edit(()=>n.d=snap(n.d+step));
+  else if(k==='[') edit(()=>n.d=Math.max(0.05,snap(n.d-step)));
+  else if(k.toLowerCase()==='p') hearNote(n);
+});
+function doUndo(){ if(!undo.length) return; notes=JSON.parse(undo.pop()); sel=-1; bendSel=null; dirtyDraw=true; info(); }
+
+/* ---------- playing ---------- */
+function stop(){ if(!play) return; play.srcs.forEach(s=>{ try{ s.stop(); }catch(e){} }); play=null; $('play').textContent='▶ Play'; }
+function seek(t){ const was=!!play; stop(); head=t; dirtyDraw=true; if(was) start(t); }
+function toggle(){ if(play) stop(); else start(head>=S.len-0.05?0:head); }
+function start(from,until){
+  if(!bufs||!AC) return; AC.resume(); stop();
+  const rate=+$('speed').value, t0=AC.currentTime+0.06, srcs=[];
+  const src=(buf,vol)=>{ const s=AC.createBufferSource(), gn=AC.createGain(); s.buffer=buf; s.playbackRate.value=rate;
+    gn.gain.value=vol; s.connect(gn); gn.connect(AC.destination); s.start(t0,from); srcs.push(s); return gn; };
+  const at=t=>t0+(t-from)/rate;
+  const fg=src(bufs.flute,1);
+  if($('gate').checked){                  /* only while a note sounds, as in the game */
+    fg.gain.setValueAtTime(0.0001,t0);
+    notes.filter(n=>n.t+n.d>from).forEach(n=>{ const s=Math.max(t0,at(n.t)), e=Math.max(s+0.03,at(n.t+n.d));
+      fg.gain.setValueAtTime(0.0001,s); fg.gain.linearRampToValueAtTime(1,s+0.008);
+      fg.gain.setValueAtTime(1,e); fg.gain.linearRampToValueAtTime(0.0001,e+0.1/rate); });
+  }
+  if($('backing').checked) src(bufs.backing,0.8);
+  if($('clicks').checked) notes.filter(n=>n.t>=from).forEach(n=>{
+    const o=AC.createOscillator(), gn=AC.createGain(), t=at(n.t);
+    o.frequency.value=1800; gn.gain.setValueAtTime(0.25,t); gn.gain.exponentialRampToValueAtTime(0.001,t+0.04);
+    o.connect(gn); gn.connect(AC.destination); o.start(t); o.stop(t+0.05); srcs.push(o); });
+  play={t0,from,rate,srcs,until:until==null?S.len:until};
+  $('play').textContent='❚❚ Pause';
+}
+function hearNote(n){ start(Math.max(0,n.t-0.4),n.t+n.d+0.3); }
+function tick(){
+  if(play){
+    head=play.from+Math.max(0,AC.currentTime-play.t0)*play.rate;
+    if(head>=play.until){ head=Math.min(play.until,S.len); stop(); }
+    /* keep the play line in view, low on the screen like the game's hit line */
+    const y=yOf(head), top=scroller.scrollTop, h=scroller.clientHeight;
+    if(y<top+h*0.25||y>top+h-20) scroller.scrollTop=y-h*0.75;
+    dirtyDraw=true;
+  }
+  if(dirtyDraw&&S) draw();
+  requestAnimationFrame(tick);
+}
+
+/* ---------- saving ---------- */
+async function post(path,body){
+  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  let j=null; try{ j=await r.json(); }catch(e){}
+  if(!r.ok||!j||!j.ok) throw new Error(j&&j.error?j.error:'Saving only works with the game running on this computer (python serve.py).');
+  return j;
+}
+async function save(){
+  if(readOnly()||!changed()) return;
+  status('Saving…');
+  try{ const j=await post('/api/song-save',{song:key,n:notes});
+    Object.assign(SONG_DATA,j.data); S=SONG_DATA[key]; saved=JSON.stringify(notes); info();
+    status('Saved. Reload the song test to play it.','ok'); }
+  catch(e){ status(e.message,'bad'); }
+}
+$('save').onclick=save;
+$('revert').onclick=()=>{ if(!changed()) return; push(); notes=JSON.parse(saved); sel=-1; bendSel=null; dirtyDraw=true; info(); status('Back to the last save.'); };
+$('reset').onclick=async()=>{
+  if(!confirm('Forget every hand edit to '+title(key)+' and read its notes from the recording again?')) return;
+  status('Reading the recording again (this takes a little while)…');
+  try{ const j=await post('/api/song-reset',{song:key}); Object.assign(SONG_DATA,j.data); await openSong(key); status('Notes read from the recording again.','ok'); }
+  catch(e){ status(e.message,'bad'); }
+};
+$('undo').onclick=doUndo;
+$('play').onclick=toggle;
+$('zoom').oninput=()=>{ const t=tOf(scroller.scrollTop+scroller.clientHeight*0.75); layout(); scroller.scrollTop=yOf(t)-scroller.clientHeight*0.75; };
+$('song').onchange=e=>{
+  if(changed()&&!confirm('You have unsaved changes to '+title(key)+'. Leave them?')){ e.target.value=key; return; }
+  openSong(e.target.value);
+};
+addEventListener('beforeunload',e=>{ if(changed()){ e.preventDefault(); e.returnValue=''; } });
+const fitHeader=()=>document.documentElement.style.setProperty('--hh',$('top').offsetHeight+'px');
+addEventListener('resize',fitHeader);
+fitHeader(); fillSongs(); openSong($('song').value); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

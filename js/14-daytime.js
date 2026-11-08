@@ -103,9 +103,11 @@ function tintView(c){
 /* Her shadow, made from her current frame: a soft patch under the boots plus the
    silhouette laid along the ground away from the sun. Scratch canvases hold the
    flat silhouette and a 1/3-size copy that softens its edges when scaled back up. */
-const SIL=document.createElement('canvas'); SIL.width=AM.cw; SIL.height=AM.ch;
+/* big enough for a walking or a running frame */
+const SIL_W=Math.max(AM.cw,RUN_META.cw), SIL_H=Math.max(AM.ch,RUN_META.ch);
+const SIL=document.createElement('canvas'); SIL.width=SIL_W; SIL.height=SIL_H;
 const SILG=SIL.getContext('2d');
-const SOFT=document.createElement('canvas'); SOFT.width=Math.ceil(AM.cw/3); SOFT.height=Math.ceil(AM.ch/3);
+const SOFT=document.createElement('canvas'); SOFT.width=Math.ceil(SIL_W/3); SOFT.height=Math.ceil(SIL_H/3);
 const SOFTG=SOFT.getContext('2d');
 function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving,indoors){
   if(!animReady) return;
@@ -126,18 +128,20 @@ function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving,indoors){
   if(s.strength>0&&!indoors){           /* no sun indoors: just the patch under her */
     const f=kaitlynFrame(dir,frameT,moving);
     SILG.setTransform(1,0,0,1,0,0); SILG.globalCompositeOperation='source-over';
-    SILG.clearRect(0,0,AM.cw,AM.ch);
-    if(f.flip){ SILG.translate(AM.cw,0); SILG.scale(-1,1); }
-    SILG.drawImage(IMG_ANIM,f.sx,f.sy,AM.cw,AM.ch,0,0,AM.cw,AM.ch);
+    SILG.clearRect(0,0,SIL_W,SIL_H);
+    if(f.flip){ SILG.translate(f.cw,0); SILG.scale(-1,1); }
+    SILG.drawImage(f.img,f.sx,f.sy,f.cw,f.ch,0,0,f.cw,f.ch);
     SILG.setTransform(1,0,0,1,0,0);
-    SILG.globalCompositeOperation='source-in'; SILG.fillStyle='rgb('+rgb+')'; SILG.fillRect(0,0,AM.cw,AM.ch);
+    SILG.globalCompositeOperation='source-in'; SILG.fillStyle='rgb('+rgb+')'; SILG.fillRect(0,0,f.cw,f.ch);
+    /* the frame's part of the scratch canvases, a third the size */
+    const sw=Math.ceil(f.cw/3), sh=Math.ceil(f.ch/3);
     SOFTG.clearRect(0,0,SOFT.width,SOFT.height); SOFTG.imageSmoothingEnabled=true;
-    SOFTG.drawImage(SIL,0,0,SOFT.width,SOFT.height);
+    SOFTG.drawImage(SIL,0,0,f.cw,f.ch,0,0,sw,sh);
     const {gx,gy,len}=s;
     c.globalAlpha=0.30*s.strength; c.imageSmoothingEnabled=true;
     c.translate(fx,fy);
     c.transform(gy,-gx,-len*gx,-len*gy*GROUND_TILT,0,0);
-    c.drawImage(SOFT,-AM.cw/2,-AM.foot,AM.cw,AM.ch);
+    c.drawImage(SOFT,0,0,sw,sh,-f.cw/2,-f.foot,f.cw,f.ch);
     c.imageSmoothingEnabled=false;
   }
   c.restore();

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Run the game locally:  python3 serve.py   then open http://localhost:8000
-Pass --no-browser to skip opening a browser window."""
-import http.server, os, sys, webbrowser
+Pass --no-browser to skip opening a browser window.
+The song editor is at http://localhost:8000/tools/song-editor.html"""
+import http.server, os, sys, json, subprocess, webbrowser
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0,'tools'); import songs_data
 PORT=8000
 class H(http.server.SimpleHTTPRequestHandler):
     timeout=15   # a connection that goes quiet can't hold a thread forever
@@ -33,6 +35,33 @@ class H(http.server.SimpleHTTPRequestHandler):
             if not buf: break
             dst.write(buf); left-=len(buf)
         self._left=None
+    # The song editor (tools/song-editor.html) saves through here: only from this computer
+    def do_POST(self):
+        if self.client_address[0] not in ('127.0.0.1','::1','::ffff:127.0.0.1'): self.send_error(403); return
+        try:
+            body=json.loads(self.rfile.read(int(self.headers.get('Content-Length') or 0)) or b'{}')
+            name=str(body.get('song',''))
+            data=songs_data.load_data()
+            if name not in data: raise ValueError('no song called "%s"'%name)
+            if self.path=='/api/song-save':
+                if name in songs_data.PARTS: raise ValueError('%s is made of other songs: edit those'%name)
+                notes=songs_data.clean_notes(body['n'],data[name]['len'])
+                edits=songs_data.load_edits(); edits[name]=notes; songs_data.save_edits(edits)
+                songs_data.set_notes(data,name,notes); songs_data.save_data(data)
+            elif self.path=='/api/song-reset':
+                # forget the hand edits and read the recording again (takes a little while)
+                edits=songs_data.load_edits(); edits.pop(name,None); songs_data.save_edits(edits)
+                r=subprocess.run([sys.executable,os.path.join('tools','build_songs.py'),name],capture_output=True,text=True)
+                if r.returncode: raise ValueError((r.stderr or r.stdout).strip().splitlines()[-1])
+                data=songs_data.load_data()
+            else: self.send_error(404); return
+            self.reply(200,{'ok':True,'song':data[name],'data':data})
+        except Exception as e:
+            self.reply(400,{'ok':False,'error':str(e)})
+    def reply(self,code,obj):
+        b=json.dumps(obj).encode()
+        self.send_response(code); self.send_header('Content-Type','application/json')
+        self.send_header('Content-Length',str(len(b))); self.end_headers(); self.wfile.write(b)
 print('Serving on http://localhost:%d  (Ctrl+C to stop)'%PORT)
 if '--no-browser' not in sys.argv: webbrowser.open('http://localhost:%d'%PORT)
 # Threaded so one idle browser connection can't block every other request, with

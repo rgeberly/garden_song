@@ -8,7 +8,7 @@ function bonusLines(){
   const d=Math.round((( gearOn('polish')?1.3:1)*fluteMul()-1)*100);
   L.push(["Song damage", (d>=0?"+":"")+d+"%"]);
   L.push(["Kick power", gearOn('kickers')?"+60%":"—"]);
-  L.push(["Jog speed", gearOn('boots')?"+50% (B)":"—"]);
+  L.push(["Run speed", gearOn('boots')?"×2 (B)":"—"]);
   L.push(["Max MP", maxMp()+(gearOn('cloth')?"  (+8)":"")]);
   L.push(["Harmony cap", (gearOn('trellis')?"x2.6":"x1.8")+(G.yard.fountain?" +0.2":"")]);
   return L;
@@ -126,9 +126,12 @@ function openSys(){ if(G.cast) return; G.code=exportCode(); sys={tab:0,idx:0,foc
 /* the Settings page: each row a choice that A (or left/right) steps through */
 const SETTINGS=[{id:'diff',name:"Difficulty",opts:DIFF_ORDER,label:v=>DIFFICULTY[v].name,
   about:v=>DIFFICULTY[v].about,get:()=>G.diff,set:v=>{ G.diff=v; }},
-  {id:'jog',name:"Jogging",opts:JOG_ORDER,label:v=>JOG_MODES[v],
-   about:v=>(gearOn('boots')?"":"Needs the Sturdy Boots. ")+{hold:"Hold B to jog, let go to walk.",walk:"Jog all the time; hold B to slow to a walk.",toggle:"Press B to switch between jogging and walking."}[v],
-   get:()=>G.jogMode,set:v=>{ G.jogMode=v; G.jogOn=false; }}];
+  {id:'run',name:"Running",opts:RUN_ORDER,label:v=>RUN_MODES[v],
+   about:v=>(gearOn('boots')?"":"Needs the Sturdy Boots. ")+{hold:"Hold B to run, let go to walk.",walk:"Run all the time; hold B to slow to a walk.",toggle:"Press B to switch between running and walking."}[v],
+   get:()=>G.runMode,set:v=>{ G.runMode=v; G.runOn=false; }},
+  {id:'sound',name:"Sound",opts:['on','muted'],label:v=>v==='on'?"On":"Muted",
+   about:v=>v==='on'?"Music and sound effects play.":"Silent in this browser tab, even after a reload. Other tabs and windows keep their sound.",
+   get:()=>MUTED?'muted':'on',set:v=>setMuted(v==='muted')}];
 function stepSetting(S,d){ const o=S.opts, i=o.indexOf(S.get());
   S.set(o[(i+d+o.length)%o.length]); blip(520+o.indexOf(S.get())*80,.05,.1,'triangle'); autoSave(); }
 const allMembers=()=>['kaitlyn'].concat(Object.keys(G.allies));

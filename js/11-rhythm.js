@@ -98,14 +98,43 @@ function fullStemChart(){
 }
 /* A song with its own recordings: all of its flute notes, on the lanes worked out when
    it was built, starting a moment before the first note. */
+/* A held note slides along its path: [ms into the note, lane] points with straight lines
+   between them (without one, from its lane to its end lane). slideAt gives the lane, as
+   a fraction, that many ms in. */
+const holdPath=n=>n.path||(n.path=[[0,n.lane],[n.dur,n.endLane]]);
+function slideAt(n,ms){ const P=holdPath(n);
+  if(ms<=P[0][0]) return P[0][1];
+  for(let i=1;i<P.length;i++) if(ms<=P[i][0]){ const [a,la]=P[i-1],[z,lz]=P[i];
+    return z>a?la+(lz-la)*(ms-a)/(z-a):lz; }
+  return P[P.length-1][1]; }
+/* How long a song's held note lasts in the game (ms), or 0 if it's a tap: it lets go a
+   moment (160 ms) before a note comes in the lane its slide is in by then, so there's
+   time to press that lane again, and must still be 300 ms long. A slide that leads from
+   another lane into the next note's lane runs right up to it, as it always has. (The
+   song editor, tools/song-editor.html, works this out the same way to warn about it.) */
+function songHoldDur(N,i){
+  const n=N[i]; if(n.d<0.42) return 0;
+  const endLane=n.e!=null?n.e:i<N.length-1?N[i+1].l:n.l;
+  const P=[[0,n.l]].concat((n.b||[]).filter(q=>q[0]<n.d),[[n.d,endLane]]);
+  const laneAt=s=>{ for(let j=1;j<P.length;j++) if(s<=P[j][0]){ const [a,la]=P[j-1],[z,lz]=P[j];
+    return Math.round(z>a?la+(lz-la)*(s-a)/(z-a):lz); } return endLane; };
+  let dur=n.d*1000;
+  for(let j=i+1;j<N.length&&N[j].t<n.t+n.d+0.16;j++){
+    if(j===i+1&&N[j].l===endLane&&endLane!==n.l) continue;      /* the note it slides into */
+    if(laneAt(Math.min(N[j].t-n.t,n.d))===N[j].l) dur=Math.min(dur,(N[j].t-n.t)*1000-160); }
+  return dur>=300?dur:0;
+}
 function songChart(D){
   const off=Math.max(0,D.n[0].t-2.2);
   const notes=D.n.map((n,i)=>{
     const aStart=n.t, aEnd=n.t+n.d, t=(aStart-off)*1000, nx=D.n[Math.min(D.n.length-1,i+1)];
-    /* a held note lets go a moment before the next note in its lane, so there's time to press again */
-    const same=D.n.slice(i+1).find(q=>q.l===n.l), dur=Math.min(n.d*1000,same?(same.t-n.t)*1000-160:1e9);
-    if(n.d>=0.42&&dur>=300&&i<D.n.length-1)
-      return {t,lane:n.l,semi:n.s,type:'hold',dur,endLane:nx.l,done:false,score:0,reqLane:n.l,aStart,aEnd};
+    const dur=songHoldDur(D.n,i);
+    if(dur){
+      /* its slide: from its lane, through any bends set in the song editor, to its end lane
+         (the next note's lane unless the editor says otherwise; the last note stays in its own) */
+      const endLane=n.e!=null?n.e:i<D.n.length-1?nx.l:n.l;
+      const path=[[0,n.l]].concat((n.b||[]).filter(q=>q[0]*1000<dur-20).map(q=>[q[0]*1000,q[1]]),[[dur,endLane]]);
+      return {t,lane:n.l,semi:n.s,type:'hold',dur,endLane,path,done:false,score:0,reqLane:n.l,aStart,aEnd}; }
     return {t,lane:n.l,semi:n.s,type:'tap',done:false,aStart,aEnd};
   });
   /* the count-in keeps the song's own beat (doubled or halved into a comfortable pace) */
@@ -254,7 +283,8 @@ function updateRhythm(dt){
   else R_.time+=dt;
   /* song test autoplay: press each note right on time (and hold the long ones) */
   if(songAuto&&R_.battle&&R_.battle.test&&!R_.done) for(const n of R_.chart.notes)
-    if(!n.done&&!n.auto&&n.t<=R_.time){ n.auto=1; const L=n.lane; laneDown(L); setTimeout(()=>laneUp(L),n.type==='hold'?n.dur:60); }
+    if(!n.done&&!n.auto&&n.t<=R_.time){ n.auto=1; const L=n.lane; laneDown(L);
+      if(n.type==='hold') n.autoL=L; else setTimeout(()=>laneUp(L),60); }   /* a hold's finger follows its slide, below */
   /* a soft woodblock tick on each count, a brighter one on "Go!" */
   const cb=countBeat();
   if(cb>=0&&cb<COUNT_BEATS&&cb!==R_.count.last){ R_.count.last=cb;
@@ -271,18 +301,24 @@ function updateRhythm(dt){
         R_.pop.push({t:520,txt:'MISS',x:LANE_X0+n.lane*LANE_W+LANE_W/2,c:'#ff8a8a'}); }
     } else {
       if(R_.time>=n.t&&R_.time<=n.t+n.dur){
-        const k=(R_.time-n.t)/n.dur;
-        n.reqLane=clamp(Math.round(n.lane+(n.endLane-n.lane)*k),0,LANES-1);
+        const ms=R_.time-n.t, pos=slideAt(n,ms);
+        n.reqLane=clamp(Math.round(pos),0,LANES-1);
+        if(n.autoL!=null&&n.autoL!==n.reqLane){ R_.press[n.autoL]=0; R_.press[n.reqLane]=1; n.autoL=n.reqLane; }
+        /* held in the lane the slide is on, either lane while it's between two, or the lane
+           it left a moment ago (so a trill up a lane and back has to be followed) */
         let ok=false;
-        for(let l=Math.max(0,n.reqLane-1);l<=Math.min(LANES-1,n.reqLane+1);l++) if(R_.press[l]) ok=true;
+        for(let l=0;l<LANES;l++) if(R_.press[l]&&(Math.abs(l-pos)<0.75||Math.abs(l-slideAt(n,ms-150))<0.5)) ok=true;
+        /* each bend (a trill's turn) has to be reached: its lane held within 150 ms of it */
+        holdPath(n).forEach((q,j)=>{ if(j&&j<n.path.length-1&&Math.abs(ms-q[0])<=150&&R_.press[q[1]]) (n.bent=n.bent||{})[j]=1; });
         n.holding=ok;
         if(ok){ n.score+=dt; if(Math.random()<dt/90) spawnFx(n.reqLane,'spark');
                 if(R_.chart.stem&&!n.sounding){ n.sounding=true; fluteOn(n); } }
       }
       if(R_.time>n.t+n.dur){
-        n.done=true;
+        n.done=true; if(n.autoL!=null){ R_.press[n.autoL]=0; n.autoL=null; }
         const ratio=n.score/n.dur, lx=LANE_X0+n.endLane*LANE_W+LANE_W/2;
-        if(ratio>0.55){ R_.perfect++; R_.combo++; R_.maxcombo=Math.max(R_.maxcombo,R_.combo);
+        const bends=holdPath(n).length-2, missedBend=Object.keys(n.bent||{}).length<bends;
+        if(ratio>0.55&&!missedBend){ R_.perfect++; R_.combo++; R_.maxcombo=Math.max(R_.maxcombo,R_.combo);
           R_.pop.push({t:700,txt:'LEGATO!',x:lx,c:'#c8ffb0'});
           spawnFx(n.endLane,'note'); spawnFx(n.endLane,'note'); spawnFx(n.endLane,'note'); }
         else if(ratio>0.22){ R_.good++; R_.combo++; R_.pop.push({t:520,txt:'GOOD',x:lx,c:'#a8e0ff'}); }
@@ -457,12 +493,12 @@ function drawRhythm(){
       px(b,x+9,Math.round(y)-6,LANE_W-21,12,'#f2701c');
       px(b,x+9,Math.round(y)-6,LANE_W-21,4,'#ffcf3a');
     } else {
-      const act=R_.time>=n.t&&R_.time<=n.t+n.dur, steps=22;
+      const act=R_.time>=n.t&&R_.time<=n.t+n.dur, steps=Math.max(22,Math.ceil(n.dur/40));
       for(let s=0;s<=steps;s++){
         const k=s/steps, tt=n.t+n.dur*k;
         const yy=HITLINE-((tt-R_.time)/FALL)*HITLINE;
         if(yy<T0-16||yy>T1)continue;
-        const lane=n.lane+(n.endLane-n.lane)*k;
+        const lane=slideAt(n,n.dur*k);
         const x=Math.round(LANE_X0+lane*LANE_W+LANE_W/2-16);
         const filled=act&&k<=(R_.time-n.t)/n.dur;
         px(b,x-2,Math.round(yy)-6,36,13,'#2b1c12');

@@ -142,13 +142,21 @@ const DIRMAP=[['up',0],['northeast',0],['east',0],['southeast',0],
 const ROWOF={};
 AM.rows.forEach((r,i)=>{ ROWOF[r.anim+'_'+r.dir]=i; });
 const ROWN=AM.rows.map(r=>r.n);
+/* --- running (B, with the Sturdy Boots): its own sheet, run.png (tools/build_run.py), a
+   row per direction. Each row is one stride of both feet; RUN_CYCLE is in the same
+   step time as walking (walkT runs twice as fast while she runs), so a stride takes
+   about 0.7 s and her feet keep pace at double speed. Until it loads she walks. --- */
+const IMG_RUN=new Image(); let runReady=false;
+IMG_RUN.onload=()=>{runReady=true;};
+IMG_RUN.src='assets/sprites/run.png';
+const RUN_CYCLE=1400, RUN_ROW={}; RUN_META.rows.forEach((r,i)=>{ RUN_ROW[r.dir]=i; });
 
 /* --- footstep / breathing loops that ride along with the animation --- */
 const SFX={}; let sfxKey=null, sfxAnim=null, sfxOn=false;
 function initSfx(){
   if(sfxOn) return; sfxOn=true;
   for(const k in ASSET_SFX){
-    try{ const a=new Audio(ASSET_SFX[k]); a.loop=true; a.volume=0.22; a.preload='auto'; SFX[k]=a; }
+    try{ const a=muteEl(new Audio(ASSET_SFX[k])); a.loop=true; a.volume=0.22; a.preload='auto'; SFX[k]=a; }
     catch(e){}
   }
 }
@@ -164,7 +172,7 @@ function playOne(key,vol){
   if(!ASSET_SFX[key]) return;
   try{
     let a=ONESHOT[key];
-    if(!a){ a=new Audio(ASSET_SFX[key]); ONESHOT[key]=a; }
+    if(!a){ a=muteEl(new Audio(ASSET_SFX[key])); ONESHOT[key]=a; }
     a.volume=vol===undefined?0.5:vol; a.currentTime=0;
     const p=a.play(); if(p&&p.catch) p.catch(()=>{});
   }catch(e){}
@@ -206,20 +214,25 @@ function drawFluteInHand(c,cx,footY,dir){
     Math.round(-FLUTE_META.cw/2),Math.round(-FLUTE_META.ch/2),FLUTE_META.cw,FLUTE_META.ch);
   c.restore();
 }
-/* which sheet cell she shows: shared by her sprite and her cast shadow */
+/* which sheet cell she shows: shared by her sprite and her cast shadow. Running is her
+   moving while G.player.running (set as she moves, in walk()). */
 function kaitlynFrame(dir,frameT,moving){
   const [dname,flip]=DIRMAP[dir&7];
+  if(moving&&G.player.running&&runReady){
+    const row=RUN_ROW[dname], n=RUN_META.rows[row].n, i=Math.floor(frameT/(RUN_CYCLE/n))%n, M=RUN_META;
+    return {img:IMG_RUN, sx:i*M.cw, sy:row*M.ch, cw:M.cw, ch:M.ch, foot:M.foot, flip};
+  }
   const row=ROWOF[(moving?'walk':'idle')+'_'+dname];
   const n=ROWN[row]||1;
   const per=(moving?WALK_CYCLE:IDLE_CYCLE)/n;
   const i=Math.floor(frameT/per)%n;
-  return {sx:i*AM.cw, sy:row*AM.ch, flip};
+  return {img:IMG_ANIM, sx:i*AM.cw, sy:row*AM.ch, cw:AM.cw, ch:AM.ch, foot:AM.foot, flip};
 }
 function drawKaitlyn(c,cx,footY,dir,frameT,swim,moving){
   if(!animReady) return;
   const f=kaitlynFrame(dir,frameT,moving);
-  // cell row AM.foot is her ground point; the rows below leave room for the back boot
-  drawDev(c,IMG_ANIM,f.sx,f.sy,AM.cw,AM.ch,cx,footY,1,AM.ch-AM.foot,f.flip);
+  // cell row f.foot is her ground point; the rows below leave room for the back boot
+  drawDev(c,f.img,f.sx,f.sy,f.cw,f.ch,cx,footY,1,f.ch-f.foot,f.flip);
 }
 /* pose 0 = battle stance, pose 1 = defeated */
 function drawPose(c,i,cx,footY){

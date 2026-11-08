@@ -94,7 +94,7 @@ function onPress(k){
   else if(G.scene==='title') titleKey(k);
   else if(G.scene==='world'&&(isOk(k)||k==='e')) interact();
   else if(G.scene==='world'&&k==='m') openSys();
-  else if(G.scene==='world'&&isBack(k)&&G.jogMode==='toggle'&&gearOn('boots')){ G.jogOn=!G.jogOn; say(G.jogOn?"Jogging.":"Walking."); }
+  else if(G.scene==='world'&&isBack(k)&&G.runMode==='toggle'&&gearOn('boots')){ G.runOn=!G.runOn; say(G.runOn?"Running.":"Walking."); }
   else if(G.scene==='menu') menuKey(k);
   else if(G.scene==='shop') shopKey(k);
   else if(G.scene==='sys') sysKey(k);

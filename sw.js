@@ -1,4 +1,4 @@
-const CACHE='kgs-v32';
+const CACHE='kgs-v33';
 const FILES=[
  "./",
  "assets/audio/music_battle.m4a",
@@ -18,6 +18,7 @@ const FILES=[
  "assets/icons/icon-192.png",
  "assets/icons/icon-512.png",
  "assets/sprites/anim.png",
+ "assets/sprites/run.png",
  "assets/sprites/battle.png",
  "assets/sprites/creatures.png",
  "assets/sprites/crops.png",
@@ -61,6 +62,7 @@ const FILES=[
  "js/assets.js",
  "js/data/phrases.js",
  "js/data/art.js",
+ "js/data/run.js",
  "js/data/stem.js",
  "js/data/songs.js",
  "manifest.json"

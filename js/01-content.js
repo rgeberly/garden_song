@@ -171,7 +171,7 @@ const STATUS={poison:{name:"Poison",tag:"PSN",col:'#a05ad8',turns:3}, blind:{nam
   sleep:{name:"Asleep",tag:"SLP",col:'#5a8ad8',turns:2}, weak:{name:"Weak",tag:"WK",col:'#d88a3a',turns:3},
   scared:{name:"Scared",tag:"SCR",col:'#6a4aa8',turns:2}, bound:{name:"Bound",tag:"BND",col:'#8a6a3a',turns:1}};
 const GEAR=[
-  {id:'boots',  name:"Sturdy Boots",   cost:240, desc:"jog 50% faster with B (see Settings)"},
+  {id:'boots',  name:"Sturdy Boots",   cost:240, desc:"run twice as fast with B (see Settings)"},
   {id:'can',    name:"Watering Can",   cost:300, desc:"+25% song growth"},
   {id:'charm',  name:"Frog Charm",     cost:340, desc:"frogs heal 2x as often"},
   {id:'polish', name:"Flute Polish",   cost:420, desc:"+30% song damage"},

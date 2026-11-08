@@ -109,8 +109,10 @@ function walk(dt,speed,blocked){
   const mm=Math.hypot(dx,dy);
   if(mm>0.15){
     dx/=mm; dy/=mm; P.aimX=dx; P.aimY=dy;
-    /* boosts (boots, coffee, a snack); on the touch pad they grow with how far it's pushed */
-    const boost=(jogging()?1.5:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1);
+    /* boosts (running in the boots: twice as fast; coffee, a snack); on the touch pad they
+       grow with how far it's pushed */
+    P.running=running();
+    const boost=(P.running?2:1)*(G.coffeeT>0?1.5:1)*(G.snackT>0?1.25:1);
     const onPad=padId!==null&&!(keys['w']||keys['a']||keys['s']||keys['d']||keys['arrowup']||keys['arrowdown']||keys['arrowleft']||keys['arrowright']);
     const mul=(onPad?1+(boost-1)*padAmp:boost)*(G.swim?0.62:1);
     const sp=speed*mul*dt;
@@ -121,7 +123,7 @@ function walk(dt,speed,blocked){
     // steps quicken with boots/coffee (and slow in water) so her feet don't slide
     P.walkT+=dt*mul; P.moving=true; P.animT=P.walkT;
   } else {
-    P.moving=false; P.walkT=0;
+    P.moving=false; P.running=false; P.walkT=0;
     P.idleT=(P.idleT||0)+dt; P.animT=P.idleT;
   }
   if(sfxOn){

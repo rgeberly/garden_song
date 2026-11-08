@@ -2,11 +2,24 @@
    AUDIO
    ================================================================ */
 let AC=null,master=null,musicGain=null,sfxGain=null,noiseBuf=null;
+/* Mute (the Settings tab): kept for this browser tab only, through reloads, so one
+   window can be muted while another copy of the game or the song editor plays */
+let MUTED=false;
+try{ MUTED=sessionStorage.getItem('kgs-muted')==='1'; }catch(e){}
+const MASTER_VOL=0.5;
+/* an <audio> element follows the mute too (music tracks, footsteps, one-shot sounds) */
+const muteEl=a=>{ if(a) a.muted=MUTED; return a; };
+function setMuted(v){
+  MUTED=!!v;
+  try{ sessionStorage.setItem('kgs-muted',MUTED?'1':'0'); }catch(e){}
+  if(master){ master.gain.cancelScheduledValues(0); master.gain.value=MUTED?0:MASTER_VOL; }
+  [TRACKS,SFX,ONESHOT].forEach(L=>{ for(const k in L) muteEl(L[k]); });
+}
 function initAudio(){
   if(AC) return;
   try{
     AC=new (window.AudioContext||window.webkitAudioContext)();
-    master=AC.createGain(); master.gain.value=0.5; master.connect(AC.destination);
+    master=AC.createGain(); master.gain.value=MUTED?0:MASTER_VOL; master.connect(AC.destination);
     musicGain=AC.createGain(); musicGain.gain.value=0.34; musicGain.connect(master);
     sfxGain=AC.createGain(); sfxGain.gain.value=0.75; sfxGain.connect(master);
     const n=AC.sampleRate*0.5; noiseBuf=AC.createBuffer(1,n,AC.sampleRate);
@@ -140,7 +153,7 @@ function initMusic(){ musicOn=true; }
 /* where a track starts (seconds), and loops back to, if not its very beginning */
 const TRACK_START={title:16};
 function trackFor(k){
-  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=new Audio(ASSET_MUS[k]); a.volume=0; a.preload='auto'; TRACKS[k]=a;
+  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=muteEl(new Audio(ASSET_MUS[k])); a.volume=0; a.preload='auto'; TRACKS[k]=a;
     const st=TRACK_START[k];
     a.loop=k!=='victory'&&!st;
     if(st) a.addEventListener('ended',()=>{ if(curTrack===k){ a.currentTime=st; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); } });
