@@ -66,7 +66,7 @@ function drawTalk(s,bottom){
   wipeBuf();
   panel(x,y,w,h);
   px(b,x+9,y+9,86,h-18,'#e2d3ae');
-  const im=portraitImg(s.say);
+  const im=portraitImg(s.who?s.who.name.toLowerCase():s.say);       /* townsfolk by name */
   if(im){ const ph=h-22, pw=ph*im.naturalWidth/im.naturalHeight;
     b.save(); b.beginPath(); b.rect(x+9,y+9,86,h-18); b.clip(); b.imageSmoothingEnabled=true;
     b.drawImage(im,x+9+(86-pw)/2,y+11,pw,ph); b.restore(); }

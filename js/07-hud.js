@@ -137,13 +137,14 @@ function shopArtImg(){
   if(!IMG_SHOPART){ IMG_SHOPART=new Image(); IMG_SHOPART.src=ASSET_SHOPART; }
   return IMG_SHOPART.complete&&IMG_SHOPART.naturalWidth?IMG_SHOPART:null;
 }
-/* a party member's portrait (Kaitlyn's comes with the game; the others load when first
-   needed); null until it has arrived */
+/* a party member's portrait, or a townsperson's by lower-case name (Kaitlyn's comes with
+   the game; the others load when first needed); null until it has arrived */
 const PORTRAIT_IMG={};
 function portraitImg(id){
   if(id==='kaitlyn') return IMG_PT.complete&&IMG_PT.naturalWidth?IMG_PT:null;
-  if(!ASSET_PORTRAITS[id]) return null;
-  if(!PORTRAIT_IMG[id]){ PORTRAIT_IMG[id]=new Image(); PORTRAIT_IMG[id].src=ASSET_PORTRAITS[id]; }
+  const src=ASSET_PORTRAITS[id]||(typeof PEOPLE_PORTRAITS!=='undefined'&&PEOPLE_PORTRAITS[id]);
+  if(!src) return null;
+  if(!PORTRAIT_IMG[id]){ PORTRAIT_IMG[id]=new Image(); PORTRAIT_IMG[id].src=src; }
   const im=PORTRAIT_IMG[id]; return im.complete&&im.naturalWidth?im:null;
 }
 function drawShopPic(key,cx,cy,bw,bh){

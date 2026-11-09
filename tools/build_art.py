@@ -59,6 +59,14 @@ CREATURE_CELL = 256
 SHOP_SOFT_HOLES = {'music stand': 40}
 # ...and these, white themselves on white: cut out by their outline instead
 SHOP_CUTOUT = {'snowdrop'}
+# ...and studio photos of what pests leave behind: cut out with photo_cutout. Pale ones,
+# on a pale backdrop, need gentler settings (see photo_cutout).
+SHOP_PHOTOS = {n: (7.0, 26) for n in ('dung ball', 'iridescent shell', 'royal jelly', 'shiny button', 'lost ring',
+    'bristle tuft', 'stolen fry', 'ectoplasm', 'ghostly locket', 'shell shard', 'black feather', 'shiny spoon',
+    'trash treasure', 'bandit mask', 'chewed ball', 'fancy collar', 'wisp', 'prize ribbon', 'mountain bell', 'tusk',
+    'truffle', 'bear fur', 'honeycomb', 'gavel')}
+SHOP_PHOTOS.update({'silk cocoon': (2.0, 6), 'pearl': (2.0, 6), 'goat hair': (2.0, 6), 'gull feather': (1.2, 8),
+                    'paper scrap': (1.2, 8), 'citation': (0.5, 12)})
 # Shop pictures with a pale painted shadow under them (the game draws its own): below this
 # share of the picture's height, pale greyish beige is cleared.
 SHOP_FLOOR = {'music stand': 0.65}
@@ -73,7 +81,9 @@ PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70)}
 # painting as open anyway (shares of its width and height: x, y, w, h).
 # Enemies with white background caught between their legs: clear pure-white pockets
 # whose middle is below this share of the picture's height, at least this big (px).
-ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200)}
+ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200), 'goat': (0.0, 1500), 'boar': (0.5, 2000), 'bear': (0.5, 2000)}
+# Enemy pictures with a transparency checkerboard painted in (no real transparency)
+ENEMY_CHECKERED = {'dung beetle', 'hoa president', 'raccoon'}
 PLACE_SIZE = {'mountain': (1080, 1446)}
 PLACE_GRID = 4
 MOUNTAIN_OPEN = [(0.34, 0.90, 0.21, 0.10)]
@@ -96,6 +106,19 @@ def pics(folder):
     """Every picture (PNG or JPEG) in a folder of the art folder."""
     return sorted(f for f in glob.glob(os.path.join(SRC, folder, '*.*'))
                   if os.path.splitext(f)[1].lower() in PIC_EXT and '-spritesheet' not in f.lower())
+
+
+def named_pics(folder):
+    """(lower-case name, path) of each picture in a folder of the art folder: loose pictures
+    by their file name, and for a subfolder holding exactly one picture (the favorite left
+    after trying several versions), that picture under the subfolder's name."""
+    found = {os.path.splitext(os.path.basename(f))[0].strip().lower(): f for f in pics(folder)}
+    for d in sorted(glob.glob(os.path.join(glob.escape(os.path.join(SRC, folder)), '*', ''))):
+        name = os.path.basename(os.path.dirname(d)).strip().lower()
+        inside = pics(os.path.join(folder, os.path.basename(os.path.dirname(d))))
+        if len(inside) == 1: found.setdefault(name, inside[0])
+        elif inside: print('  skipped', folder + '/' + name, '-', len(inside), 'pictures (keep just one)')
+    return sorted(found.items())
 
 
 def find_pic(base):
@@ -186,6 +209,37 @@ def remove_edge_colour(a, tol=14):
     return out
 
 
+def remove_checker(a):
+    """Clear a transparency checkerboard painted into a picture: colourless pixels at the
+    checks' two levels, joined to the edge, plus enclosed pockets of the pattern (between
+    legs and arms). Recognised by being flat at those two levels, unlike grey fur."""
+    c = a[..., :3].astype(np.float32); grey = c.mean(axis=2); chroma = c.max(axis=2) - c.min(axis=2)
+    edge = np.concatenate([grey[:6].ravel(), grey[-6:].ravel(), grey[:, :6].ravel(), grey[:, -6:].ravel()])
+    lo, hi = np.percentile(edge, 8), np.percentile(edge, 92)
+    near = (chroma < 16) & (grey > lo - 14) & (grey < hi + 14)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(near.astype(np.uint8), connectivity=4)
+    ids = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+    bg = np.isin(lab, ids[ids > 0])
+    atlo, athi = np.abs(grey - lo) < 9, np.abs(grey - hi) < 9
+    for i in range(1, n):
+        if i in ids or st[i, 4] < 120: continue
+        m = lab == i
+        if (atlo[m] | athi[m]).mean() > 0.85 and atlo[m].mean() > 0.2 and athi[m].mean() > 0.2: bg |= m
+    # JPEG smudges around the outline belong to the background too
+    grown = cv2.dilate(bg.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    bg |= grown & (chroma < 30) & (grey > lo - 30)
+    out = a.copy(); out[..., 3] = np.where(bg, 0, 255).astype(np.uint8)
+    keep = (~bg).astype(np.uint8)
+    out[..., 3] = np.where((keep == 1) & (cv2.erode(keep, np.ones((3, 3), np.uint8)) == 0), 170, out[..., 3])
+    solid = (out[..., 3] > 0).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(solid, connectivity=8)
+    if n > 2:
+        big = st[1:, 4].max()
+        for i in range(1, n):
+            if st[i, 4] < big * 0.01: out[lab == i, 3] = 0
+    return out
+
+
 def clear_low_pockets(a, below, least):
     """Clear pure-white pockets of background caught inside a picture (between legs)
     whose middle is below this share of its height and at least `least` px big, for
@@ -209,6 +263,32 @@ def cutout(a):
     n, lab, st, _ = cv2.connectedComponentsWithStats(fg)
     if n > 1: fg = (lab == 1 + np.argmax(st[1:, 4])).astype(np.uint8)     # just the biggest piece
     out = a.copy(); out[..., 3] = cv2.GaussianBlur(fg * 255, (3, 3), 0)
+    return out
+
+
+def photo_cutout(a, grad=7.0, tint=26):
+    """Cut a studio photo's subject out by its outline, then peel off the soft shadow and
+    leftover backdrop around it: smooth, colourless areas joined to the cut's rim. Pale
+    subjects need a lower grad and tint or the peel eats into them."""
+    fg = (cutout(a)[..., 3] > 128).astype(np.uint8)
+    bl = cv2.GaussianBlur(np.ascontiguousarray(a[..., :3]).astype(np.float32), (0, 0), 1.6)
+    grey = bl.mean(axis=2); chroma = bl.max(axis=2) - bl.min(axis=2)
+    slope = np.hypot(cv2.Sobel(grey, cv2.CV_32F, 1, 0, ksize=3), cv2.Sobel(grey, cv2.CV_32F, 0, 1, ksize=3)) / 4
+    smooth = ((slope < grad) & (chroma < tint) & (fg == 1)).astype(np.uint8)
+    n, lab = cv2.connectedComponents(smooth, connectivity=4)
+    rim = cv2.dilate(1 - fg, np.ones((3, 3), np.uint8)) & fg
+    ids = np.unique(lab[(rim == 1) & (smooth == 1)])
+    keep = cv2.morphologyEx(((fg == 1) & ~np.isin(lab, ids[ids > 0])).astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    n, lab, st, _ = cv2.connectedComponentsWithStats(keep, connectivity=8)
+    if n > 1:
+        keep = np.isin(lab, [i for i in range(1, n) if st[i, 4] >= st[1:, 4].max() * 0.04]).astype(np.uint8)
+    # fill pinholes the peel left inside
+    h, w = keep.shape
+    n, lab, st, _ = cv2.connectedComponentsWithStats(1 - keep, connectivity=4)
+    for i in range(1, n):
+        x, y, bw, bh, area = st[i]
+        if area < keep.sum() * 0.02 and x > 0 and y > 0 and x + bw < w and y + bh < h: keep[lab == i] = 1
+    out = a.copy(); out[..., 3] = cv2.GaussianBlur(keep * 255, (3, 3), 0)
     return out
 
 
@@ -299,11 +379,11 @@ def main():
     for k in meta: meta[k]['r'] = pos[k]
 
     shop, smeta = [], {}
-    for f in pics('shop items'):
-        name = os.path.splitext(os.path.basename(f))[0].strip().lower()
+    for name, f in named_pics('shop items'):
         src = load(f)
         edge = np.concatenate([src[0, :, :3], src[-1, :, :3], src[:, 0, :3], src[:, -1, :3]])
-        if np.median(edge, axis=0).min() < 200: im = remove_edge_colour(src)          # a plain coloured background
+        if name in SHOP_PHOTOS: im = photo_cutout(src, *SHOP_PHOTOS[name])
+        elif np.median(edge, axis=0).min() < 200: im = remove_edge_colour(src)          # a plain coloured background
         elif name in SHOP_CUTOUT: im = cutout(src)
         elif name in SHOP_SOFT_HOLES: im = remove_white(src, SHOP_SOFT_HOLES[name], soft_holes=True)
         else: im = remove_white(src, SHOP_HOLES.get(name, 0))
@@ -385,11 +465,10 @@ def main():
 
     # enemies: background cleared, trimmed and sized for battle, standing on their bottom
     eframes, emeta = [], {}
-    for f in pics('enemies'):
-        name = os.path.splitext(os.path.basename(f))[0].strip().lower()
+    for name, f in named_pics('enemies'):
         if name not in ENEMIES: continue
         key, h = ENEMIES[name]
-        im = remove_edge_colour(load(f))
+        im = remove_checker(load(f)) if name in ENEMY_CHECKERED else remove_edge_colour(load(f))
         if key in ENEMY_POCKETS: im = clear_low_pockets(im, *ENEMY_POCKETS[key])
         im = trim(im, 0)
         s = h / im.shape[0]
@@ -538,6 +617,14 @@ def main():
         logo_kind = lk; print('logo.png', im.shape[1], 'x', im.shape[0], '(' + lk + ')')
         break
 
+    # townsfolk portraits (people/<Name>, or people/<Name>/ holding one picture), as tall as Kaitlyn's
+    people = {}
+    for name, f in named_pics('people'):
+        fn = 'portrait_' + '-'.join(''.join(ch if ch.isalnum() else ' ' for ch in name).split()) + '.png'
+        im = trim(remove_white(load(f), 150), 0)                 # and the white caught between strands of hair
+        cv2.imwrite(os.path.join(OUT, fn), shrink(im, PORTRAIT_H / im.shape[0]), [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        people[name] = 'assets/sprites/' + fn
+
     with open(os.path.join(ROOT, 'js', 'data', 'art.js'), 'w', encoding='utf-8') as fh:
         fh.write('/* Made by tools/build_art.py: sheet positions [x,y,w,h] in device px;\n'
                  '   ax,ay is where a crop/soil/stand picture stands on the ground. */\n')
@@ -558,6 +645,7 @@ def main():
         fh.write('const RHYTHM_BG=' + ('true' if bg else 'false') + ';\n')
         fh.write('const FRONT_LAYERS=' + json.dumps(fronts) + ';\n')
         fh.write('const HOUSE_MASK=' + ('true' if hcol else 'false') + ';\n')
+        fh.write('const PEOPLE_PORTRAITS=' + json.dumps(people, separators=(',', ':')) + ';\n')
     print('crops.png', sheet.shape[1], 'x', sheet.shape[0], '-', len(crops), 'pictures:', ', '.join(sorted(meta)))
     print('shop_items.png', ssheet.shape[1], 'x', ssheet.shape[0], '-', len(shop), 'pictures')
     print('creatures.png', ', '.join('%s %d frames' % (n, len(v)) for n, v in cmeta.items()))
