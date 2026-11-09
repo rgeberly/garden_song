@@ -12,6 +12,7 @@ EDITS = os.path.join(ROOT, 'tools', 'song_edits.json')
 PARTS = {
     'practice_Grow Little Croppies': ['strawberry', 'radish', 'blueberry', 'avocado', 'lemongrass',
         'tomato', 'sunflower', 'melon', 'carrot', 'pumpkin', 'satsuma'],
+    'practice_Drink Up, Lovelies': ['squash', 'muscadine', 'beet', 'collards'],
 }
 HEADER = ('/* Rhythm game songs, built by tools/build_songs.py from the recordings in the art\n'
           '   folder\'s rhythm/songs/, with any hand edits from the song editor (tools/song-editor.html).\n'

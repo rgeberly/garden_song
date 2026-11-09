@@ -303,7 +303,9 @@ function updateRhythm(dt){
       if(R_.time>=n.t&&R_.time<=n.t+n.dur){
         const ms=R_.time-n.t, pos=slideAt(n,ms);
         n.reqLane=clamp(Math.round(pos),0,LANES-1);
-        if(n.autoL!=null&&n.autoL!==n.reqLane){ R_.press[n.autoL]=0; R_.press[n.reqLane]=1; n.autoL=n.reqLane; }
+        /* autoplay's finger follows the slide (pressing again each frame: a hold ending as
+           this one starts lets go of the lane they share) */
+        if(n.autoL!=null){ if(n.autoL!==n.reqLane){ R_.press[n.autoL]=0; n.autoL=n.reqLane; } R_.press[n.reqLane]=1; }
         /* held in the lane the slide is on, either lane while it's between two, or the lane
            it left a moment ago (so a trill up a lane and back has to be followed) */
         let ok=false;

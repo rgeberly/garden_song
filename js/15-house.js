@@ -76,6 +76,8 @@ const nearStand=()=>Math.hypot(G.player.x-HOUSE_STAND.x,G.player.y-HOUSE_STAND.y
    cost: the price of its sheet music at Rosa's (0: she knows it from the start). */
 const PRACTICE_SONGS=[
   {id:'croppies',name:"Grow Little Croppies",file:"Grow Little Croppies",xp:1,min:60,cost:0},
+  {id:'lovelies',name:"Drink Up, Lovelies",file:"Drink Up, Lovelies",xp:0.4,min:20,cost:0},
+  {id:'home',name:"Home Sweet Home",file:"Home Sweet Home",xp:1.5,min:90,cost:300},
 ];
 const songKnown=s=>!s.cost||G.sheets.includes(s.id);
 const knownSongs=()=>PRACTICE_SONGS.filter(songKnown);
