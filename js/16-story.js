@@ -72,7 +72,7 @@ function drawTalk(s,bottom){
     b.drawImage(im,x+9+(86-pw)/2,y+11,pw,ph); b.restore(); }
   else if(s.who){ b.save(); b.translate(x+52,y+h-8); b.scale(2.6,2.6); drawPerson(b,{...s.who,x:0,y:0}); b.restore(); }
   blit();
-  T(who.name,x+108,y+26,22,who.col,'left',true);
+  T(s.label||who.name,x+108,y+26,22,who.col,'left',true);       /* label: a one-off name for this line */
   const n=typed(s);
   wrapLines(s.text,23,w-120).reduce((acc,ln,i)=>{
     const left=Math.max(0,n-acc); if(left>0) T(ln.slice(0,left),x+108,y+50+i*19,23,'#3a2a1a');
@@ -151,7 +151,10 @@ const blingMeets=()=>[
   {run:()=>{ G.story.bling='recover'; G.story.blingDay=G.day; G.indoors=true; houseImg(); place(318,412,6); }},
   {fade:'in'},
   {say:'kaitlyn',text:"You're so pretty, with your little ring around your neck...like a little golden necklace."},
-  {say:'kaitlyn',text:"...you're so fancy, I think I'll call you Ivy!"},
+  {say:'kaitlyn',text:"...you're so fancy, I think I'll call you Bling!"},
+  {say:'bling',label:"Snake",text:"HISSS!"},
+  {say:'kaitlyn',text:"...uhhh, then how about Ivy? Since you're a poisonous little creeper."},
+  {say:'bling',text:"...sss."},
 ];
 const blingLetGo=()=>[
   {say:'bling',text:"Ssss!"},
