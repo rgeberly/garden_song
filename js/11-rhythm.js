@@ -393,6 +393,70 @@ function drawGem(gems,lane,x,y,size){
   const [sx,sy,w,h]=NOTE_ART[lane%NOTE_ART.length], k=size/Math.max(w,h);
   b.save(); b.imageSmoothingEnabled=true; b.drawImage(gems,sx,sy,w,h,x-w*k/2,y-h*k/2,w*k,h*k); b.restore();
 }
+/* ---------- held notes: a ribbon of light in the gems' colours, flowing lane to lane ---------- */
+const HOLD_COL=[[[102,214,60],[34,104,26]],[[244,185,35],[150,88,12]],[[240,85,159],[150,28,98]],[[63,184,238],[20,88,150]]];
+const laneCx=l=>LANE_X0+l*LANE_W+LANE_W/2-1.5;
+/* the colour at a fractional lane, blended between the two lanes' gems */
+function holdColour(lane,shade){ const i=clamp(Math.floor(lane),0,LANES-1), j=Math.min(LANES-1,i+1), k=clamp(lane-i,0,1),
+  A=HOLD_COL[i][shade], Z=HOLD_COL[j][shade];
+  return 'rgb('+A.map((v,c)=>Math.round(v+(Z[c]-v)*k)).join(',')+')'; }
+/* where the ribbon is drawn, ms into the note: the slide's path with each stretch eased, so
+   it curves away from one lane and settles into the next */
+function ribbonLane(n,ms){ const P=holdPath(n);
+  if(ms<=P[0][0]) return P[0][1];
+  for(let i=1;i<P.length;i++) if(ms<=P[i][0]){ const [a,la]=P[i-1],[z,lz]=P[i], k=z>a?(ms-a)/(z-a):1;
+    return la+(lz-la)*k*k*(3-2*k); }
+  return P[P.length-1][1]; }
+function drawHold(n,art,T0){
+  const yOf=ms=>HITLINE-((n.t+ms-R_.time)/FALL)*HITLINE;
+  const act=R_.time>=n.t, now=R_.time-n.t, bright=!act||n.holding;
+  /* what's left to play, as far as the top of the screen */
+  const ms0=Math.max(0,now), ms1=Math.min(n.dur,now+(HITLINE-T0+40)/HITLINE*FALL), pts=[];
+  const gem=(lane,x,y,size,a)=>{ b.globalAlpha=a;
+    if(art.gems) drawGem(art.gems,lane,x,y,size);
+    else { b.fillStyle=holdColour(lane,0); b.beginPath(); b.arc(x,y,size/2,0,7); b.fill(); }
+    b.globalAlpha=1; };
+  if(ms1>ms0){
+    for(let ms=ms0;;ms+=14){ const at=Math.min(ms,ms1); pts.push([laneCx(ribbonLane(n,at)),yOf(at),at]); if(at>=ms1) break; }
+    const ramp=shade=>{ const g=b.createLinearGradient(0,pts[0][1],0,pts[pts.length-1][1]||pts[0][1]-1), N=Math.min(16,pts.length-1)||1;
+      for(let i=0;i<=N;i++){ const k=i/N, p=pts[Math.round(k*(pts.length-1))]; g.addColorStop(k,holdColour(ribbonLane(n,p[2]),shade)); }
+      return g; };
+    const stroke=(w,style,a)=>{ b.globalAlpha=a; b.lineWidth=w; b.strokeStyle=style; b.beginPath();
+      pts.forEach(([x,y],i)=>i?b.lineTo(x,y):b.moveTo(x,y)); b.stroke(); b.globalAlpha=1; };
+    b.save(); b.lineCap='round'; b.lineJoin='round';
+    const pulse=Math.sin(G.t/110);
+    b.globalCompositeOperation='lighter';
+    stroke(act&&n.holding?36+pulse*3:28,ramp(0),act&&n.holding?.34:bright?.2:.08);
+    b.globalCompositeOperation='source-over';
+    stroke(21,ramp(1),bright?.85:.45);
+    stroke(16,ramp(0),bright?.96:.4);
+    stroke(6,'#ffffff',act&&n.holding?.85:bright?.5:.16);
+    /* little lights flowing down it */
+    if(bright){ const gap=170, drift=G.t*.11;
+      for(let i=0;i<Math.ceil(n.dur/gap);i++){ const ms=((i*gap-drift)%n.dur+n.dur)%n.dur; if(ms<ms0||ms>ms1) continue;
+        b.globalAlpha=.9*Math.min(1,Math.min(ms-ms0,ms1-ms)/50); b.fillStyle='#ffffff';
+        b.beginPath(); b.arc(laneCx(ribbonLane(n,ms)),yOf(ms),2.1,0,7); b.fill(); }
+      b.globalAlpha=1; }
+    b.restore();
+    /* small gems where it bends and where it ends, so you can see where it's going */
+    const P=holdPath(n);
+    for(let i=1;i<P.length-1;i++) if(P[i][0]>ms0&&P[i][0]<=ms1) gem(P[i][1],laneCx(P[i][1]),yOf(P[i][0]),20,bright?1:.5);
+    if(n.dur<=ms1) gem(n.endLane,laneCx(n.endLane),yOf(n.dur),20,bright?1:.5);
+  }
+  if(!act){ const y=yOf(0); if(y>T0-20) gem(n.lane,laneCx(n.lane),y,36,1); return; }
+  /* being played: its gem rides along the flute, with a ring showing how much is held */
+  const x=laneCx(ribbonLane(n,now));
+  if(n.holding){ b.save(); b.globalCompositeOperation='lighter';
+    const r=36+Math.sin(G.t/90)*4, g=b.createRadialGradient(x,HITLINE,4,x,HITLINE,r);
+    g.addColorStop(0,'rgba(255,250,220,.75)'); g.addColorStop(.45,holdColour(ribbonLane(n,now),0).replace('rgb','rgba').replace(')',',.4)')); g.addColorStop(1,'rgba(0,0,0,0)');
+    b.fillStyle=g; b.beginPath(); b.arc(x,HITLINE,r,0,7); b.fill(); b.restore(); }
+  gem(n.reqLane,x,HITLINE,36,n.holding?1:.6);
+  b.save(); b.lineCap='round';
+  b.globalAlpha=.6; b.strokeStyle='#14101e'; b.lineWidth=5; b.beginPath(); b.arc(x,HITLINE,23,0,7); b.stroke(); b.globalAlpha=1;
+  b.strokeStyle=n.holding?'#fff3b0':'#ff9a6a'; b.lineWidth=3.5; b.beginPath();
+  b.arc(x,HITLINE,23,-Math.PI/2,-Math.PI/2+Math.PI*2*clamp(n.score/n.dur,0,1)+.001); b.stroke();
+  b.restore();
+}
 function drawRhythm(){
   const grow=clamp(R_.combo/14,0,1), art=rhythmArt();
   const T0=BAND_TOP(), T1=BAND_BOT(), TH=T1-T0;     /* the full screen, on tall phones too */
@@ -483,9 +547,8 @@ function drawRhythm(){
       b.globalAlpha=.5; px(b,LANE_X0+i*LANE_W,T0,LANE_W-3,TH,'#ffe08a'); b.globalAlpha=1; }
   }
   for(let i=0;i<LANES;i++) rhythmPlant(b,LANE_X0+i*LANE_W+LANE_W/2,LH-26,grow,R_.flash[i]>60);
-  const holdLabels=[];
   for(const n of R_.chart.notes){
-    if(n.done&&n.type==='tap') continue;
+    if(n.done) continue;
     if(n.type==='tap'){
       const y=HITLINE-((n.t-R_.time)/FALL)*HITLINE;
       if(y<T0-20||y>T1)continue;
@@ -494,35 +557,7 @@ function drawRhythm(){
       px(b,x+7,Math.round(y)-8,LANE_W-17,16,'#2b1c12');
       px(b,x+9,Math.round(y)-6,LANE_W-21,12,'#f2701c');
       px(b,x+9,Math.round(y)-6,LANE_W-21,4,'#ffcf3a');
-    } else {
-      const act=R_.time>=n.t&&R_.time<=n.t+n.dur, steps=Math.max(22,Math.ceil(n.dur/40));
-      for(let s=0;s<=steps;s++){
-        const k=s/steps, tt=n.t+n.dur*k;
-        const yy=HITLINE-((tt-R_.time)/FALL)*HITLINE;
-        if(yy<T0-16||yy>T1)continue;
-        const lane=slideAt(n,n.dur*k);
-        const x=Math.round(LANE_X0+lane*LANE_W+LANE_W/2-16);
-        const filled=act&&k<=(R_.time-n.t)/n.dur;
-        px(b,x-2,Math.round(yy)-6,36,13,'#2b1c12');
-        px(b,x,Math.round(yy)-4,32,10,filled?(n.holding?'#c8ffb0':'#c07a4a'):'#e8c34a');
-        px(b,x,Math.round(yy)-4,32,3,filled?'#ffffff':'#fff3b0');
-      }
-      const yh=HITLINE-((n.t-R_.time)/FALL)*HITLINE;
-      if(yh>T0-16&&yh<T1){ const x=LANE_X0+n.lane*LANE_W;
-        if(art.gems) drawGem(art.gems,n.lane,x+LANE_W/2-1.5,yh,34);
-        else { px(b,x+6,Math.round(yh)-10,LANE_W-15,20,'#2b1c12');
-        px(b,x+9,Math.round(yh)-7,LANE_W-21,14,'#ffcf3a'); }
-        holdLabels.push({x:x+LANE_W/2-2,y:Math.round(yh)+5}); }
-      if(act){
-        const gx=LANE_X0+n.reqLane*LANE_W+LANE_W/2, pulse=3+Math.sin(G.t/90)*2;
-        b.globalAlpha=.9; b.beginPath(); b.arc(gx,HITLINE,11+pulse,0,7);
-        b.strokeStyle=n.holding?'#c8ffb0':'#ff9a6a'; b.lineWidth=3; b.stroke(); b.globalAlpha=1;
-        const w=94,r=n.score/n.dur;
-        px(b,LW/2-w/2-2,HITLINE+50,w+4,9,'#2b1c12');
-        px(b,LW/2-w/2,HITLINE+52,w,6,'#3a4650');
-        px(b,LW/2-w/2,HITLINE+52,Math.round(w*clamp(r,0,1)),6,'#c8ffb0');
-      }
-    }
+    } else if(HITLINE-((n.t-R_.time)/FALL)*HITLINE>T0-40) drawHold(n,art,T0);
   }
   R_.fx.forEach(f=>{ const a=Math.min(1,f.t/400);
     if(f.kind==='note') noteGlyph(b,Math.round(f.x),Math.round(f.y),'#ffe08a',a);
@@ -542,7 +577,6 @@ function drawRhythm(){
         noteGlyph(b,Math.round(178+Math.cos(a)*33),Math.round(292-bo-6+Math.sin(a)*14),'#ffe08a',1); } }
   }
   blit();
-  holdLabels.forEach(h=>T("HOLD",h.x,h.y,20,'#2b1c12','center',true));
   if(liveHold&&!liveHold.holding){
     const gx=LANE_X0+liveHold.reqLane*LANE_W+LANE_W/2;
     T("slide here",gx,HITLINE+38,22,'#ff9a6a','center',true);

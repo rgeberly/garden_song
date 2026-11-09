@@ -265,9 +265,8 @@ function drawAsk(){
     T(PRACTICE_SONGS.some(s=>!songKnown(s))?"Rosa's store in town sells sheet music.":"More songs to come as sheet music in town.",LW/2,ASK.y+73,16,'#7a6a4a','center');
     V.forEach((c,j)=>{ const y=ASK.y+ASK.top+j*askRow()+20;
       if(c.id!=='song'){ T(c.name,LW/2+12,y+9,22,'#3a2a1a','center',true); return; }
-      const hrs=(c.song.min||60)/60;
       T(c.name,ASK.x+50,y,21,tired?'#8a7a5a':'#3a2a1a','left',true);
-      T("up to "+practiceXp(1,c.song)+" EXP · "+(hrs===1?"1 hour":hrs+" hours"),ASK.x+50,y+18,17,tired?'#9a8a6a':'#3a4a6a','left'); });
+      T("up to "+practiceXp(1,c.song)+" EXP · "+(c.song.min||60)+" min",ASK.x+50,y+18,17,tired?'#9a8a6a':'#3a4a6a','left'); });
     b.restore(); m.restore(); return;
   }
   const early=G.clock<=EARLY_BED, t=clockText();
