@@ -315,7 +315,7 @@ function doAttack(f){
     if(f.hp<=0) return;
     f.st.poison={n:STATUS.poison.turns,dmg:Math.round(2+statOf(id,'int')*0.5)};
     burst(EX,EY+10,'#b06ae0',12,0.12);
-    if(!f.boss&&Math.random()<KILL_CHANCE){ f.hp=0; B.log="Bling's venom overwhelms the "+f.name+"!"; }
+    if(!f.boss&&Math.random()<KILL_CHANCE){ f.hp=0; B.log=PARTY_INFO.bling.name+"'s venom overwhelms the "+f.name+"!"; }
     else B.log+="  It's poisoned!";
   },{tgt:f});
 }

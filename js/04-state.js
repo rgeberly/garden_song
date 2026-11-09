@@ -66,7 +66,7 @@ const STAT_NAME={hp:"HP",mp:"MP",str:"Strength",agi:"Agility",def:"Defense",int:
 const PARTY_INFO={
   kaitlyn:{name:"Kaitlyn", skills:"Skills", attack:"Quick Kick", pow:0.55, role:"Gardener · plays the flute · talks to her tomatoes, and they listen",
            base:{hp:30,mp:16,str:6,agi:6,def:4,int:7,luk:5}, grow:{hp:6,mp:2,str:2,agi:1.4,def:1.3,int:2,luk:1}},
-  bling:  {name:"Bling",   skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite · small, shy, and secretly very brave",
+  bling:  {name:"Ivy",     skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite · small, shy, and secretly very brave",
            base:{hp:24,mp:8,str:3,agi:9,def:3,int:5,luk:7}, grow:{hp:4,mp:1.5,str:1,agi:2,def:1,int:1.5,luk:1.5}},
 };
 /* names: the ones they start with, and any the player has given them */

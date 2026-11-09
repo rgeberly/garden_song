@@ -5,7 +5,8 @@
    to and from black, a picture, a "joins the party" window, and plain
    functions that move people around between them. A tap or A moves on.
    ================================================================ */
-const SPEAKER={kaitlyn:{name:"Kaitlyn",col:'#a06a1a'}, bling:{name:"Bling",col:'#7a5a12'}};
+/* her id stays 'bling' (saves and art files use it); the name players see is in PARTY_INFO */
+const SPEAKER={kaitlyn:{name:"Kaitlyn",col:'#a06a1a'}, bling:{get name(){ return PARTY_INFO.bling.name; },col:'#7a5a12'}};
 const TALK_MS=28;                 /* typing speed: ms per letter */
 let story=null;
 function playStory(steps){
@@ -141,7 +142,7 @@ function talkBling(){
     else playStory(blingLetGo()); }
   else if(s==='released') playStory(blingJoins());
   else if(s==='joined') playStory([{say:'bling',text:isHurt('bling')?"Ssss... (She's still sore. Back in "+(G.allies.bling.hurtUntil-G.day)+" day"+(G.allies.bling.hurtUntil-G.day===1?"":"s")+".)"
-                                                                    :"Ssss! (Add Bling to your party from the menu.)"}]);
+                                                                    :"Ssss! (Add "+PARTY_INFO.bling.name+" to your party from the menu.)"}]);
 }
 const blingMeets=()=>[
   {say:'kaitlyn',text:"Oh no! This poor snake looks hurt..."},
@@ -150,16 +151,16 @@ const blingMeets=()=>[
   {run:()=>{ G.story.bling='recover'; G.story.blingDay=G.day; G.indoors=true; houseImg(); place(318,412,6); }},
   {fade:'in'},
   {say:'kaitlyn',text:"You're so pretty, with your little ring around your neck...like a little golden necklace."},
-  {say:'kaitlyn',text:"...you're so fancy, I think I'll call you Bling!"},
+  {say:'kaitlyn',text:"...you're so fancy, I think I'll call you Ivy!"},
 ];
 const blingLetGo=()=>[
   {say:'bling',text:"Ssss!"},
-  {say:'kaitlyn',text:"Wow Bling, you're looking much better! I'll miss you, but I think it's time to let you go."},
+  {say:'kaitlyn',text:"Wow Ivy, you're looking much better! I'll miss you, but I think it's time to let you go."},
   {fade:'out'},
   {run:()=>{ G.story.bling='released'; G.indoors=false; place(BLING_FREE.x+30,BLING_FREE.y-8,6);
     Object.assign(BL,{x:BLING_FREE.x,y:BLING_FREE.y,tx:0,ty:0,wait:1400}); }},
   {fade:'in'},
-  {say:'kaitlyn',text:"Go on, Bling! You're free now."},
+  {say:'kaitlyn',text:"Go on, Ivy! You're free now."},
 ];
 const blingJoins=()=>[
   {say:'bling',text:"Ssss! Sssss! ...sssss?"},
@@ -175,7 +176,7 @@ const blingJoins=()=>[
   {pic:null},
   {run:()=>{ G.story.bling='joined'; joinParty('bling'); }},
   {fade:'in',ms:700},
-  {popup:"Bling the ring-necked snake joins the party!",who:'bling'},
+  {popup:"Ivy the ring-necked snake joins the party!",who:'bling'},
 ];
 /* let go, she ambles around near where she was set down */
 function updateBling(dt){
