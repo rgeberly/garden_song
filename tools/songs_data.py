@@ -82,7 +82,12 @@ def recompose(data):
         if not W or 'parts' not in W: continue
         notes = []
         for part, at in W['parts']:
-            if part in data: notes += [dict(n, t=round(n['t'] + at, 3)) for n in data[part]['n']]
+            if part not in data: continue
+            placed = [dict(n, t=round(n['t'] + at, 3)) for n in data[part]['n']]
+            # a part's last note plays as it does in its own song: left to itself a hold
+            # would slide to the next note's lane, which here is the next part's first note
+            if placed: placed[-1].setdefault('e', placed[-1]['l'])
+            notes += placed
         W['n'] = notes
         if notes: W['lo'] = min(n['s'] for n in notes); W['hi'] = max(n['s'] for n in notes)
         for part, _ in W['parts']:        # a part keeps its whole song's beat
