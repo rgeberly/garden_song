@@ -84,7 +84,7 @@ PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70)}
 ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200), 'goat': (0.0, 1500), 'boar': (0.5, 2000), 'bear': (0.5, 2000)}
 # Enemy pictures with a transparency checkerboard painted in (no real transparency)
 ENEMY_CHECKERED = {'dung beetle', 'hoa president', 'raccoon'}
-PLACE_SIZE = {'mountain': (1080, 1446)}
+PLACE_SIZE = {'mountain': (1080, 1446), 'town': (720, 720)}
 PLACE_GRID = 4
 MOUNTAIN_OPEN = [(0.34, 0.90, 0.21, 0.10)]
 # Enemies (enemies/<Name>.png|jpg): their key in the game and height in battle (device px).

@@ -84,8 +84,9 @@ const goodsPrice=k=>Math.round(GOODS[k].value*(G.yard.arch?1.15:1));
    ground/path colours; rects [x,y,w,h]; houses {x,y,w,h,roof,name}; exits back home;
    people {name,x,y,col,hair,lines,shop}; gather spots [x,y]; pond {x,y,rx,ry}. */
 const PLACES={
-  /* the town follows its paintings (maps/town_<season>): blocks are what she can't walk
-     through (buildings, trees, hedges, flower beds) as [x,y,w,h] */
+  /* the town follows its paintings (maps/town_<season>). Its walls are painted in the art
+     folder's maps/town_collision (black = blocked; built into assets/sprites/
+     town_collision.png); blocks [x,y,w,h] are only used until that has loaded */
   town:{name:"Willowbrook", ground:'#8fbf6a', path:'#d8c8a0',
     paths:[[180,280,360,260],[440,520,120,200]], plaza:{x:360,y:400,r:150}, fountain:{x:362,y:374,r:40},
     houses:[], trees:[],
@@ -170,7 +171,8 @@ function placeSolid(x,y){
   if(x<16||y<20||x>placeW(P)-16||y>placeH(P)-14) return true;
   const C=PLACE_COL[G.area];
   if(C){ const cx=Math.floor(x/PLACE_GRID), cy=Math.floor(y/PLACE_GRID);
-    return cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1; }
+    if(cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1) return true;
+    return (P.people||[]).some(p=>Math.hypot(x-p.x,y-p.y)<10); }      /* and the townsfolk */
   if(P.cliffs&&y<150) return true;
   if(P.fountain&&Math.hypot(x-P.fountain.x,y-P.fountain.y)<P.fountain.r+6) return true;
   if(P.pond&&(((x-P.pond.x)/(P.pond.rx))**2+((y-P.pond.y)/(P.pond.ry))**2<1)) return true;

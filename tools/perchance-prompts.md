@@ -132,6 +132,7 @@ slightly left, plain white background.
 - A Karate Kick row for `battle.png` (named `karate`); until then it uses the regular kick.
 - More garden wildlife (`creatures/<Name>-spritesheet.png`, like the bluebird and monarch: frames in a
   grid of 256 px cells, facing right): a bumblebee, a dragonfly or a hummingbird would join in on their own.
-- Walls for the mountain (`maps/mountain_collision.png`, black = blocked, white = open, the same size as
-  the mountain maps): right now they're worked out from the spring painting's colours, which mostly works
-  but lets her onto a strip of far-off slope on the right. Painting this file replaces them.
+- Walls (black = blocked, white = open) to touch up by hand: `maps/town_collision.png`,
+  `maps/mountain_collision.png` and `maps/house_collision.png`, each the size of its painting. The town
+  and mountain ones start as the walls the game has now; `<place>_collision_guide.jpg` shows them in red
+  over the painting. The mountain's still lets her onto a strip of far-off slope on the right.
