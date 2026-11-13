@@ -122,6 +122,9 @@ const PLACES={
             [714,406],[198,674],[450,234],[378,1034],[566,866],[806,1130],[750,778],[390,626],[666,1222]],
     people:[]},
 };
+/* how big Kaitlyn is drawn in each place, next to its painting (1 = as in the garden) */
+const PLACE_KAIT={town:0.8, mountain:1};
+const placeKait=()=>PLACE_KAIT[G.area]||1;
 /* a place's size (the mountain is bigger than a garden screen) */
 const placeW=P=>(P&&P.w)||WORLD_W, placeH=P=>(P&&P.h)||WORLD_H;
 /* the size of wherever she is now, for the camera */
@@ -371,7 +374,8 @@ function drawPlace(){
   if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3))}));
   ents.push({y:G.player.y+9,f:()=>{
     const sx=G.player.x-cam.x, sy=G.player.y+12-cam.y;
-    b.save(); b.translate(sx,sy); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); b.translate(-sx,-sy); b.imageSmoothingEnabled=false;
+    const K=placeKait()/WORLD_ZOOM;                 /* her size here, around her feet */
+    b.save(); b.translate(sx,sy); b.scale(K,K); b.translate(-sx,-sy); b.imageSmoothingEnabled=placeKait()!==1;
     drawKaitlynShadow(b,sx,sy,G.player.dir,G.player.animT||0,G.player.moving);
     if(G.cast){ const n=BRN[BROW.flute]||1; drawBattleRow(b,'flute',Math.floor(G.cast.t/90)%n,sx,sy,1); }
     else drawKaitlyn(b,sx,sy,G.player.dir,G.player.animT||0,false,G.player.moving);
@@ -390,7 +394,7 @@ function drawPlace(){
   drawClockText(); drawBuffsText();
   T(P.name,8,16,20,'#fff6d8','left',true);
   const label=placeLabel();
-  if(label&&G.scene==='world'){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74); }
+  if(label&&G.scene==='world'){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74*placeKait()); }
   drawHUD();
 }
 

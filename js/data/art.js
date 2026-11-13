@@ -15,6 +15,6 @@ const SCENES=["fishing", "fishing_spring", "join_bling", "title"];
 const TITLE_LOGO="words";
 const BACKDROPS=["fall", "spring", "summer", "winter"];
 const RHYTHM_BG=true;
-const FRONT_LAYERS=["spring", "summer", "fall", "winter", "town_spring", "mountain_spring"];
+const FRONT_LAYERS=["spring", "summer", "fall", "winter", "town_spring", "town_summer", "town_fall", "town_winter", "mountain_spring", "mountain_summer", "mountain_fall", "mountain_winter"];
 const HOUSE_MASK=true;
 const PEOPLE_PORTRAITS={"juniper":"assets/sprites/portrait_juniper.png","mabel":"assets/sprites/portrait_mabel.png","milo":"assets/sprites/portrait_milo.png","mr. hollis":"assets/sprites/portrait_mr-hollis.png","old pete":"assets/sprites/portrait_old-pete.png","rosa":"assets/sprites/portrait_rosa.png"};

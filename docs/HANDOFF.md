@@ -2,7 +2,7 @@
 
 ## State
 - Last push: front layers for the town and mountain in spring (the user's hand-edited `maps/town_spring_front.png` and `maps/mountain_spring_front.png`), built to `assets/sprites/front_<place>_spring.webp` and drawn over everyone by `drawPlace` (`js/17-places.js`). Live with `sw.js` cache `kgs-v42`.
-- Summer, fall and winter have no town or mountain front yet. The user will ask to copy the spring outlines onto those seasons' paintings (write `maps/<place>_<season>_front.png` from each season's painting where spring's front is opaque, then build). My rough automatic guesses are set aside in `maps/old/rough fronts/`; don't use them.
+- **Not pushed yet:** summer, fall and winter fronts for the town and mountain, copied from the user's spring outlines (`maps/<place>_<season>_front.png`, built and listed in `FRONT_LAYERS`). Also `PLACE_KAIT` in `js/17-places.js`: how big Kaitlyn is drawn in each place (1 = garden size). The town is 0.8 (the user's choice); the mountain is 1. Bump `sw.js` when pushing.
 - Walls for the town, mountain and house are the user's hand-painted ones (pushed). The town's `blocks` rectangles in `js/17-places.js` are only a fallback.
 
 ## In progress
