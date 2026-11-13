@@ -135,4 +135,8 @@ slightly left, plain white background.
 - Walls (black = blocked, white = open) to touch up by hand: `maps/town_collision.png`,
   `maps/mountain_collision.png` and `maps/house_collision.png`, each the size of its painting. The town
   and mountain ones start as the walls the game has now; `<place>_collision_guide.jpg` shows them in red
-  over the painting. The mountain's still lets her onto a strip of far-off slope on the right.
+  over the painting.
+- What she walks behind, like the garden's `<season>_front.png`: `maps/town_<season>_front.png` and
+  `maps/mountain_<season>_front.png`, each showing just the bits of that season's painting that go over
+  her, see-through everywhere else (a plain white background works too). Spring's are done; the other
+  seasons will be copied from spring's outline.

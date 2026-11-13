@@ -31,6 +31,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - `named_pics()`: a loose file is used by its file name. A subfolder that holds exactly one picture is used under the subfolder's name (the user keeps one favorite out of several versions).
 - Enemies are listed in `ENEMIES`. Painted-in checkerboards are handled by `ENEMY_CHECKERED`, and white gaps between legs by `ENEMY_POCKETS`. Studio-photo items are cut out with `SHOP_PHOTOS` (gentler settings for pale ones). Townsfolk portraits come from `people/` and are written to `PEOPLE_PORTRAITS`.
 - Walls: in `maps/<place>_collision.png` (town, mountain, house, garden), black is blocked and white is open. The game reads them on a 4-pixel grid. `<place>_collision_guide.jpg` files are only for reference.
+- Front layers (what she walks behind, drawn over everyone) are see-through pictures showing only the parts of the painting that overlap her: `maps/<season>_front.png` (garden), `maps/house_front.png`, and `maps/<place>_<season>_front.png` (town, mountain). The user edits these by hand and prefers this picture format over masks. Never overwrite them.
 - Running animation: `python tools/build_run.py` produces `assets/sprites/run.png` and `js/data/run.js`.
 - Perchance prompts are in `tools/perchance-prompts.md`. Save full-resolution images with the heart icon, then "save to your device". Downloads arrive as `<uuid>.tmp` in Downloads, and the save windows are dialogs titled `data:image/...`.
 

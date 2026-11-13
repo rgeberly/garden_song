@@ -573,6 +573,17 @@ def main():
         a = load(f)
         cv2.imwrite(os.path.join(OUT, 'front_' + key + '.webp'), a, [cv2.IMWRITE_WEBP_QUALITY, 90])
         fronts.append(key)
+    # and the places' the same way: maps/<place>_<season>_front (the town's and mountain's).
+    # One saved with no see-through at all (a white background) has its white taken as empty.
+    for place in PLACE_SIZE:
+        for when in ('spring', 'summer', 'fall', 'winter'):
+            f = find_pic(os.path.join(SRC, 'maps', place + '_' + when + '_front'))
+            if not f: continue
+            a = load(f)
+            if a[..., 3].min() == 255: a[a[..., :3].min(2) > 240, 3] = 0
+            if not a[..., 3].any(): continue
+            cv2.imwrite(os.path.join(OUT, 'front_' + place + '_' + when + '.webp'), a, [cv2.IMWRITE_WEBP_QUALITY, 90])
+            fronts.append(place + '_' + when)
     pmaps = {}
     for f in pics('maps'):
         base = os.path.splitext(os.path.basename(f))[0].lower()

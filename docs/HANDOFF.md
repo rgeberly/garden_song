@@ -1,19 +1,12 @@
 # Handoff (2026-11-12)
 
 ## State
-- Last push was `1018686` (new enemy art, item pictures and townsfolk portraits). Live with `sw.js` cache `kgs-v40`.
-- **Not pushed yet:** the town now reads its walls from a collision image.
-  - `js/17-places.js`: when painted walls exist, `placeSolid` uses them and still blocks townsfolk. The old `blocks` rectangles are only a fallback.
-  - `tools/build_art.py`: `PLACE_SIZE` now includes the town.
-  - `js/data/art.js`: `PLACE_COLS` is now `["mountain","town"]`.
-  - New file `assets/sprites/town_collision.png`, plus a note in `tools/perchance-prompts.md`.
-  - Bump `sw.js` past `kgs-v40` when pushing. `CLAUDE.md` and this file are also new and uncommitted.
-- Checked in the game: the town walls load, the plaza and road are open, buildings and the fountain block, and townsfolk still block.
-
-- The user's hand-edited walls (art folder `maps/`: town, mountain, house) are built into `assets/sprites/*_collision.png` (only those images were regenerated, not the full `build_art.py`). Checked: all three load, arrival spots are open, and every exit, townsperson, the mountain stream, the bed and the music stand can be reached. Also unpushed.
+- Last push: front layers for the town and mountain in spring (the user's hand-edited `maps/town_spring_front.png` and `maps/mountain_spring_front.png`), built to `assets/sprites/front_<place>_spring.webp` and drawn over everyone by `drawPlace` (`js/17-places.js`). Live with `sw.js` cache `kgs-v42`.
+- Summer, fall and winter have no town or mountain front yet. The user will ask to copy the spring outlines onto those seasons' paintings (write `maps/<place>_<season>_front.png` from each season's painting where spring's front is opaque, then build). My rough automatic guesses are set aside in `maps/old/rough fronts/`; don't use them.
+- Walls for the town, mountain and house are the user's hand-painted ones (pushed). The town's `blocks` rectangles in `js/17-places.js` are only a fallback.
 
 ## In progress
-- The user is trying out the new walls in the game.
+- The user may still touch up the spring fronts. Rebuild just those two webps and reload them in the game when asked.
 - Home Sweet Home's notes are still the automatic ones. The user is editing them in the song editor.
 
 ## Next steps / backlog

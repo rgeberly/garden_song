@@ -377,6 +377,8 @@ function drawPlace(){
     else drawKaitlyn(b,sx,sy,G.player.dir,G.player.animT||0,false,G.player.moving);
     b.restore(); }});
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
+  /* what she walks behind (maps/<place>_<season>_front: tree tops and the like) goes over everyone */
+  const fr=frontImg(G.area+'_'+season()); if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,placeW(P),placeH(P)); }
   (P.people||[]).forEach(p=>{ b.font='bold 7px '+FONT; b.textAlign='center'; b.fillStyle='rgba(20,12,4,.55)';
     const w=b.measureText(p.name).width+6; b.fillRect(p.x-cam.x-w/2,p.y-cam.y-46,w,10);
     b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,p.y-cam.y-38.5); b.textAlign='left'; });
