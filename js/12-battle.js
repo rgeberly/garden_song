@@ -37,7 +37,7 @@ const BATTLE_LAYOUTS={
                 5:[[100,262],[132,230],[70,292],[164,198],[40,314]]},
          foes: {4:[[240,262],[222,204],[228,318],[306,262]],
                 5:[[240,262],[222,204],[228,318],[306,232],[312,292]]}}};
-let BATTLE_LAYOUT='rows';
+let BATTLE_LAYOUT='mix';            /* the party as an arrowhead, the pests three and two */
 const formation=n=>n>3?BATTLE_LAYOUTS[BATTLE_LAYOUT].party[n]:FORMATION[n];
 const foeForm=n=>n>3?BATTLE_LAYOUTS[BATTLE_LAYOUT].foes[n]:FOE_FORM[n];
 const FOE_SCALE={1:1,2:0.9,3:0.8,4:0.74,5:0.68}, FLY_LIFT=30;   /* flyers hover this high over their shadow */
@@ -1058,6 +1058,9 @@ function drawBattle(dt){
     if(B.anim&&B.anim.who===id) who={id,x:s.x,y:s.y};
     return {id,x:s.x,y:s.y}; }).sort((a,z)=>a.y-z.y);
   placed.forEach(p=>castShadow(c=>drawMember(c,p.id,0,0,k),p.x,p.y,0,0.32));
+  /* Meditate's and Focus's rings and motes go behind the party */
+  const behind=B.anim&&who&&(B.anim.kind==='meditate'||B.anim.kind==='focus');
+  if(behind) drawSpellFx(B.anim.kind,k,who.x,who.y);
   placed.forEach(p=>{
     if(B.turn==='player'&&!B.over&&actor()===p.id){        /* a warm glow under whoever's turn it is */
       b.globalAlpha=.35+Math.sin(G.t/260)*.12; b.fillStyle='#ffe08a';
@@ -1065,7 +1068,7 @@ function drawBattle(dt){
     drawMember(b,p.id,p.x,p.y,k);
   });
   if(A){ focus(A.foe); drawFoeFx(A.fx,k,A.targets); }
-  else if(B.anim&&who){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
+  else if(B.anim&&who&&!behind){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
   drawStatusTags();
   /* picking a target: a bouncing pointer over whoever is picked */
   const picking=B.turn==='player'&&B.menu==='target'&&B.tgt, tg=picking?B.tgt.list[B.tgt.i]:null;
