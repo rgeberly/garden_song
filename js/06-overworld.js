@@ -203,7 +203,7 @@ function camera(){ const vh=VIEW_H/WORLD_ZOOM, [W,H]=areaSize();
 /* where a world point lands in the garden view, in logical screen px */
 const toView=(wx,wy,cam)=>[(wx-cam.x)*WORLD_ZOOM,(wy-cam.y)*WORLD_ZOOM];
 /* how wide the soft patch under each yard decoration is (garden px) */
-const DECOR_SHADOW_W={fountain:22,arch:28,lantern:12,bath:14};
+const DECOR_SHADOW_W={fountain:22,arch:[[-32,13],[32,13]],lantern:12,bath:14};   /* the arch: one under each post */
 /* a frog's healing croak: green rings ripple out from it, notes rise, and sparkles
    lift off Kaitlyn as she's healed */
 const CROAK_MS=1800;

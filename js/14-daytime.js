@@ -148,16 +148,19 @@ function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving,indoors){
 }
 /* The same kind of shadow for everything else in the garden (plants, yard decorations,
    the stand, pests, wildlife): draw(c) paints it with its feet at 0,0 in garden px, w is
-   how wide its soft patch is. Its silhouette is laid along the ground away from the sun
-   like hers. lift: how high it hovers; a flyer only gets a fainter patch on the ground. */
-const GSH=document.createElement('canvas'), GSHG=GSH.getContext('2d'), GSH_W=180, GSH_H=180, GSH_FX=90, GSH_FY=170;
+   how wide its soft patch is (or [[dx,w],...] for one patch under each leg or post). Its
+   silhouette is laid along the ground away from the sun, its base staying where it stands
+   (so a wide thing like the arch keeps each post on its own shadow). lift: how high it
+   hovers; a flyer only gets a fainter patch on the ground. */
+const GSH=document.createElement('canvas'), GSHG=GSH.getContext('2d'), GSH_W=180, GSH_H=180, GSH_FX=90, GSH_FY=170, SHADOW_TUCK=2.5;
 GSH.width=GSH_W; GSH.height=GSH_H;
 function groundShadow(c,draw,x,y,w,lift){
   const [r,g,bl]=SHADOW_RGB[season()], rgb=r+','+g+','+bl, s=sunAt(G.clock/60);
-  c.save(); c.translate(x,y); c.scale(1,0.36);
-  const grad=c.createRadialGradient(0,0,0,0,0,w);
-  grad.addColorStop(0,'rgba('+rgb+','+(lift?0.18:0.3)+')'); grad.addColorStop(1,'rgba('+rgb+',0)');
-  c.fillStyle=grad; c.beginPath(); c.arc(0,0,w,0,7); c.fill(); c.restore();
+  (Array.isArray(w)?w:[[0,w]]).forEach(([dx,r])=>{
+    c.save(); c.translate(x+dx,y); c.scale(1,0.36);
+    const grad=c.createRadialGradient(0,0,0,0,0,r);
+    grad.addColorStop(0,'rgba('+rgb+','+(lift?0.18:0.3)+')'); grad.addColorStop(1,'rgba('+rgb+',0)');
+    c.fillStyle=grad; c.beginPath(); c.arc(0,0,r,0,7); c.fill(); c.restore(); });
   if(lift||!draw||s.strength<=0) return;
   GSHG.setTransform(1,0,0,1,0,0); GSHG.globalCompositeOperation='source-over'; GSHG.globalAlpha=1;
   GSHG.clearRect(0,0,GSH_W,GSH_H);
@@ -165,8 +168,10 @@ function groundShadow(c,draw,x,y,w,lift){
   GSHG.setTransform(1,0,0,1,0,0); GSHG.globalAlpha=1; GSHG.globalCompositeOperation='source-in';
   GSHG.fillStyle='rgb('+rgb+')'; GSHG.fillRect(0,0,GSH_W,GSH_H); GSHG.globalCompositeOperation='source-over';
   const {gx,gy,len}=s;
-  c.save(); c.globalAlpha=0.28*s.strength; c.imageSmoothingEnabled=true; c.translate(x,y);
-  c.transform(gy,-gx,-len*gx,-len*gy*GROUND_TILT,0,0);
+  /* tucked a little under its base (it's drawn over its own shadow), so the soft bottom
+     edge of a picture doesn't leave a sliver of grass between them */
+  c.save(); c.globalAlpha=0.28*s.strength; c.imageSmoothingEnabled=true; c.translate(x,y-SHADOW_TUCK);
+  c.transform(1,0,-len*gx,-len*gy*GROUND_TILT,0,0);
   c.drawImage(GSH,-GSH_FX,-GSH_FY,GSH_W,GSH_H); c.restore();
 }
 /* 0 at night, 1 in full day: scales the drifting cloud shadows and sunlight wash */
