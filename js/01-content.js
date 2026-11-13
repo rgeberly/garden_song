@@ -78,8 +78,8 @@ const sellPrice=sp=>Math.round(SPECIES[sp].value*(G.yard.arch?1.15:1));
      blind, sleep, weak, scared; drain heals it by that share of the damage; miss a
      chance to miss. fx is the effect drawn (see drawFoeFx). lv: the level it turns up
    at (stats grow from there, see pestStats); fly: hovers in battle; where:'mountain': only
-   on the mountain trail; big: how big its stand-in is until it has a picture; size: drawn bigger (the HOA
-   President towers over Kaitlyn); about: its flavor. */
+   on the mountain trail; big: how big its stand-in is until it has a picture; size: drawn bigger or smaller in
+   battle (the HOA President towers over Kaitlyn; the raccoon is 0.7); about: its flavor. */
 const PESTS={
   beetle :{name:"Dung Beetle",  hp:26, atk:4, def:3, agi:3,  xp:14, coin:5, min:1, col:'#a8781e',lv:1,
           about:"Rolls its lunch around all day. Proud of it, too.",skills:[
@@ -118,7 +118,7 @@ const PESTS={
     {name:"Peck",kind:'hit',pow:1,w:3,fx:'peck'},
     {name:"Mocking Caw",kind:'hit',pow:0.4,w:2,st:'blind',p:0.8,fx:'caw'},
     {name:"Talon Rake",kind:'all',pow:0.7,w:2,fx:'claw'}]},
-  raccoon:{name:"Raccoon",      hp:56, atk:8, def:5, agi:8,  xp:36, coin:14,min:4, col:'#8a8f96',lv:6,
+  raccoon:{name:"Raccoon",      hp:56, atk:8, def:5, agi:8,  xp:36, coin:14,min:4, col:'#8a8f96',lv:6,size:0.7,
           about:"A masked bandit with a gourmet taste for garbage.",skills:[
     {name:"Swipe",kind:'hit',pow:1,w:3,fx:'claw'},
     {name:"Trash Toss",kind:'all',pow:0.75,w:2,fx:'trash'},
