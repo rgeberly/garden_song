@@ -123,7 +123,7 @@ const PLACES={
     people:[]},
 };
 /* how big Kaitlyn is drawn in each place, next to its painting (1 = as in the garden) */
-const PLACE_KAIT={town:0.8, mountain:1};
+const PLACE_KAIT={town:0.8, mountain:0.7};
 const placeKait=()=>PLACE_KAIT[G.area]||1;
 /* a place's size (the mountain is bigger than a garden screen) */
 const placeW=P=>(P&&P.w)||WORLD_W, placeH=P=>(P&&P.h)||WORLD_H;
@@ -371,7 +371,10 @@ function drawPlace(){
   const ents=[];
   (P.people||[]).forEach(p=>ents.push({y:p.y,f:()=>drawPerson(b,{...p,x:p.x-cam.x,y:p.y-cam.y})}));
   if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
-  if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3))}));
+  /* the pests, scaled like her here (shadow and all), around their feet */
+  if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y, s=placeKait();
+    b.save(); b.translate(x,y); b.scale(s,s); b.translate(-x,-y);
+    drawPestWorld(b,p.species,x,y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3)); b.restore(); }}));
   ents.push({y:G.player.y+9,f:()=>{
     const sx=G.player.x-cam.x, sy=G.player.y+12-cam.y;
     const K=placeKait()/WORLD_ZOOM;                 /* her size here, around her feet */

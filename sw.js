@@ -1,4 +1,4 @@
-const CACHE='kgs-v43';
+const CACHE='kgs-v44';
 const FILES=[
  "./",
  "assets/audio/music_battle.m4a",

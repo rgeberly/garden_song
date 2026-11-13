@@ -2,7 +2,8 @@
 
 ## State
 - Last push: front layers for the town and mountain in spring (the user's hand-edited `maps/town_spring_front.png` and `maps/mountain_spring_front.png`), built to `assets/sprites/front_<place>_spring.webp` and drawn over everyone by `drawPlace` (`js/17-places.js`). Live with `sw.js` cache `kgs-v42`.
-- **Not pushed yet:** summer, fall and winter fronts for the town and mountain, copied from the user's spring outlines (`maps/<place>_<season>_front.png`, built and listed in `FRONT_LAYERS`). Also `PLACE_KAIT` in `js/17-places.js`: how big Kaitlyn is drawn in each place (1 = garden size). The town is 0.8 (the user's choice); the mountain is 1. Bump `sw.js` when pushing.
+- Pushed in `b04f9dc` (cache `kgs-v43`): summer, fall and winter fronts for the town and mountain, copied from the user's spring outlines (`maps/<place>_<season>_front.png`, built and listed in `FRONT_LAYERS`). Also `PLACE_KAIT` in `js/17-places.js`: how big Kaitlyn is drawn in each place (1 = garden size). The town is 0.8 and the mountain 0.7 (the user's choices). Mountain pests are scaled by the same factor, shadows included.
+- Pushed: the mountain at 0.7 and the scaled pests (cache `kgs-v44`).
 - Walls for the town, mountain and house are the user's hand-painted ones (pushed). The town's `blocks` rectangles in `js/17-places.js` are only a fallback.
 
 ## In progress
