@@ -26,6 +26,7 @@ function nextStep(){
 function updateStory(dt){
   const s=story.steps[story.i]; story.t+=dt;
   if(s.fade){ const k=clamp(story.t/(s.ms||600),0,1); story.fade=story.from+(story.to-story.from)*k; if(k>=1) nextStep(); }
+  else if(s.wait&&story.t>=s.wait) nextStep();          /* wait: ms of the scene playing on its own (an animation) */
 }
 const typed=s=>Math.min(s.text.length,Math.floor(story.t/TALK_MS));
 /* a tap first finishes the line being typed, then moves on */
@@ -37,7 +38,7 @@ function storyTap(){
 /* pictures for story scenes load on first use */
 const SCENE_IMG={};
 function sceneImg(name){
-  if(!SCENE_IMG[name]){ SCENE_IMG[name]=new Image(); SCENE_IMG[name].src=ASSET_SCENES[name]; }
+  if(!SCENE_IMG[name]){ SCENE_IMG[name]=new Image(); SCENE_IMG[name].src=ASSET_SCENES[name]||'assets/scenes/'+name+'.jpg'; }
   const im=SCENE_IMG[name]; return im.complete&&im.naturalWidth?im:null;
 }
 /* the screen above the deck (all of it without one) */
@@ -66,7 +67,7 @@ function drawTalk(s,bottom){
   wipeBuf();
   panel(x,y,w,h);
   px(b,x+9,y+9,86,h-18,'#e2d3ae');
-  const im=portraitImg(s.who?s.who.name.toLowerCase():s.say);       /* townsfolk by name */
+  const im=portraitImg(s.face||(s.who?s.who.name.toLowerCase():s.say));       /* townsfolk by name; face: another portrait (a baby's) */
   if(im){ const ph=h-22, pw=ph*im.naturalWidth/im.naturalHeight;
     b.save(); b.beginPath(); b.rect(x+9,y+9,86,h-18); b.clip(); b.imageSmoothingEnabled=true;
     b.drawImage(im,x+9+(86-pw)/2,y+11,pw,ph); b.restore(); }
@@ -87,6 +88,7 @@ function drawPopup(text,who){
   panel(x,y,w,h);
   px(b,x+8,y+8,w-16,3,'#e8c34a');
   if(who==='bling') drawBlingMap(b,LW/2,y+62,64,null,false,false);
+  if(who==='tiny') drawTinyBird(b,LW/2,y+70,52,false);
   blit();
   wrapLines(text,24,w-28).forEach((ln,i)=>T(ln,LW/2,ty+i*18,24,'#3a2a1a','center',true));
   if(story.t>450&&Math.floor(G.t/500)%2===0) T(IS_TOUCH?"tap or press A":"press J",LW/2,y+h-6,16,'#8a7a5a','center');

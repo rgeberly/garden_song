@@ -10,10 +10,16 @@ where the full-size originals live) holds
     shop items/<exact shop item name>.png
     creatures/<Name>-spritesheet.png     animation frames in a grid of 256px cells
     crops/<Name>-spritesheet.png         garden effects (the music note), same layout
+    crops/harvest <Crop>.png             the picked crop, shown in the bag and at the stall
+    shop items/<Tree> sapling.png        a fruit tree's sapling: sold instead of a seed, and
+                                         what stands in the stone ring just after planting
     party/<Name>-ready-spritesheet.png   a party member's ready-for-their-turn loop, same layout
     party/<Name>-battle.png              their still battle stance (Kaitlyn's is pose.png)
     party/<Name>-attack-spritesheet.png  their attack, same layout
     party/<Name>-portrait.png            their face for menus and conversations
+    party/<Name>/<Name> - ready - spritesheet.png   (and so on) the same, kept in a folder
+    party/<Name>/<Name> - baby.png, <Name> (baby)-beg.png, <Name> - baby portrait.png
+                                         a member who starts out as a baby (Tiny One)
     scenes/<name>.png                    full pictures shown in story scenes
     fishing/Rod.png, Reel.png, Bobber.png   the fishing game's tackle (white background)
     logo.png  or  logo frame.png          the title screen's logo (white background):
@@ -39,7 +45,14 @@ OUT = os.path.join(ROOT, 'assets', 'sprites')
 # On-screen size, in device px (3 per game px), of a full 1024px source picture.
 # Pictures keep their sizes relative to each other within a group.
 CANVAS_PX = {'sprout': 84, 'baby': 126, 'mature': 162, 'soil': 108, 'stand': 300,
-             'baby tree': 150, 'mature tree': 228, 'damaged': 126}
+             'baby tree': 150, 'mature tree': 228, 'damaged': 126, 'harvest': 120, 'sapling': 120}
+# harvest pictures named in the plural: the crop's name in the game
+HARVEST_ALIAS = {'blueberries': 'blueberry', 'muscadines': 'muscadine', 'strawberries': 'strawberry',
+                 'tomatoes': 'tomato', 'beets': 'beet', 'carrots': 'carrot', 'radishes': 'radish'}
+# planted, a sapling's roots are underground: the share of its picture's height kept, from the top
+SAPLING_KEEP = {'avocado': 0.78, 'muscadine': 0.82, 'satsuma': 0.67}
+# the fruit trees' seed pictures, made by mistake (they're sold as saplings): left out
+SHOP_SKIP = {t + ' seed' for t in ('satsuma', 'muscadine', 'avocado')}
 # fruit trees grow in the stone rings and stand taller than the bed crops
 TREES = {'satsuma', 'muscadine', 'avocado'}
 CROP_GROUPS = ('sprout', 'baby', 'mature', 'baby tree', 'mature tree', 'damaged')
@@ -53,7 +66,9 @@ CROP_HOLE = 40
 DECOR = {'fountain': ('frog fountain', 168), 'bath': ('bird bath', 162),
          'arch': ('flower arch', 300), 'lantern': ('stone lantern', 186)}
 # Creatures that flutter around the garden: width of one frame in device px.
-CREATURE_W = {'bluebird': 66, 'monarch': 48, 'music note': 39}
+CREATURE_W = {'bluebird': 66, 'monarch': 48, 'music note': 39, 'earthworm': 48}
+# creatures that stay on the ground instead of flying across the garden (garden effects)
+GROUND_CREATURES = {'earthworm'}
 CREATURE_CELL = 256
 # ...and these, where the background caught inside is off-white too (between legs, inside loops)
 SHOP_SOFT_HOLES = {'music stand': 40}
@@ -74,7 +89,12 @@ SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'see
 # Party members in battle, sized on their first ready frame, in sheet px (the game draws
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
 # Bling by her length.
-PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70)}
+PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70), 'tiny': ('h', 66)}
+# party folders named differently from the member's id in the game
+PARTY_IDS = {'tiny one': 'tiny', 'ivy': 'bling'}
+# a baby's still picture and begging loop, by their height in sheet px (drawn smaller in the nest)
+BABY_H = 90
+HATCH_H = 90            # an egg hatching: the egg's height in sheet px
 # Places with painted maps and their own walls: their size in the game (world px, as in
 # js/17-places.js) and the walls' grid (world px per cell). The mountain's walls come from
 # its painting unless maps/mountain_collision is there; MOUNTAIN_OPEN marks parts of the
@@ -316,9 +336,10 @@ def foot(a):
     return int(round((xs.min() + xs.max()) / 2)), int(bot)
 
 
-def grid_frames(path, C=CREATURE_CELL):
+def grid_frames(path, C=CREATURE_CELL, offset=False):
     """Every non-empty CxC grid cell of an animation sheet, in reading order, all cut
-    to one shared box so the animation doesn't wobble."""
+    to one shared box so the animation doesn't wobble (offset: also where that box starts
+    in the cell, x and y)."""
     a = load(path)
     cells = [a[r*C:(r+1)*C, c*C:(c+1)*C] for r in range(a.shape[0] // C) for c in range(a.shape[1] // C)]
     n = [int((x[..., 3] > 20).sum()) for x in cells]
@@ -326,7 +347,8 @@ def grid_frames(path, C=CREATURE_CELL):
     m = np.zeros((C, C), bool)
     for x in cells: m |= x[..., 3] > 20
     ys, xs = np.nonzero(m)
-    return [x[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for x in cells]
+    out = [x[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for x in cells]
+    return (out, int(xs.min()), int(ys.min())) if offset else out
 
 
 def bbox(a):
@@ -348,17 +370,47 @@ def pack(items, width=1024):
     return sheet, pos
 
 
+def party_files():
+    """Each party member's pictures: {id: {kind: path}}, kind being ready, battle, attack,
+    spell, victory, portrait, baby, babybeg or babyportrait. Loose in party/ as
+    <Name>-<kind>[-spritesheet].png, or in a folder party/<Name>/ as
+    "<Name> - <kind> - spritesheet.png", "<Name> (baby)-beg.png" and the like."""
+    out = {}
+    def kind_of(stem, name):
+        k = stem.lower()
+        if k.startswith(name): k = k[len(name):]
+        k = k.replace('spritesheet', '')
+        return ''.join(ch for ch in k if ch.isalnum())
+    files = [(f, None) for f in glob.glob(os.path.join(SRC, 'party', '*.*'))]
+    for d in glob.glob(os.path.join(glob.escape(os.path.join(SRC, 'party')), '*', '')):
+        folder = os.path.basename(os.path.dirname(d)).strip().lower()
+        files += [(f, folder) for f in glob.glob(os.path.join(glob.escape(d), '*.*'))]
+    for f, folder in files:
+        if os.path.splitext(f)[1].lower() not in PIC_EXT: continue
+        stem = os.path.splitext(os.path.basename(f))[0].strip()
+        name = folder or stem.split('-')[0].strip().lower()
+        # in a member's folder, a picture not named after them is its own kind ("Tiny Egg hatching")
+        kind = kind_of(stem, name) if not folder or stem.lower().startswith(folder) else kind_of(stem, '')
+        out.setdefault(PARTY_IDS.get(name, name), {})[kind] = f
+    return out
+
+
 def main():
     crops, meta = [], {}
-    def add(key, path, group):
+    def add(key, path, group, keep=1.0):
         a = load(path); s = CANVAS_PX[group] / max(a.shape[:2])
-        im = shrink(trim(remove_white(a, CROP_HOLE if group in CROP_GROUPS else 0)), s)
+        im = trim(remove_white(a, CROP_HOLE if group in CROP_GROUPS else 0))
+        if keep < 1: im = trim(im[:round(im.shape[0] * keep)])
+        im = shrink(im, s)
         ax, ay = foot(im)
         crops.append((key, im)); meta[key] = {'ax': ax, 'ay': ay}
     for f in pics('crops'):
         base = os.path.splitext(os.path.basename(f))[0].lower()
         if base == 'sprout': add('sprout', f, 'sprout')
         elif base == 'damaged plant': add('damaged', f, 'damaged')
+        elif base.startswith('harvest '):
+            crop = base[len('harvest '):].strip()
+            add('harvest ' + HARVEST_ALIAS.get(crop, crop), f, 'harvest')
         else:
             for stage in ('baby', 'mature'):
                 if base.startswith(stage + ' '):
@@ -367,6 +419,10 @@ def main():
     for key, name, group in (('soil', 'Soil.png', 'soil'), ('stand', 'MarketStand.png', 'stand')):
         p = os.path.join(SRC, name)
         if os.path.exists(p): add(key, p, group)
+    for name, f in named_pics('shop items'):
+        if name.endswith(' sapling'):
+            tree = name[:-len(' sapling')].strip()
+            add('sapling ' + tree, f, 'sapling', SAPLING_KEEP.get(tree, 1.0))
     for key, (item, h) in DECOR.items():
         hits = [f for f in pics('shop items')
                 if os.path.splitext(os.path.basename(f))[0].strip().lower() == item]
@@ -380,6 +436,7 @@ def main():
 
     shop, smeta = [], {}
     for name, f in named_pics('shop items'):
+        if name in SHOP_SKIP: continue
         src = load(f)
         edge = np.concatenate([src[0, :, :3], src[-1, :, :3], src[:, 0, :3], src[:, -1, :3]])
         if name in SHOP_PHOTOS: im = photo_cutout(src, *SHOP_PHOTOS[name])
@@ -405,6 +462,7 @@ def main():
     sheets += [(f, 'fx') for f in sorted(glob.glob(os.path.join(SRC, 'crops', '*-spritesheet.png')))]
     for f, k in sheets:
         name = os.path.basename(f)[:-len('-spritesheet.png')].strip().lower()
+        if name in GROUND_CREATURES: k = 'fx'
         kind[name] = k
         box = grid_frames(f)
         sc = CREATURE_W.get(name, 54) / box[0].shape[1]
@@ -418,17 +476,17 @@ def main():
     # party members: the ready loop, sized by PARTY_FIT on its first frame; the still
     # battle stance is fitted to the width of that first frame and stands where it does.
     # ax,ay is where the feet (or belly) touch the ground, within each frame.
-    pframes, pmeta = [], {}
-    for f in sorted(glob.glob(os.path.join(SRC, 'party', '*-ready-spritesheet.png'))):
-        name = os.path.basename(f)[:-len('-ready-spritesheet.png')].strip().lower()
-        box = grid_frames(f)
+    pframes, pmeta, pfaces = [], {}, []
+    for name, F in sorted(party_files().items()):
+        if 'ready' not in F: continue
+        box = grid_frames(F['ready'])
         x0, y0, x1, y1 = bbox(box[0])
         how, size = PARTY_FIT.get(name, ('h', 189))
         sc = size / ((y1 - y0) if how == 'h' else (x1 - x0))
         for i, x in enumerate(box): pframes.append((name + ' %d' % i, shrink(x, sc)))
         ax, ay = round((x0 + x1) / 2 * sc), round(box[0].shape[0] * sc) - 1
         pmeta[name] = {'n': len(box), 'ax': ax, 'ay': ay}
-        still = find_pic(os.path.join(SRC, 'party', name.capitalize() + '-battle'))
+        still = F.get('battle')
         if still:
             im = trim(remove_white(load(still), STANCE_HOLE), 0)
             im = shrink(im, (x1 - x0) * sc / im.shape[1])
@@ -439,8 +497,8 @@ def main():
         # (a victory loop may not start from the resting pose: it's drawn at the spell's scale)
         msc = {}
         for move in ('attack', 'spell', 'victory'):
-            hit = os.path.join(SRC, 'party', name.capitalize() + '-' + move + '-spritesheet.png')
-            if not os.path.exists(hit): continue
+            hit = F.get(move)
+            if not hit: continue
             abox = grid_frames(hit)
             ax0, ay0, ax1, ay1 = bbox(abox[0])
             asc = size / ((ay1 - ay0) if how == 'h' else (ax1 - ax0))
@@ -448,11 +506,37 @@ def main():
             msc[move] = asc
             for i, x in enumerate(abox): pframes.append((name + ' ' + move + ' %d' % i, shrink(x, asc)))
             pmeta[name][move] = {'n': len(abox), 'ax': round((ax0 + ax1) / 2 * asc), 'ay': round(ay1 * asc) - 1}
-        face = find_pic(os.path.join(SRC, 'party', name.capitalize() + '-portrait'))
-        if face:
-            im = trim(remove_white(load(face)), 0)
-            cv2.imwrite(os.path.join(OUT, 'portrait_' + name + '.png'), shrink(im, PORTRAIT_H / im.shape[0]),
+        # a baby: its still picture and begging loop, BABY_H tall, standing on their bottom-centre
+        if F.get('baby'):
+            im = trim(remove_white(load(F['baby']), STANCE_HOLE), 0)
+            im = shrink(im, BABY_H / im.shape[0])
+            pframes.append((name + ' baby', im)); ax, ay = foot(im)
+            pmeta[name]['baby'] = {'ax': ax, 'ay': ay}
+        # the baby's loops (begging, falling asleep, asleep) are painted at one scale in their
+        # cells: all sized by the begging loop's first frame and placed on its feet, so one
+        # follows on from another without a jump
+        if F.get('babybeg'):
+            beg, ox, oy = grid_frames(F['babybeg'], offset=True)
+            bx0, by0, bx1, by1 = bbox(beg[0]); bsc = BABY_H / (by1 - by0)
+            fx, fy = (bx0 + bx1) / 2 + ox, by1 + oy                  # the feet, in cell px
+            for bk, key in (('babybeg', 'beg'), ('babyfallasleep', 'fallasleep'), ('babyasleep', 'asleep')):
+                if not F.get(bk): continue
+                fr, ox, oy = grid_frames(F[bk], offset=True)
+                for i, x in enumerate(fr): pframes.append((name + ' ' + key + ' %d' % i, shrink(x, bsc)))
+                pmeta[name][key] = {'n': len(fr), 'ax': round((fx - ox) * bsc), 'ay': round((fy - oy) * bsc) - 1}
+        # an egg hatching (in the member's folder, named for the egg): the egg HATCH_H tall
+        hatch = next((v for k, v in F.items() if 'hatching' in k), None)
+        if hatch:
+            fr = grid_frames(hatch)
+            ex0, ey0, ex1, ey1 = bbox(fr[0]); hsc = HATCH_H / (ey1 - ey0)
+            for i, x in enumerate(fr): pframes.append((name + ' hatch %d' % i, shrink(x, hsc)))
+            pmeta[name]['hatch'] = {'n': len(fr), 'ax': round((ex0 + ex1) / 2 * hsc), 'ay': round(ey1 * hsc) - 1, 'eh': HATCH_H}
+        for pk, out in (('portrait', name), ('babyportrait', name + '-baby')):
+            if not F.get(pk): continue
+            im = trim(remove_white(load(F[pk])), 0)
+            cv2.imwrite(os.path.join(OUT, 'portrait_' + out + '.png'), shrink(im, PORTRAIT_H / im.shape[0]),
                         [cv2.IMWRITE_PNG_COMPRESSION, 9])
+            pfaces.append(out)
     if pframes:
         psheet, ppos = pack(pframes)
         # lossy WebP (with alpha) is well under half the size of a PNG for these painted frames
@@ -462,6 +546,9 @@ def main():
             if 'stance' in d: d['stance']['r'] = ppos[n + ' stance']
             for move in ('attack', 'spell', 'victory'):
                 if move in d: d[move]['f'] = [ppos['%s %s %d' % (n, move, i)] for i in range(d[move].pop('n'))]
+            if 'baby' in d: d['baby']['r'] = ppos[n + ' baby']
+            for key in ('beg', 'fallasleep', 'asleep', 'hatch'):
+                if key in d: d[key]['f'] = [ppos['%s %s %d' % (n, key, i)] for i in range(d[key].pop('n'))]
 
     # enemies: background cleared, trimmed and sized for battle, standing on their bottom
     eframes, emeta = [], {}
@@ -600,7 +687,7 @@ def main():
         a = load(f); s = SCENE_W / a.shape[1]
         im = shrink(a, s); al = im[..., 3:4] / 255.0
         flat = (im[..., :3] * al).astype(np.uint8)
-        name = os.path.splitext(os.path.basename(f))[0].strip().lower()
+        name = '_'.join(os.path.splitext(os.path.basename(f))[0].strip().lower().split())
         cv2.imwrite(os.path.join(ROOT, 'assets', 'scenes', name + '.jpg'), flat, [cv2.IMWRITE_JPEG_QUALITY, 88])
         print('scene', name, flat.shape[1], 'x', flat.shape[0]); scene_names.append(name)
 
@@ -644,6 +731,7 @@ def main():
         fh.write('const CREATURE_ART=' + json.dumps({n: v for n, v in cmeta.items() if kind[n] == 'creature'}, separators=(',', ':')) + ';\n')
         fh.write('const FX_ART=' + json.dumps({n: v for n, v in cmeta.items() if kind[n] == 'fx'}, separators=(',', ':')) + ';\n')
         fh.write('const PARTY_ART=' + json.dumps(pmeta, separators=(',', ':')) + ';\n')
+        fh.write('const PARTY_PORTRAITS=' + json.dumps(sorted(pfaces)) + ';\n')
         fh.write('const ENEMY_ART=' + json.dumps(emeta, separators=(',', ':')) + ';\n')
         fh.write('const NOTE_ART=' + json.dumps(nmeta, separators=(',', ':')) + ';\n')
         fh.write('const PLACE_MAPS=' + json.dumps(pmaps, separators=(',', ':')) + ';\n')

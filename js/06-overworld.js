@@ -39,6 +39,7 @@ function interact(){
   }
   const plot=nearestPlot();
   if(!plot){ say("Nothing here. Find a garden bed."); return; }
+  if(plot.dead&&wormIn(plot)){ pickWorm(plot); return; }          /* for Tiny One */
   if(plot.dead){ plot.dead=false; plot.deadSp=null; say("Cleared away the ruined plant."); blip(260,0.08,0.12,'triangle'); return; }
   if(!plot.sp){ openSeedMenu(plot); return; }
   if(plot.stage>=3){ harvest(plot); return; }
@@ -182,7 +183,7 @@ function updateWorld(dt){
         p.target.health=Math.max(0,p.target.health-bite);
         setGrowth(p.target,p.target.growth-bite*1.5);
         if(p.target.health<=0){ say("A plant was ruined! Clear it away to replant.");
-          Object.assign(p.target,{deadSp:p.target.sp,sp:null,stage:0,growth:0,health:100,dead:true,sungDay:0,fullDay:0}); } } }
+          Object.assign(p.target,{deadSp:p.target.sp,sp:null,stage:0,growth:0,health:100,dead:true,deadDay:G.day,sungDay:0,fullDay:0}); } } }
   }
   if(G.frogT>0) G.frogT-=dt;
   if(G.croak){ G.croak.t+=dt; if(G.croak.t>CROAK_MS) G.croak=null; }
@@ -236,7 +237,7 @@ function drawWorld(){
   plots.forEach(p=>{ if(!active(p))return;
     ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
       if(!p.tree) drawSoil(b,x,y);
-      if(p.dead) drawRuined(b,x,y,p.tree);
+      if(p.dead){ drawRuined(b,x,y,p.tree); if(wormIn(p)) drawWorms(b,p,x,y); }
       else if(p.sp){ if(p.sungDay===G.day) drawSungGlow(b,p,x,y);
         if(p.stage>0) groundShadow(b,c=>drawPlant(c,0,0,p.sp,p.stage,p.tree),x,y,p.tree?14:8);
         drawPlant(b,x,y,p.sp,p.stage,p.tree);
@@ -318,7 +319,7 @@ function drawWorld(){
   else if(!ZONES&&nearGardenExit(R)) label=nearGardenExit(R).label;
   else if(G.swim) label="Refill MP";
   else if(f) label="Frog";
-  else if(p) label=p.dead?"Clear":!p.sp?"Plant":p.stage>=3?"Harvest":p.growth>=plantNeed(p)?"Ripe tomorrow":p.sungDay===G.day?"Sung today":"Play song";
+  else if(p) label=p.dead?(wormIn(p)?"Pick up worm":"Clear"):!p.sp?"Plant":p.stage>=3?"Harvest":p.growth>=plantNeed(p)?"Ripe tomorrow":p.sungDay===G.day?"Sung today":"Play song";
   if(label&&G.scene==='world'){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74); }
   drawHUD();
 }

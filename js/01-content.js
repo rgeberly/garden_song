@@ -37,6 +37,8 @@ const SPECIES={
               flavor:"A little frost only makes them sweeter. Worth the long simmer."},
 };
 const SPECIES_ORDER=Object.keys(SPECIES);
+/* what she buys and plants: a seed, or for a fruit tree a sapling */
+const seedName=sp=>SPECIES[sp].name+(SPECIES[sp].kind==='tree'?" sapling":" seed");
 /* seeds in the order of the seasons they do best in (for the shop and the bag) */
 const SEASON_RANK={spring:0,summer:1,fall:2,winter:3};
 const bySeason=L=>L.slice().sort((a,z)=>SEASON_RANK[SPECIES[a].best]-SEASON_RANK[SPECIES[z].best]||SPECIES_ORDER.indexOf(a)-SPECIES_ORDER.indexOf(z));
@@ -241,6 +243,27 @@ const ALLY_SKILLS={
     {id:'hypno',    name:"Hypnosis",   lv:11,mp:5, sleep:0.75,
      desc:"Look into my eyesss... Puts one foe to sleep for 2-3 turns."},
   ],
+  /* Tiny One. mend (one friend) and mendAll (everyone standing) heal that share of their
+     own max HP; regen: {n,share}, everyone also gets that share back at the start of each
+     of their next n turns; clear: cures one friend's troubles; revive: wakes a friend who's
+     down with that share of HP; pecks: that many hits at random foes, power pow from
+     Agility; all: hits every foe (power from Intelligence), weak: chance each one's attack drops */
+  tiny:[
+    {id:'chirp',  name:"Cheery Chirp",  lv:1, mp:3, mend:0.5, song:true,
+     desc:"A bright little chirp that perks anyone right up. Heals one friend 50% of their max HP."},
+    {id:'peck',   name:"Peck Peck Peck",lv:2, mp:3, pecks:3, pow:0.45,
+     desc:"Tiny beak, terrible manners. Three quick pecks at random foes, power x0.45 each from Agility."},
+    {id:'clear',  name:"Clear Note",    lv:4, mp:3, clear:true, song:true,
+     desc:"One pure, ringing note that shakes off whatever's wrong. Cures all of one friend's troubles."},
+    {id:'chorus', name:"Dawn Chorus",   lv:6, mp:7, mendAll:0.3, song:true,
+     desc:"The whole morning's worth of birdsong at once. Heals everyone 30% of their max HP."},
+    {id:'trill',  name:"Piercing Trill",lv:8, mp:5, pow:0.7, all:true, weak:0.35, song:true,
+     desc:"Small bird, very big voice. Every foe, power x0.7, may rattle them so their attacks drop."},
+    {id:'nest',   name:"A True Bird's Nest",lv:10,mp:10, mendAll:0.15, regen:{n:3,share:0.15}, song:true,
+     desc:"A song about home, and everyone in it. Heals everyone 15% of their max HP, then 15% more at the start of each of their next 3 turns."},
+    {id:'wake',   name:"Wake-Up Call",  lv:12,mp:8, revive:0.3, song:true,
+     desc:"The loudest, most insistent good morning. Brings a friend who's down back into the fight with 30% of their max HP."},
+  ],
 };
 const FIELD=[
   {id:'reprise',name:"Growth Reprise",lv:4, mp:6, desc:"+20% growth to every plant · once a day",
@@ -340,7 +363,9 @@ function drawCropArt(c,key,x,y,s){
   c.restore(); return true;
 }
 function drawPlant(c,x,y,sp,stage,tree){
-  const key=stage===0?'sprout':CROP_STAGE[stage]+' '+SPECIES[sp].name.toLowerCase();
+  /* a fruit tree starts out as the sapling she planted */
+  const sap=stage===0&&tree&&CROP_ART['sapling '+SPECIES[sp].name.toLowerCase()];
+  const key=sap?'sapling '+SPECIES[sp].name.toLowerCase():stage===0?'sprout':CROP_STAGE[stage]+' '+SPECIES[sp].name.toLowerCase();
   if(drawCropArt(c,key,x,y,CROP_STAGE_SCALE[stage])) return;
   const a=plantArt(sp,stage,tree);
   c.drawImage(a.cv,Math.round(x-a.ox),Math.round(y-a.oy));
@@ -350,9 +375,10 @@ function drawRuined(c,x,y,tree){
   if(drawCropArt(c,'damaged',x,y,tree?1.2:1)) return;
   px(c,x-1,y-12,2,12,'#6b5a3a'); px(c,x-6,y-8,5,2,'#8a6a3a'); px(c,x+1,y-10,5,2,'#8a6a3a');
 }
-/* a small picture of a crop or seed packet fitted into a box centred on cx,cy */
+/* a small picture of a picked crop (crops/harvest <name>; the grown plant until it has
+   one) fitted into a box centred on cx,cy */
 function drawCropIcon(c,sp,cx,cy,box){
-  const a=CROP_ART['mature '+SPECIES[sp].name.toLowerCase()];
+  const n=SPECIES[sp].name.toLowerCase(), a=CROP_ART['harvest '+n]||CROP_ART['mature '+n];
   if(a&&cropsReady()){ const [sx,sy,w,h]=a.r, s=Math.min(box*SC/w,box*SC/h);
     c.save(); c.scale(1/SC,1/SC); c.imageSmoothingEnabled=true;
     c.drawImage(IMG_CROPS,sx,sy,w,h,Math.round(cx*SC-w*s/2),Math.round(cy*SC-h*s/2),w*s,h*s);

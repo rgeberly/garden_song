@@ -73,6 +73,7 @@ function startBattle(pest,kinds){
   B={pest,foes,boss,party, act:0, menu:'cmd', idx:0, sub:0, top:0, readyT:0,
      guard:{},                       /* members braced by Meditate or Focus */
      charged:{},                     /* members whose next hit is doubled (Focus) */
+     regen:{},                       /* members mending each turn: {n turns left, share of max HP} */
      st:{},                          /* members' troubles: st[id][status]=turns left */
      order:[], turn:'busy', tgt:null, inspect:null, prep:null, banner:null, lastFoe:foes[0],
      log:boss?"The HOA President demands a word!":foes.length===1?"A "+foes[0].name+" blocks your path!"
@@ -87,7 +88,7 @@ const actor=()=>B.party[B.act];
 const liveFoes=()=>B.foes.filter(f=>f.hp>0);
 const allDown=()=>!B.foes.some(f=>f.hp>0);
 /* just over a member's head, for numbers that pop up */
-const headOf=id=>{ const s=slotOf(id); return s.y-(id==='kaitlyn'?110:36)*s.s; };
+const headOf=id=>{ const s=slotOf(id); return s.y-(id==='kaitlyn'?110:36*(MEMBER_SIZE[id]||1))*s.s; };
 /* where a member stands (feet) and how big they're drawn there */
 function slotOf(id){ const [x,y]=formation(B.party.length)[Math.max(0,B.party.indexOf(id))]; return {x,y,s:depthScale(y)}; }
 /* where a foe stands: feet, size and how high it hovers */
@@ -140,6 +141,7 @@ function setCmd(i){ B.idx=i; B.ctop=clamp(B.ctop||0,Math.max(0,i-CMD_VIS+1),i); 
 function memberTicks(id){
   const S=B.st[id], M=member(id), name=PARTY_INFO[id].name, s=slotOf(id);
   B.guard[id]=false;                     /* Meditate's or Focus's bracing lasts until now */
+  const R=B.regen[id]; if(R&&R.n>0){ R.n--; mendMember(id,M.maxhp*R.share); }   /* A True Bird's Nest */
   let why=null;
   if(S.poison>0){ const d=Math.max(1,Math.round(M.maxhp*0.07)); M.hp=Math.max(0,M.hp-d); S.poison--;
     pop("-"+d,s.x,headOf(id),'#c88ae0'); why=name+" takes "+d+" from poison."; if(!standing(id)){ downed(id); return why; } }
@@ -187,8 +189,9 @@ function cmdUsable(c,id){
 function cmdInfo(c,id){
   const I=PARTY_INFO[id];
   if(c==='attack') return id==='kaitlyn'?[I.attack,"Free · power from Strength"]
+                        :I.tweet?[I.attack,"Free · heals everyone "+Math.round(I.tweet*100)+"% of their max HP"]
                                         :[I.attack,"Free · always poisons · may finish the foe"];
-  if(c==='skills') return skillList(id).length?[I.skills,id==='kaitlyn'?"Flute songs (♪) and moves":"Use a skill · uses MP"]
+  if(c==='skills') return skillList(id).length?[I.skills,id==='kaitlyn'?"Flute songs (♪) and moves":I.tweet?"Songs (♪) and pecks · uses MP":"Use a skill · uses MP"]
                                               :[I.skills,"None learned yet"];
   if(c==='meditate') return ["Meditate","Half damage till your turn · 5–10% HP/MP back"];
   if(c==='focus') return ["Focus","Half damage till your turn · next hit doubled"];
@@ -201,7 +204,7 @@ function subInfo(x){
   if(B.menu==='items') return [itemName(x),itemText(x)];
   const id=actor();
   if(id==='kaitlyn') return [(x.song?"♪ ":"")+x.name,moveDesc(x)];
-  return [x.name,x.desc];
+  return [(x.song?"♪ ":"")+x.name,x.desc];
 }
 
 /* ---------- picking who a move is for ----------
@@ -291,7 +294,7 @@ function battleTouch(x,y){
   }
 }
 function pickCmd(c){
-  if(c==='attack') chooseFoe(doAttack);
+  if(c==='attack'){ if(PARTY_INFO[actor()].tweet) doTweet(); else chooseFoe(doAttack); }
   else if(c==='skills') openSub('skills');
   else if(c==='meditate') doMeditate();
   else if(c==='focus') doFocus();
@@ -309,7 +312,14 @@ function useSub(x){
   if(!canPay(x,id)){ B.log=x.hpCost?"Too worn out for that!":id==='kaitlyn'?"Not enough Music Points!":"Not enough MP!"; blip(150,0.08,0.2); return; }
   if(x.hpCost) chooseFoe(f=>useKarate(x,f));
   else if(x.notes){ if(x.pow>0&&!x.all) chooseFoe(f=>useSong(x,f)); else useSong(x,x.all?liveFoes()[0]:null); }
-  else if(x.heal) useSkill(x,null);
+  else if(x.mend||x.clear) chooseAlly(to=>useSkill(x,null,to));
+  else if(x.revive){
+    /* only for a friend who's down (Kaitlyn going down ends the fight) */
+    const L=B.party.filter(id=>!standing(id));
+    if(!L.length){ B.log="Everyone's still up. No one needs waking!"; blip(150,0.08,0.2); return; }
+    if(L.length===1) useSkill(x,null,L[0]);
+    else { B.tgt={kind:'ally',list:L,i:0,then:to=>useSkill(x,null,to),back:B.menu}; B.menu='target'; blip(520,0.04,0.08,'triangle'); } }
+  else if(x.heal||x.mendAll||x.cureAll||x.guardAll||x.all||x.pecks) useSkill(x,null);
   else chooseFoe(f=>useSkill(x,f));
 }
 
@@ -399,12 +409,68 @@ function useSong(mv,f){
     },{tgt:f});
   }});
 }
-/* a friend's skill (ALLY_SKILLS); f is the foe it's aimed at */
-function useSkill(sk,f){
+/* healing: +h HP to member id, with a pop and a few sparkles */
+function mendMember(id,h){
+  const M=member(id), s=slotOf(id); h=Math.max(1,Math.round(h));
+  M.hp=Math.min(M.maxhp,M.hp+h); pop("+"+h,s.x,headOf(id),'#8fe07a');
+  burst(s.x,headOf(id)+14*s.s,'#c8f0b0',7,0.08); return h;
+}
+/* Tiny One's Tweet: everyone standing gets back a share of their max HP (PARTY_INFO tweet) */
+function doTweet(){
+  const id=actor(), I=PARTY_INFO[id];
+  B.turn='busy';
+  anim('sing',1100,()=>{
+    B.party.filter(standing).forEach(m=>mendMember(m,member(m).maxhp*I.tweet));
+    B.log=I.name+" tweets! Everyone feels a little better.";
+    if(AC){ flute(19,AC.currentTime,.12,.3); flute(23,AC.currentTime+.1,.14,.3); }
+  },{heal:true});
+}
+/* a friend's skill (ALLY_SKILLS); f is the foe it's aimed at, to the friend it's for */
+function useSkill(sk,f,to){
   const id=actor(), M=member(id), name=PARTY_INFO[id].name;
   M.mp-=sk.mp; B.turn='busy'; B.menu='cmd';
   const spell=PARTY_ART[id]&&PARTY_ART[id].spell;      /* their own spell animation, when they have one */
-  anim(spell?'spell':sk.heal?'meditate':'lunge',spell?1400:1000,()=>{
+  const kind=spell?'spell':sk.song?'sing':sk.heal?'meditate':'lunge';
+  const kind_heal=!!(sk.heal||sk.mend||sk.mendAll||sk.cureAll||sk.guardAll||sk.clear||sk.revive);
+  anim(kind,spell?1400:sk.song?1300:1000,()=>{
+    /* Tiny One's songs */
+    if(sk.mend){ const h=mendMember(to,member(to).maxhp*sk.mend);
+      B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+" +"+h+" HP."; return; }
+    if(sk.mendAll){ B.party.filter(standing).forEach(m=>{ mendMember(m,member(m).maxhp*sk.mendAll);
+        if(sk.regen) B.regen[m]={n:sk.regen.n,share:sk.regen.share}; });
+      B.log=name+" sings "+sk.name+": everyone heals"+(sk.regen?", and will keep mending for "+sk.regen.n+" turns!":"!"); return; }
+    if(sk.clear){ const S=B.st[to]||(B.st[to]={}); Object.keys(STATUS).forEach(k=>S[k]=0);
+      const s=slotOf(to); burst(s.x,headOf(to)+14*s.s,'#fff6c8',8,0.08);
+      B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+"'s troubles are shaken off!"; return; }
+    if(sk.revive){ const T=member(to); if(standing(to)){ B.log=PARTY_INFO[to].name+" is already up!"; return; }
+      B.st[to]={}; B.regen[to]=null; mendMember(to,T.maxhp*sk.revive);
+      B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+" is back in the fight!"; return; }
+    if(sk.pecks){
+      /* quick pecks at whoever's still there, a moment apart */
+      const cm=useCharge(id), got=[];
+      for(let i=0;i<sk.pecks;i++) setTimeout(()=>{
+        if(!B||B.over) return; const L=liveFoes(); if(!L.length) return;
+        const t=L[ri(0,L.length-1)];
+        if(has(id,'blind')&&Math.random()<0.5){ focus(t); pop("miss",EX,EY-10,'#e8eef8'); got.push("miss"); }
+        else { const dmg=soften(statOf(id,'agi')*sk.pow*weakMul(id)*cm*rnd(0.85,1.15),foeDef(t));
+          hitFoe(t,dmg,""); burst(EX-10,EY+16,'#ffe6a0',8,0.14); got.push(t.hp>0?String(dmg):dmg+" (it runs off)"); }
+        B.log=name+" pecks: "+got.join(", ")+"!"+(cm>1?"  A focused flurry!":"");
+      },i*170);
+      return;
+    }
+    if(sk.cureAll){ B.party.filter(standing).forEach(m=>{ const S=B.st[m]||(B.st[m]={});
+        Object.keys(STATUS).forEach(k=>S[k]=0); const s=slotOf(m); burst(s.x,headOf(m)+14*s.s,'#fff6c8',7,0.08); });
+      B.log=name+" sings "+sk.name+": every trouble is shaken off!"; return; }
+    if(sk.guardAll){ B.party.filter(standing).forEach(m=>{ B.guard[m]=true; const s=slotOf(m); burst(s.x,headOf(m)+20*s.s,'#bfe8ff',6,0.06); });
+      B.log=name+" sings "+sk.name+": hits on everyone are halved until their next turn."; return; }
+    if(sk.all&&sk.pow){
+      const cm=useCharge(id), T=liveFoes();
+      T.forEach(t=>{ const dmg=soften(statOf(id,'int')*1.5*sk.pow*cm*weakMul(id)*rnd(0.9,1.1),foeDef(t),true);
+        hitFoe(t,dmg,"");
+        if(t.hp>0&&sk.weak&&Math.random()<sk.weak) t.st.weak=STATUS.weak.turns; });
+      B.log=name+"'s "+sk.name+" rings out over every pest!"+(cm>1?"  A focused blow!":"");
+      return;
+    }
     if(sk.sleep){      /* Hypnosis: the foe nods off for a few turns (a boss shrugs it off more often) */
       if(Math.random()<sk.sleep*(f.boss?0.5:1)){ f.st.sleep=2+ri(0,1); B.log=name+"'s "+sk.name+" sends the "+f.name+" to sleep!"; }
       else B.log="The "+f.name+" shakes off "+name+"'s "+sk.name+".";
@@ -421,7 +487,7 @@ function useSkill(sk,f){
     const dmg=soften(statOf(id,'int')*1.5*sk.pow*mul*weakMul(id)*rnd(0.9,1.1),foeDef(f),true);
     hitFoe(f,dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(burst3?"  The venom bursts!":"")+(cm>1?"  A focused blow!":""));
     if(f.hp>0&&sk.bind&&Math.random()<sk.bind){ f.st.bound=1; B.log+="  It's held fast!"; }
-  },{heal:!!sk.heal,tgt:f});
+  },{heal:kind_heal,tgt:f});
 }
 /* Focus: braced like Meditate (half damage until their next turn), and the next hit they
    land is twice as hard */
@@ -618,8 +684,9 @@ function drawReady(c,id,x,y,t){
 }
 const SONG_FX=['sprout','lull','waltz','req','thorn','hymn'];
 /* a member at their size for where they stand (see depthScale), around their feet */
+const MEMBER_SIZE={tiny:0.75};               /* drawn smaller (or bigger) in battle than their art */
 function drawMember(c,id,x,y,k){
-  const s=slotOf(id).s;
+  const s=slotOf(id).s*(MEMBER_SIZE[id]||1);
   if(s===1){ drawMemberAt(c,id,x,y,k); return; }
   c.save(); c.translate(x,y); c.scale(s,s); drawMemberAt(c,id,0,0,k); c.restore();
 }
@@ -639,7 +706,7 @@ function drawMemberAt(c,id,x,y,k){
       partyFrame(c,f[i],v.ax,v.ay,x,y-(A.victory?0:Math.abs(Math.sin(G.t/240))*5)); return; } }
   if(kind==='spell'){ const a=PARTY_ART[id].spell;
     partyFrame(c,a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y); return; }
-  if(kind==='lunge'){ const a=PARTY_ART[id]&&PARTY_ART[id].attack;
+  if(kind==='lunge'||kind==='sing'){ const a=PARTY_ART[id]&&PARTY_ART[id].attack;
     if(a) partyFrame(c,a.f[Math.min(a.f.length-1,Math.floor(k*a.f.length))],a.ax,a.ay,x,y);
     else drawReady(c,id,x,y,B.anim.t+1500);                       /* the strike part of the loop */
     return; }
@@ -788,6 +855,14 @@ function drawSpellFx(kind,k,ax,ay){
     if(!heal&&k>0.45&&k<0.75){ const q=(k-0.45)/0.3;
       for(let i=0;i<5;i++){ const x=ax+(EX-ax)*q+Math.sin(i*1.7+q*6)*6, y=ay-14+(EY+20-ay+14)*q-Math.sin(q*Math.PI)*24+i*3;
         b.fillStyle='#8a3ac8'; b.beginPath(); b.arc(x,y,3.4,0,7); b.fill(); b.fillStyle='#e0b0ff'; b.beginPath(); b.arc(x-1,y-1,1.4,0,7); b.fill(); } }
+  } else if(kind==='sing'){
+    /* a little bird's song: notes bob up from them, then drift over to the party (a heal)
+       or fly at the pests */
+    const heal=B.anim&&B.anim.heal;
+    for(let i=0;i<6;i++){ const q=(k*1.6+i/6)%1, a=Math.sin(q*Math.PI)*(1-k*0.6);
+      let x=ax+Math.sin(i*2.3+q*5)*14, y=ay-30-q*40;
+      if(!heal&&k>0.4){ const p=clamp((k-0.4)/0.35,0,1); x+=(EX-x)*p; y+=(EY+10-y)*p; }
+      noteGlyph(b,Math.round(x),Math.round(y),i%2?(heal?'#c8f0b0':'#ffd08a'):'#fff6d8',a); }
   } else if(kind==='eat'){
     for(let i=0;i<7;i++){
       const y=ay-60-k*50-i*6, x=ax+Math.sin(i*2.1)*22;
@@ -983,11 +1058,11 @@ function drawFoeFx(fx,k,targets){
 /* Troubles as little round icons by each fighter's back (the party faces right, the pests
    left), one under another; a tap on them tells what each one does. Also a pest that's
    guarding or charging, and a member braced by Meditate. */
-const ICON_COL={guard:'#3a8a5a',charge:'#d84a3a'}, ICON_ALPHA=0.5;
+const ICON_COL={guard:'#3a8a5a',charge:'#d84a3a',regen:'#4aa84a'}, ICON_ALPHA=0.5;
 function foeIcons(f){ const F=f.st;
   return ['poison','bound','weak','sleep','guard','charge'].filter(k=>!!F[k]); }
 function memberIcons(id){ const S=B.st[id]||{};
-  return Object.keys(STATUS).filter(k=>S[k]>0).concat(B.guard[id]?['guard']:[],B.charged[id]?['charge']:[]); }
+  return Object.keys(STATUS).filter(k=>S[k]>0).concat(B.guard[id]?['guard']:[],B.charged[id]?['charge']:[],B.regen[id]&&B.regen[id].n>0?['regen']:[]); }
 function statusIcon(x,y,k){
   const r=3.9, col=ICON_COL[k]||(STATUS[k]&&STATUS[k].col)||'#888';
   b.fillStyle='#0a0f2a'; b.beginPath(); b.arc(x,y,r+0.8,0,7); b.fill();
@@ -1001,6 +1076,7 @@ function statusIcon(x,y,k){
   else if(k==='scared'){ b.moveTo(x,y-2.3); b.lineTo(x,y+0.6); b.stroke(); b.beginPath(); b.arc(x,y+2,0.6,0,7); b.fill(); }
   else if(k==='bound'){ b.arc(x-0.9,y,1.5,0,7); b.stroke(); b.beginPath(); b.arc(x+0.9,y,1.5,0,7); b.stroke(); }
   else if(k==='guard'){ b.moveTo(x-2,y-2); b.lineTo(x+2,y-2); b.lineTo(x+2,y); b.quadraticCurveTo(x+1.6,y+1.8,x,y+2.5); b.quadraticCurveTo(x-1.6,y+1.8,x-2,y); b.closePath(); b.fill(); }
+  else if(k==='regen'){ b.moveTo(x,y-2.3); b.lineTo(x,y+2.3); b.moveTo(x-2.3,y); b.lineTo(x+2.3,y); b.stroke(); }
   else if(k==='charge'){ b.moveTo(x+0.6,y-2.6); b.lineTo(x-1.4,y+0.3); b.lineTo(x+0.2,y+0.3); b.lineTo(x-0.6,y+2.6); b.lineTo(x+1.4,y-0.4); b.lineTo(x-0.2,y-0.4); b.closePath(); b.fill(); }
   b.lineCap='butt'; b.lineJoin='miter';
 }
@@ -1042,6 +1118,7 @@ function inspectInfo(x){
   const S=Object.keys(STATUS).filter(k=>St[k]>0).map(k=>[STATUS[k].name,'#e0b0ff',ST_DESC[k],St[k]]);
   if(B.guard[id]) S.push(["Braced",'#8fe0a8',ST_DESC.braced,0]);
   if(B.charged[id]) S.push(["Charged up",'#ff9a8a',ST_DESC.charged,0]);
+  if(B.regen[id]&&B.regen[id].n>0) S.push(["Mending",'#8fe07a',"gets "+Math.round(B.regen[id].share*100)+"% of max HP back each turn",B.regen[id].n]);
   if(S.length){ add("Troubles","#ffe08a",18,true); S.forEach(s=>trouble(...s)); } else add("Feeling fine.",'#8a94c4',16);
   return out;
 }
@@ -1265,7 +1342,7 @@ function drawResultsBack(){
     gauge(R.x+66,y+36,R.w-80,7,x.xp,x.next,'#f0c84a','#fff0b0'); });
   const dy=R.y+RES.head+w.who.length*RES.row+8;
   (w.drops||[]).forEach((k,i)=>drawGoodIcon(b,k,R.x+26,dy+30+i*22,18));
-  if(w.seed) drawShopPic(SPECIES[w.seed].name.toLowerCase()+" seed",R.x+26,dy+30+(w.drops||[]).length*22,14,18);
+  if(w.seed) drawShopPic(seedName(w.seed).toLowerCase(),R.x+26,dy+30+(w.drops||[]).length*22,14,18);
   b.restore();
   /* the bars fill with a ticking sound */
   const k=clamp((w.t-WIN_DELAY)/WIN_FILL,0,1);
@@ -1287,7 +1364,7 @@ function drawResultsWords(){
   const dy=R.y+RES.head+w.who.length*RES.row+8;
   TS("Found",R.x+16,dy+12,17,'#c8d4ff',null,true);
   const L=(w.drops||[]).map(k=>[GOODS[k].name,GOODS[k].value>=40?'#ffb0ff':'#f4f6ff',GOODS[k].value>=40?"  ★ rare!":""]);
-  if(w.seed) L.push([SPECIES[w.seed].name+" seed",'#b8f0a0',""]);
+  if(w.seed) L.push([seedName(w.seed),'#b8f0a0',""]);
   if(!L.length) TS("nothing this time",R.x+44,dy+34,16,'#8a94c4');
   L.forEach(([n,c,r],i)=>TS(n+r,R.x+44,dy+36+i*22,18,c,null,true));
   if(!winGuard()&&xs.k>=1) TS(IS_TOUCH?"tap to continue":"J to continue",180,R.y+R.h-14,16,'#8a94c4','center');

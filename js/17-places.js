@@ -76,7 +76,7 @@ const GOODS={
   bun:        {name:"Honey Bun",        value:0,  kind:'food', col:'#e8b04a', use:{hpAll:20}, flavor:"Sticky, sweet and a little bit glazed. Just like Mabel."},
 };
 const goodsList=()=>Object.keys(GOODS).filter(k=>G.goods[k]>0);
-const sellGoods=()=>goodsList().filter(k=>GOODS[k].kind!=='food');
+const sellGoods=()=>goodsList().filter(k=>GOODS[k].kind!=='food'&&GOODS[k].kind!=='quest');   /* quest things are kept */
 const addGood=(k,n)=>{ G.goods[k]=(G.goods[k]||0)+(n||1); };
 const goodsPrice=k=>Math.round(GOODS[k].value*(G.yard.arch?1.15:1));
 
@@ -243,6 +243,7 @@ function gatherAt(i){
   if((G.daily.picked||[]).includes(i)) return null;
   const opts=Object.keys(GOODS).filter(k=>GOODS[k].kind==='forage'&&GOODS[k].season===season());
   let s=(G.day*7919+i*104729)%2147483647; s=(s*16807)%2147483647;
+  const q=tinyGather(s); if(q) return q;        /* twigs and pinestraw for Tiny One's nest */
   if(s%5===0) return null;                    /* not every spot has something every day */
   return opts[s%opts.length];
 }
@@ -261,18 +262,20 @@ const nearPlaceExit=(f=1)=>curPlace().exits.find(e=>Math.hypot(G.player.x-e.x,G.
 function placeInteract(){
   const ex=nearPlaceExit(); if(ex){ goTo(ex.to); return; }
   const who=nearPerson();
-  if(who){ const lines=who.lines.map(t=>({say:'npc',who,text:t}));
+  if(nearTinyEgg()){ playStory(tinyEggFound()); return; }
+  if(who){ const lines=personLines(who).map(t=>({say:'npc',who,text:t}));
     if(who.shop) lines.push({run:()=>openTownShop(who.shop,who)});
     playStory(lines); return; }
   const g=nearGather();
   if(g>=0){ const k=gatherAt(g); G.daily.picked.push(g); G.goods[k]=(G.goods[k]||0)+1;
-    say("Found "+GOODS[k].name+"!"); blip(700,0.05,0.1,'sine'); passTime(5); autoSave(); return; }
+    say("Found "+GOODS[k].name+"!"+tinyFoundText(k)); blip(700,0.05,0.1,'sine'); passTime(5); autoSave(); return; }
   if(nearPond()){ if(!G.rod) say("You'll need a rod and reel. Mr. Hollis sells them in town."); else startFishing(); return; }
   say("The mountain air is lovely.".replace("The mountain air is lovely.",G.area==='town'?"Willowbrook is bustling today.":"The mountain air is lovely."));
 }
 function placeLabel(){
   const R=PROMPT_REACH;
   const who=nearPerson(R); if(who) return who.shop?who.name+" (shop)":who.name;
+  if(nearTinyEgg(R)) return "Check";
   if(nearGather(R)>=0) return "Gather";
   if(nearPond(R)) return season()==='winter'?"Frozen":G.rod?"Fish ("+FISH_MIN+" min)":"Fish (needs a rod)";
   return null;
@@ -352,7 +355,8 @@ function drawGatherSpot(c,x,y,k){
   /* its own picture (shop items/<name>) when there is one, with a glint so it stands out */
   if(c===b&&typeof SHOP_ART!=='undefined'&&SHOP_ART[g.name.toLowerCase()]){
     c.fillStyle='rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(x,y,8,2.6,0,0,7); c.fill();
-    drawShopPic(g.name.toLowerCase(),x,y-9,18,18);
+    const bx=g.kind==='quest'?24:18;                          /* twigs and pinestraw are thin: a little bigger */
+    drawShopPic(g.name.toLowerCase(),x,y-bx/2,bx,bx);
     c.globalAlpha=tw*0.9; c.fillStyle='#ffffff'; c.fillRect(x+6,y-19,2,2); c.fillRect(x+5,y-18,4,0.8); c.globalAlpha=1;
     return; }
   c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(x,y,6,2,0,0,7); c.fill();
@@ -370,6 +374,7 @@ function drawPlace(){
   if(pim||!painted) b.drawImage(pim||placeCanvas(G.area),-cam.x,-cam.y,placeW(P),placeH(P));
   const ents=[];
   (P.people||[]).forEach(p=>ents.push({y:p.y,f:()=>drawPerson(b,{...p,x:p.x-cam.x,y:p.y-cam.y})}));
+  if(nearTinyEgg(9)) ents.push({y:TINY_EGG.y,f:()=>drawTinyEgg(b,TINY_EGG.x-cam.x,TINY_EGG.y-cam.y)});   /* Tiny One's egg, under the pine */
   if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
   /* the pests, scaled like her here (shadow and all), around their feet */
   if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y, s=placeKait();
@@ -388,7 +393,8 @@ function drawPlace(){
   const fr=frontImg(G.area+'_'+season()); if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,placeW(P),placeH(P)); }
   (P.people||[]).forEach(p=>{ b.font='bold 7px '+FONT; b.textAlign='center'; b.fillStyle='rgba(20,12,4,.55)';
     const w=b.measureText(p.name).width+6; b.fillRect(p.x-cam.x-w/2,p.y-cam.y-46,w,10);
-    b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,p.y-cam.y-38.5); b.textAlign='left'; });
+    b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,p.y-cam.y-38.5); b.textAlign='left';
+    if(personMarked(p)) drawMarker(b,p.x-cam.x,p.y-cam.y-54); });
   b.restore();
   tintView(b);
   b.restore();
@@ -411,7 +417,7 @@ const TOWN_SHOPS={
     {name:"Herbal Tea",cost:24,desc:"Restores 10 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('tea')},
     {name:"Honey Bun",cost:28,desc:"Restores 20 HP to everyone in the party. Goes in your bag.",buy:()=>addGood('bun')}]},
   store:{title:"Rosa's General Store", items:()=>UNLOCK_ORDER.filter(s=>G.unlocked.includes(s)).map(s=>({
-    name:SPECIES[s].name+" seed",cost:SPECIES[s].cost,desc:"Needs "+SPECIES[s].grow+" growth · best in "+SEASON_NAME[SPECIES[s].best]+". You have "+(G.seeds[s]||0)+".",
+    name:seedName(s),cost:SPECIES[s].cost,desc:"Needs "+SPECIES[s].grow+" growth · best in "+SEASON_NAME[SPECIES[s].best]+". You have "+(G.seeds[s]||0)+".",
     buy:()=>{ G.seeds[s]=(G.seeds[s]||0)+1; }})).concat(
     /* sheet music: a new song to practice at the music stand */
     PRACTICE_SONGS.filter(s=>!songKnown(s)).map(s=>({name:"Sheet music: "+s.name,cost:s.cost,
@@ -511,7 +517,7 @@ function useGood(k,id){
   return effText(e);
 }
 function eatGood(k,id){
-  const g=GOODS[k]; if(!goodEffect(k)){ say("Better to sell the "+g.name+"."); blip(150,.08,.2); return; }
+  const g=GOODS[k]; if(!goodEffect(k)){ say(g.kind==='quest'?g.flavor:"Better to sell the "+g.name+"."); blip(150,.08,.2); return; }
   id=id||'kaitlyn';
   say(PARTY_INFO[id].name+(g.kind==='food'?" had the ":" ate the ")+g.name+": "+useGood(k,id)+"."); blip(620,0.06,0.1,'sine'); autoSave();
 }

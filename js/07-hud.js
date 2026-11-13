@@ -142,7 +142,8 @@ function shopArtImg(){
 const PORTRAIT_IMG={};
 function portraitImg(id){
   if(id==='kaitlyn') return IMG_PT.complete&&IMG_PT.naturalWidth?IMG_PT:null;
-  const src=ASSET_PORTRAITS[id]||(typeof PEOPLE_PORTRAITS!=='undefined'&&PEOPLE_PORTRAITS[id]);
+  const src=ASSET_PORTRAITS[id]||(typeof PARTY_PORTRAITS!=='undefined'&&PARTY_PORTRAITS.includes(id)&&'assets/sprites/portrait_'+id+'.png')
+    ||(typeof PEOPLE_PORTRAITS!=='undefined'&&PEOPLE_PORTRAITS[id]);
   if(!src) return null;
   if(!PORTRAIT_IMG[id]){ PORTRAIT_IMG[id]=new Image(); PORTRAIT_IMG[id].src=src; }
   const im=PORTRAIT_IMG[id]; return im.complete&&im.naturalWidth?im:null;

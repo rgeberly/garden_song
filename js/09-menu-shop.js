@@ -15,7 +15,7 @@ function openShop(){
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
   if(shop.tab===0) return bySeason(UNLOCK_ORDER.filter(s=>G.unlocked.includes(s))).map(s=>{ const S=SPECIES[s];
-    return {type:'seed',id:s,name:S.name+" seed",cost:S.cost,
+    return {type:'seed',id:s,name:seedName(s),cost:S.cost,
       desc:S.flavor+" "+(S.kind==='raised'?"Raised beds only. ":S.kind==='ground'?"Ground plots only. ":S.kind==='tree'?"Grows in a stone ring. ":"")+
         "Needs "+S.grow+" growth (about "+Math.ceil(S.grow/SONG_GROWTH)+" songs), "+growNeed(s,S.best)+
         " in "+SEASON_NAME[S.best]+". Sells for "+sellPrice(s)+"c.",
@@ -71,7 +71,7 @@ function doBuy(){
   if(it&&it.type==='sellall'){ sellAll(); shopClampIdx(); return; }
   if(!it||G.coins<it.cost) return;
   G.coins-=it.cost;
-  if(it.type==='seed'){ G.seeds[it.id]=(G.seeds[it.id]||0)+1; say("Bought a "+SPECIES[it.id].name+" seed."); }
+  if(it.type==='seed'){ G.seeds[it.id]=(G.seeds[it.id]||0)+1; say("Bought a "+seedName(it.id)+"."); }
   else if(it.type==='coffee'){ addGood('coffee'); say("Coffee's in your bag. Drink it from the menu's Items."); }
   else if(it.type==='gear'){ G.gear[it.id]=true; say(it.name+" — "+it.desc);
     if(it.id==='cloth') G.player.mp=maxMp();

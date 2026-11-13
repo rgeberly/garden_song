@@ -248,7 +248,7 @@ function sysActivate(i){
     if(isHurt(R.id)){ say(PARTY_INFO[R.id].name+" is still recovering at home."); blip(150,.08,.2); return; }
     const was=G.party.includes(R.id);
     if(toggleParty(R.id)){ say(PARTY_INFO[R.id].name+(was?" will wait at home.":" joins you!")); blip(was?400:620,.06,.1,'triangle'); autoSave(); }
-    else { say("The party is full (3 at most)."); blip(150,.08,.2); }
+    else { say("The party is full ("+PARTY_MAX+" at most)."); blip(150,.08,.2); }
   } else if(t==='Status'){ if(R.rename) renameMember(whoId());
   } else if(t==='Skills'){
     const s=R.skill, id=whoId();
@@ -358,9 +358,10 @@ function sysFoot(){
                 :["????","Learned at level "+s.lv+"."]; }
   if(t==='Items'&&R.good){ const g=GOODS[R.good];
     const e=goodEffect(R.good);
+    if(g.kind==='quest') return [g.name+"  x"+G.goods[R.good],g.flavor];
     return [g.name+"  x"+G.goods[R.good],(g.flavor?g.flavor+" ":"")+(e?(g.kind==='food'?"Use (A): ":"Eat (A): ")+effText(e):"")+(g.kind==='food'?"":(e?" · ":"")+"sells "+goodsPrice(R.good)+"c at the stall or market")]; }
   if(t==='Items') return R.crop?[SPECIES[R.crop].name+"  x"+G.crops[R.crop],(SPECIES[R.crop].flavor?SPECIES[R.crop].flavor+" ":"")+"Eat: "+eatText(R.crop)+" · sells "+sellPrice(R.crop)+"c"]
-                               :[SPECIES[R.seed].name+" seed  x"+G.seeds[R.seed],"Plant it in an empty garden spot."];
+                               :[seedName(R.seed)+"  x"+G.seeds[R.seed],SPECIES[R.seed].kind==='tree'?"Plant it in a stone ring.":"Plant it in an empty garden spot."];
   if(t==='Gear') return R.flute?[FLUTE_INFO[R.flute].name,"Songs x"+FLUTE_INFO[R.flute].mul.toFixed(2)+(fluteOwned(R.flute)?(G.flute===R.flute?" · equipped":" · A to equip"):" · not owned yet")]
                                :[R.gear.name+(gearOn(R.gear.id)?"  ·  on":"  ·  off"),cap(R.gear.desc)+". A to switch "+(gearOn(R.gear.id)?"off.":"on.")];
   if(t==='Lore') return loreFoot(R);
@@ -392,7 +393,7 @@ function drawSys(){
     if(t==='Status'&&r.stat){ const v=statOf(whoId(),r.stat), mx={hp:300,mp:120}[r.stat]||80; gauge(P.x+150,y+12,90,5,v,mx,'#f0c84a','#fff0b0'); }
     if(t==='Items'&&r.crop) drawCropIcon(b,r.crop,P.x+46,y+R.h/2-1,24);
     if(t==='Items'&&r.good) drawGoodIcon(b,r.good,P.x+46,y+R.h/2-1,22);
-    if(t==='Items'&&r.seed) drawShopPic(SPECIES[r.seed].name.toLowerCase()+" seed",P.x+46,y+R.h/2-1,18,26);
+    if(t==='Items'&&r.seed) drawShopPic(seedName(r.seed).toLowerCase(),P.x+46,y+R.h/2-1,18,26);
     if(t==='Gear'&&r.gear) drawShopPic(r.gear.name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
     if(t==='Gear'&&r.flute) drawShopPic(FLUTE_INFO[r.flute].name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
     if(t==='Lore') loreRowPic(r,P,y,R.h);
@@ -452,7 +453,7 @@ function drawSys(){
     else if(t==='Items'){
       if(r.good){ TS(GOODS[r.good].name,P.x+66,y+21,18,'#f4f6ff',null,sel); TS("x"+G.goods[r.good],P.x+P.w-12,y+21,18,'#ffe08a','right',true); }
       else if(r.crop){ TS(SPECIES[r.crop].name,P.x+66,y+21,19,'#f4f6ff',null,sel); TS("x"+G.crops[r.crop],P.x+P.w-12,y+21,18,'#ffe08a','right',true); }
-      else { TS(SPECIES[r.seed].name+" seed",P.x+66,y+21,17,'#c8d4ff'); TS("x"+G.seeds[r.seed],P.x+P.w-12,y+21,17,'#c8d4ff','right'); } }
+      else { TS(seedName(r.seed),P.x+66,y+21,17,'#c8d4ff'); TS("x"+G.seeds[r.seed],P.x+P.w-12,y+21,17,'#c8d4ff','right'); } }
     else if(t==='Gear'){
       if(r.flute){ const own=fluteOwned(r.flute), eq=G.flute===r.flute;
         TS(FLUTE_INFO[r.flute].name,P.x+66,y+21,19,own?'#f4f6ff':'#7c84b0',null,sel||eq);

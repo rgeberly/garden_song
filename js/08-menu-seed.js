@@ -48,7 +48,9 @@ function drawMenu(){
   panel(24,87,312,h);
   menu.items.forEach((s,i)=>{ const S=SPECIES[s], y=SEED_TOP+i*SEED_ROW;
     menuRow(39,y,282,33,i===menu.idx);
-    px(b,39+ROW_PAD,y+11,12,12,S.fruit); px(b,39+ROW_PAD,y+11,6,6,S.dk); });
+    /* its seed packet or sapling (shop items/<Crop> seed or <Tree> sapling) */
+    if(!drawShopPic(seedName(s).toLowerCase(),39+ROW_PAD+6,y+16.5,20,30)){
+      px(b,39+ROW_PAD,y+11,12,12,S.fruit); px(b,39+ROW_PAD,y+11,6,6,S.dk); } });
   blit();
   T(menu.plot.tree?"Plant a sapling":(menu.plot.raised?"Raised bed  ·  +30% growth":"Plant a seed"),
     180,117,30,'#3a2a1a','center',true);

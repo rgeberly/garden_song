@@ -17,12 +17,13 @@ The logo says "Garden Song", without "Kaitlyn's".
 - `python serve.py` serves the game at http://localhost:8000. It's also the "game" preview in `.claude/launch.json`. Its POST API (localhost only) saves song edits.
 - Add `?songtest` to the URL to list every recorded song at the music stand, with autoplay, no EXP and no time passing.
 - Add `?partytest` to try big fights: nothing is saved, Kaitlyn (Lv.6) has four Ivys, and it's spring. In the console, `partyTestFight(5,'rows')` starts a fight with that many pests in that layout (`BATTLE_LAYOUTS` in `js/12-battle.js`).
+- In `?partytest`, `tinyTest('egg'|'nest'|'hatch'|'worms'|'grown'|'fight')` in the console jumps to a step of Tiny One's quest.
 - Song editor: http://localhost:8000/tools/song-editor.html?song=NAME. It can only save while `serve.py` is running.
 - There's no test suite. Verify in the Browser pane with `javascript_tool` and screenshots. `node` isn't installed; Python 3 is, with cv2, numpy, librosa and imageio_ffmpeg.
 - After editing `tools/songs_data.py`, restart `serve.py`, because it imports that module.
 
 ## Layout
-- `index.html` loads `js/assets.js`, then `js/data/*.js` (generated data), then `js/00-core.js` … `js/18-fishing.js` in order. These are shared globals, not modules.
+- `index.html` loads `js/assets.js`, then `js/data/*.js` (generated data), then `js/00-core.js` … `js/19-tiny.js` in order. These are shared globals, not modules.
 - `G` is the game state (`js/04-state.js`). Save keys are short (`jm`, `nm`, `sh`, …), so keep them stable.
 - Party member ids stay as they are (`bling` is shown as "Ivy" through `PARTY_INFO.bling.name`). Saves and art file names depend on the ids.
 - New `SPECIES` go at the end, because saves store plots by their index in that list.
@@ -33,6 +34,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Enemies are listed in `ENEMIES`. Painted-in checkerboards are handled by `ENEMY_CHECKERED`, and white gaps between legs by `ENEMY_POCKETS`. Studio-photo items are cut out with `SHOP_PHOTOS` (gentler settings for pale ones). Townsfolk portraits come from `people/` and are written to `PEOPLE_PORTRAITS`.
 - Walls: in `maps/<place>_collision.png` (town, mountain, house, garden), black is blocked and white is open. The game reads them on a 4-pixel grid. `<place>_collision_guide.jpg` files are only for reference.
 - Front layers (what she walks behind, drawn over everyone) are see-through pictures showing only the parts of the painting that overlap her: `maps/<season>_front.png` (garden), `maps/house_front.png`, and `maps/<place>_<season>_front.png` (town, mountain). The user edits these by hand and prefers this picture format over masks. Never overwrite them.
+- Party art: loose `party/<Name>-<kind>-spritesheet.png`, or a folder `party/<Name>/` with `<Name> - <kind> - spritesheet.png` (Tiny One's). `PARTY_IDS` maps folder names to ids (`tiny one` is `tiny`). Crops' `harvest <Crop>` pictures are the bag icons; `<Tree> sapling` shop pictures replace the trees' seeds.
 - Running animation: `python tools/build_run.py` produces `assets/sprites/run.png` and `js/data/run.js`.
 - Perchance prompts are in `tools/perchance-prompts.md`. Save full-resolution images with the heart icon, then "save to your device". Downloads arrive as `<uuid>.tmp` in Downloads, and the save windows are dialogs titled `data:image/...`.
 

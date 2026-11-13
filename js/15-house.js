@@ -43,6 +43,7 @@ if(typeof HOUSE_MASK!=='undefined'&&HOUSE_MASK){ const im=new Image();
     for(let i=0;i<HOUSE_COL.length;i++) HOUSE_COL[i]=d[i*4]>128?0:1; };
   im.src='assets/sprites/house_collision.png'; }
 function houseSolid(x,y){
+  if(tinyNestSolid(x,y)) return true;                      /* Tiny One's nest on the hearth */
   if(HOUSE_COL){ const xi=x|0, yi=y|0;
     return xi<0||yi<0||xi>=HOUSE.w||yi>=HOUSE.h||HOUSE_COL[yi*HOUSE.w+xi]===1; }
   const F=HOUSE_FLOOR;
@@ -130,6 +131,7 @@ function drawStand(x,y,k){
 }
 function houseInteract(){
   if(nearBling()){ talkBling(); return; }
+  if(nearTinyNest()){ tinyInteract(); return; }
   if(nearStand()){ askStand(); return; }
   if(nearBed()){ askSleep(); return; }
   if(nearHouseDoor()){ travel(leaveHouse); return; }
@@ -138,6 +140,7 @@ function houseInteract(){
 function updateHouse(dt){
   /* outside's pace on screen, stretched with her size so her feet don't slide */
   walk(dt,WALK_SPEED*WORLD_ZOOM*HOUSE_KAIT/houseK(),houseSolid);
+  updateTiny(dt);
   if(G.msgT>0) G.msgT-=dt;
 }
 /* the slice of the painting in view: top is the gap above it when the view is taller */
@@ -163,13 +166,14 @@ function drawHouse(){
   const ents=[{y:P.y,f:kait},{y:HOUSE_STAND.y,f:()=>drawStand(HOUSE_STAND.x*k,cam.top+(HOUSE_STAND.y-cam.y)*k,k)}];
   const bl=blingHere();
   if(bl&&bl.inside) ents.push({y:bl.y,f:()=>drawBlingMap(b,bl.x*k,cam.top+(bl.y-cam.y)*k,BLING_W*HOUSE_KAIT,bl.mood,false,false)});
+  const tn=tinyHouseEnt(k,cam); if(tn) ents.push(tn);
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   const fr=frontImg('house'); if(fr) b.drawImage(fr,0,cam.top-cam.y*k,LW,HOUSE.h*k);   /* what she walks behind */
   b.restore();
   drawClockBack(); drawBuffsBack();
   blit();
   drawClockText(); drawBuffsText();
-  const label=nearBling(PROMPT_REACH)?blingLabel():nearStand()?(G.daily.practice===G.day?"Practiced today":"Practice flute")
+  const label=nearBling(PROMPT_REACH)?blingLabel():nearTinyNest(PROMPT_REACH*1.4)?tinyLabel():nearStand()?(G.daily.practice===G.day?"Practiced today":"Practice flute")
     :nearBed()?"Sleep":nearHouseDoor()?"Go outside":null;
   if(label&&G.scene==='world') drawPrompt(label,sx,sy-74*HOUSE_KAIT);
   drawHUD();

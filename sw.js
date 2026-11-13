@@ -1,4 +1,4 @@
-const CACHE='kgs-v48';
+const CACHE='kgs-v49';
 const FILES=[
  "./",
  "assets/audio/music_battle.m4a",
@@ -30,6 +30,8 @@ const FILES=[
  "assets/sprites/map_house.jpg",
  "assets/sprites/party.webp",
  "assets/sprites/portrait_bling.png",
+ "assets/sprites/portrait_tiny.png",
+ "assets/sprites/portrait_tiny-baby.png",
  "assets/sprites/portrait_juniper.png",
  "assets/sprites/portrait_mabel.png",
  "assets/sprites/portrait_milo.png",
@@ -37,6 +39,7 @@ const FILES=[
  "assets/sprites/portrait_old-pete.png",
  "assets/sprites/portrait_rosa.png",
  "assets/scenes/join_bling.jpg",
+ "assets/scenes/hatch_tiny_one.jpg",
  "assets/sprites/map_fall.jpg",
  "assets/sprites/map_spring.jpg",
  "assets/sprites/map_summer.jpg",
@@ -65,6 +68,7 @@ const FILES=[
  "js/16-story.js",
  "js/17-places.js",
  "js/18-fishing.js",
+ "js/19-tiny.js",
  "js/assets.js",
  "js/data/phrases.js",
  "js/data/art.js",

@@ -68,6 +68,9 @@ const PARTY_INFO={
            base:{hp:30,mp:16,str:6,agi:6,def:4,int:7,luk:5}, grow:{hp:6,mp:2,str:2,agi:1.4,def:1.3,int:2,luk:1}},
   bling:  {name:"Ivy",     skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite · small, shy, and secretly very brave",
            base:{hp:24,mp:8,str:3,agi:9,def:3,int:5,luk:7}, grow:{hp:4,mp:1.5,str:1,agi:2,def:1,int:1.5,luk:1.5}},
+  /* the healer: his free move is a Tweet that heals everyone (tweet: share of their max HP) */
+  tiny:   {name:"Tiny One",skills:"Songs",  attack:"Tweet", pow:0, tweet:0.05, role:"Little brown bird · sings to heal · hatched by the fireplace, raised on worms",
+           base:{hp:20,mp:14,str:2,agi:10,def:2,int:8,luk:6}, grow:{hp:3.5,mp:2.4,str:0.6,agi:1.8,def:0.8,int:2.2,luk:1.2}},
 };
 /* names: the ones they start with, and any the player has given them */
 const BORN_NAMES={}; for(const id in PARTY_INFO) BORN_NAMES[id]=PARTY_INFO[id].name;
@@ -86,9 +89,10 @@ const maxMp=()=>statOf('kaitlyn','mp')+(gearOn('cloth')?8:0);
 const memberMaxMp=id=>id==='kaitlyn'?maxMp():statOf(id,'mp');
 /* hurt in battle: home recovering, can't go out until HURT_DAYS later */
 const isHurt=id=>id!=='kaitlyn'&&!!G.allies[id]&&G.allies[id].hurtUntil>G.day;
-function joinParty(id){
-  const I=PARTY_INFO[id];
-  if(!G.allies[id]) G.allies[id]={lv:1,xp:0,next:xpNeed(1),hp:I.base.hp,maxhp:I.base.hp,mp:I.base.mp,hurtUntil:0};
+/* lv: the level they join at; by default two under Kaitlyn's, so a new friend can keep up */
+function joinParty(id,lv){
+  lv=lv||Math.max(1,G.player.lv-2);
+  if(!G.allies[id]){ const hp=statOf(id,'hp',lv); G.allies[id]={lv,xp:0,next:xpNeed(lv),hp,maxhp:hp,mp:statOf(id,'mp',lv),hurtUntil:0}; }
   if(!G.party.includes(id)&&G.party.length<PARTY_MAX) G.party.push(id);
 }
 /* send a friend out with Kaitlyn, or back home (returns false if they can't go) */
@@ -146,7 +150,7 @@ function saveObj(){
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
     pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
-    pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0])};
+    pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0,p.deadDay||0])};
 }
 function exportCode(){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(saveObj())))); }catch(e){ return ''; } }
 function applySave(o){
@@ -174,7 +178,7 @@ function applySave(o){
   /* a place whose layout changed since the save: don't leave her stuck in a tree */
   if(G.area!=='garden'&&placeSolid(P.x,P.y+9)){ const a=PLACES[G.area].arrive.garden; P.x=a.x; P.y=a.y; }
   (o.pl||[]).forEach((v,i)=>{ const p=plots[i]; if(!p)return;
-    p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2||v[0]<=-10; p.deadSp=v[0]<=-10?SPECIES_ORDER[-10-v[0]]:null; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; p.sungDay=v[4]||0; p.fullDay=v[5]||0; });
+    p.sp=v[0]>=0?SPECIES_ORDER[v[0]]:null; p.dead=v[0]===-2||v[0]<=-10; p.deadSp=v[0]<=-10?SPECIES_ORDER[-10-v[0]]:null; p.stage=v[1]; p.growth=v[2]; p.health=v[3]; p.sungDay=v[4]||0; p.fullDay=v[5]||0; p.deadDay=v[6]||0; });
   buildWorld(); return true;
 }
 function importCode(s){ try{ return applySave(JSON.parse(decodeURIComponent(escape(atob(s.trim()))))); }catch(e){ return false; } }
