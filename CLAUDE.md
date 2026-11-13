@@ -16,6 +16,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 ## Running and testing
 - `python serve.py` serves the game at http://localhost:8000. It's also the "game" preview in `.claude/launch.json`. Its POST API (localhost only) saves song edits.
 - Add `?songtest` to the URL to list every recorded song at the music stand, with autoplay, no EXP and no time passing.
+- Add `?partytest` to try big fights: nothing is saved, Kaitlyn (Lv.6) has four Ivys, and it's spring. In the console, `partyTestFight(5,'rows')` starts a fight with that many pests in that layout (`BATTLE_LAYOUTS` in `js/12-battle.js`).
 - Song editor: http://localhost:8000/tools/song-editor.html?song=NAME. It can only save while `serve.py` is running.
 - There's no test suite. Verify in the Browser pane with `javascript_tool` and screenshots. `node` isn't installed; Python 3 is, with cv2, numpy, librosa and imageio_ffmpeg.
 - After editing `tools/songs_data.py`, restart `serve.py`, because it imports that module.

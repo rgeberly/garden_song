@@ -196,7 +196,7 @@ const YARD=[
 ];
 const KICK_SHOUTS=["Hiya!","Take that!","May my boot aim true!","Not in MY garden!",
   "Shoo!","Out you go!","Mind the tomatoes!","Bastard!","I'll kill you!","You coward!",
-  "Eat dirt!","That's for the melons!"];
+  "Eat dirt!","Cruisin' for a bruisin'!"];
 /* one new song every two levels */
 /* Kaitlyn's moves. song: played on the flute (the rhythm game, notes long); hpCost: a
    share of her max HP instead of MP. flavor: what it's like, for descriptions. */

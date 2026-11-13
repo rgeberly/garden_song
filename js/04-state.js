@@ -14,7 +14,7 @@ const G={
   pests:[], pestTimer:9000, mtnPests:[],   /* pests in the garden, and on the mountain trail */
   msg:'', msgT:0, frogT:0, t:0, code:'',
   clock:6*60, day:1, indoors:false,      /* game minutes since midnight; see 14-daytime.js */
-  party:['kaitlyn'], allies:{},          /* who fights (up to 3); allies' own stats */
+  party:['kaitlyn'], allies:{},          /* who fights (up to PARTY_MAX); allies' own stats */
   story:{},                              /* how far each story has got; see 16-story.js */
   daily:{},                              /* once-a-day things: the day each was last done */
   area:'garden', goods:{}, gearOff:{},              /* where she is (17-places.js); things gathered and caught */
@@ -60,7 +60,7 @@ function say(t){ G.msg=t; G.msgT=2900; }
    Strength powers plain attacks, Agility decides turn order, Defense softens hits,
    Intelligence powers songs and skills, Luck brings seeds and bonus coins.
    skills: what the second battle command is called for them; attack/pow: their free hit. */
-const PARTY_MAX=3, HURT_DAYS=2;
+const PARTY_MAX=5, HURT_DAYS=2;
 const STATS=['hp','mp','str','agi','def','int','luk'];
 const STAT_NAME={hp:"HP",mp:"MP",str:"Strength",agi:"Agility",def:"Defense",int:"Intelligence",luk:"Luck"};
 const PARTY_INFO={
@@ -187,7 +187,10 @@ function storeGet(k){
   try{ if(window.storage) return window.storage.get(k).then(r=>r&&r.value||null).catch(()=>null); }catch(e){}
   try{ return Promise.resolve(localStorage.getItem(k)); }catch(e){ return Promise.resolve(null); }
 }
+/* the party test (?partytest, see 12-battle.js) never saves anything */
+const NO_SAVE=/[?&]partytest\b/.test(location.search);
 function storeSet(k,v){
+  if(NO_SAVE) return;
   try{ if(window.storage){ window.storage.set(k,v).catch(()=>{}); return; } }catch(e){}
   try{ localStorage.setItem(k,v); }catch(e){}
 }
