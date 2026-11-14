@@ -173,7 +173,7 @@ function cueTrack(a,k){
    one for fall and winter) */
 function areaMusic(){
   const s=season();
-  if(G.area==='town') return s+'_village';
+  if(G.area==='town'||(typeof PLACES!=='undefined'&&PLACES[G.area]&&PLACES[G.area].room)) return s+'_village';
   if(G.area==='mountain') return s==='spring'||s==='summer'?'springsummer_mountain':'fallwinter_mountain';
   return s==='spring'?'calm':s+'_garden';
 }

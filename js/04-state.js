@@ -25,6 +25,8 @@ const G={
   runMode:'hold', runOn:false,           /* how B runs (with the Sturdy Boots): RUN_MODES */
   sheets:[],                             /* practice songs bought as sheet music (PRACTICE_SONGS ids) */
   names:{},                              /* names the player has given (id: name) */
+  pawn:{},                               /* goods sold to Juniper, which she'll sell back (key: how many) */
+  equip:{},                              /* what each member wears: {id:{weapon,clothes,acc1,acc2}} (EQUIP keys) */
 };
 /* Difficulty: spawn scales how often pests turn up on the map, hp and atk their HP and
    attack in battle. */
@@ -148,7 +150,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,
+    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0,p.deadDay||0])};
 }
@@ -167,6 +169,7 @@ function applySave(o){
   G.runMode=o.jm||'hold';
   G.names=o.nm||{}; applyNames();
   G.sheets=o.sh||[];
+  G.pawn=o.pw||{}; G.equip=o.eq||{};
   G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};

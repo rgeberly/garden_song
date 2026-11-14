@@ -10,7 +10,7 @@ let shop={tab:0,idx:0,page:0,confirm:null};
 /* opens on Sell when she is carrying a harvest */
 function openShop(){
   shopArtImg();
-  shop={tab:cropList().length||sellGoods().length?3:0,idx:0,page:0,confirm:null}; G.scene='shop';
+  shop={tab:cropList().length?3:0,idx:0,page:0,confirm:null}; G.scene='shop';
 }
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
@@ -28,16 +28,14 @@ function shopItems(){
   const l=cropList().map(sp=>{ const S=SPECIES[sp], n=G.crops[sp];
     return {type:'crop',id:sp,sell:true,name:S.name,cost:sellPrice(sp),art:{crop:sp},
       desc:"Sells for "+sellPrice(sp)+"c each. Or eat it: "+eatText(sp)+".",
-      note:"you have x"+n,btn:"Sell 1  ·  "+sellPrice(sp)+"c"}; })
-    /* forage and fish (GOODS) sell here too */
-    .concat(sellGoods().map(k=>({type:'good',id:k,sell:true,name:GOODS[k].name,cost:goodsPrice(k),art:{good:k},
-      desc:"Sells for "+goodsPrice(k)+"c each."+(GOODS[k].eat?" Or eat it.":""),note:"you have x"+G.goods[k],btn:"Sell 1  ·  "+goodsPrice(k)+"c"})));
-  if(l.length){ const n=cropList().reduce((a,sp)=>a+G.crops[sp],0)+sellGoods().reduce((a,k)=>a+G.goods[k],0), total=sellAllTotal();
+      note:"you have x"+n,btn:"Sell 1  ·  "+sellPrice(sp)+"c"}; });
+  /* (forage, fish and what pests leave behind go to Juniper's Junk Shop in town) */
+  if(l.length){ const n=cropList().reduce((a,sp)=>a+G.crops[sp],0), total=sellAllTotal();
     l.unshift({type:'sellall',sell:true,name:"Sell all",cost:total,art:{shop:'harvest basket'},
       desc:"Sell all "+n+" things you are carrying.",btn:"Sell all  ·  "+total+"c"}); }
   return l;
 }
-const sellAllTotal=()=>cropList().reduce((a,sp)=>a+sellPrice(sp)*G.crops[sp],0)+sellGoods().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
+const sellAllTotal=()=>cropList().reduce((a,sp)=>a+sellPrice(sp)*G.crops[sp],0);
 function sellCrop(sp,n){
   const k=Math.min(n,G.crops[sp]||0); if(!k) return 0;
   G.crops[sp]-=k; if(G.crops[sp]<=0) delete G.crops[sp];
@@ -45,7 +43,6 @@ function sellCrop(sp,n){
 }
 function sellAll(){
   let got=0, n=0; cropList().forEach(sp=>{ n+=G.crops[sp]; got+=sellCrop(sp,G.crops[sp]); });
-  sellGoods().forEach(k=>{ const v=goodsPrice(k)*G.goods[k]; n+=G.goods[k]; got+=v; G.coins+=v; delete G.goods[k]; });
   say("Sold "+n+" things for "+got+"c!"); coinChime(); autoSave();
 }
 function coinChime(){ if(AC){ flute(14,AC.currentTime,.18,.5); flute(19,AC.currentTime+.08,.3,.5); } }

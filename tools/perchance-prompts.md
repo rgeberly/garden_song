@@ -67,6 +67,29 @@ plain white background. I'll wire them in when they arrive.
 
 
 
+## Town interiors: "painted anime style", Shape **Portrait**
+
+The inside of the town's shops and the bar, painted like the house (`map_house.jpg`): seen from above at a
+slant, warm and cozy, one room filling the picture, with the doorway at the bottom middle so she walks in from
+the bottom. Leave space in the middle of the floor to walk around, and a counter across the upper part with
+room behind it for the shopkeeper. They're drawn in code as plain placeholder rooms until these arrive.
+Walls for each (black blocked, white open, like the house) can come after: `maps/<name>_collision.png`.
+
+| Save as | Description |
+|---|---|
+| `maps/cafe.png` | painted anime style, top-down three-quarter view of the inside of a small cozy country café, wooden floorboards, a long wooden counter across the upper part with a glass pastry case of pies and honey buns, a brick bread oven on the back wall, three little round tables with chairs on the floor, warm morning light through the windows, potted herbs, the front doorway at the bottom center, no people, no text |
+| `maps/music.png` | painted anime style, top-down three-quarter view of the inside of a small old-fashioned music shop, wooden floor, a counter across the upper part, shelves of sheet music along the left wall, flutes, fiddles and guitars hanging on the right wall, an upright piano and a drum on the floor, warm lamplight, the front doorway at the bottom center, no people, no text |
+| `maps/fishshop.png` | painted anime style, top-down three-quarter view of the inside of a small rustic fishing tackle shop, worn wooden floor, a counter across the upper part, fishing rods standing in a rack along the left wall, nets and lures on the back wall, a few bubbling bait tanks and wooden crates on the floor, a mounted fish above the counter, the front doorway at the bottom center, no people, no text |
+| `maps/bar.png` | painted anime style, top-down three-quarter view of the inside of a cozy small-town tavern at night, dark wooden floor, a long polished bar across the upper part with stools in front of it, shelves of bottles behind it, three small round tables with chairs, an old upright piano in a corner, glowing lanterns and warm golden light, a little frog sign on the wall, the front doorway at the bottom center, no people, no text |
+
+## Gus, the bartender: match the townsfolk portraits (`people/`), Shape **Portrait**
+
+He runs the Tipsy Toad in town, open from 6 PM. Same framing and style as the other townsfolk.
+
+| Save as | Description |
+|---|---|
+| `people/Gus.png` | portrait of a friendly middle-aged bartender with a bushy brown beard and rolled-up sleeves, a dark green vest over a white shirt, a towel over one shoulder, a warm grin, head and shoulders, same style as the other townsfolk portraits, plain white background |
+
 ## Optional: more
 
 - A Karate Kick row for `battle.png` (named `karate`); until then it uses the regular kick.

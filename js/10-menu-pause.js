@@ -117,7 +117,7 @@ function eatCrop(sp,id){
    the tabs closes the menu). Status and Skills show one member at a time: left/right
    (or the arrows by the name) changes who. */
 let sys={tab:0,idx:0,focus:'tabs',who:0,top:0};
-const SYSTABS=['Party','Status','Skills','Items','Gear','Lore','Settings','Save'];
+const SYSTABS=['Party','Status','Skills','Items','Equip','Lore','Settings','Save'];
 const SAVE_ACTIONS=["Copy save code","Paste a save code","Save now","Quit to title"];
 const SYSW={page:{x:8,y:8,w:256,h:464}, tab:{x:270,y:8,w:82,h:29,step:33}, info:{x:270,y:278,w:82,h:194}};
 /* rows start this far down the page (Status and Skills have a portrait above them) */
@@ -232,12 +232,14 @@ function sysRows(){
   if(t==='Skills') return {h:34,rows:skillBook(whoId()).map(s=>({skill:s}))};
   if(t==='Items') return {h:34,rows:cropList().map(sp=>({crop:sp})).concat(goodsList().map(k=>({good:k}))).concat(
     bySeason(Object.keys(G.seeds).filter(k=>G.seeds[k]>0)).map(sp=>({seed:sp})))};
-  if(t==='Gear') return {h:34,rows:FLUTE_META.order.map(id=>({flute:id})).concat(ownedGearList().map(g=>({gear:g})))};
+  /* Equip: each member's four slots; for Kaitlyn also her flutes and garden gear (as before) */
+  if(t==='Equip') return {h:34,rows:EQUIP_SLOTS.map(([slot])=>({slot})).concat(whoId()!=='kaitlyn'?[]:
+    [{head:"Flute"}].concat(FLUTE_META.order.map(id=>({flute:id})),ownedGearList().length?[{head:"Garden gear"}]:[],ownedGearList().map(g=>({gear:g}))))};
   if(t==='Settings') return {h:44,rows:SETTINGS.map(S=>({set:S}))};
   if(t==='Lore') return loreRows();
   return {h:44,rows:SAVE_ACTIONS.map((a,i)=>({save:i}))};
 }
-const footH=()=>['Status','Skills','Items','Gear','Settings'].includes(SYSTABS[sys.tab])||(SYSTABS[sys.tab]==='Lore'&&sys.lore&&!sys.loreSel)?78:0;
+const footH=()=>['Status','Skills','Items','Equip','Settings'].includes(SYSTABS[sys.tab])||(SYSTABS[sys.tab]==='Lore'&&sys.lore&&!sys.loreSel)?78:0;
 const rowsFit=()=>{ const R=sysRows(); return Math.max(1,Math.floor((SYSW.page.h-pageRowsY()-footH()-8)/R.h)); };
 function sysSee(i){ const n=rowsFit(); if(i<sys.top) sys.top=i; if(i>=sys.top+n) sys.top=i-n+1; }
 function sysSetTab(t){ sys.tab=(t+SYSTABS.length)%SYSTABS.length; sys.idx=0; sys.top=0; sys.lore=null; sys.loreSel=null; }
@@ -265,7 +267,9 @@ function sysActivate(i){
   }
   else if(t==='Settings') stepSetting(R.set,1);
   else if(t==='Lore') loreActivate(R);
-  else if(t==='Gear'){
+  else if(t==='Equip'){
+    if(R.slot){ cycleEquip(whoId(),R.slot); return; }
+    if(R.head) return;
     if(R.flute){ const id=R.flute;
       if(fluteOwned(id)){ G.flute=id; say(FLUTE_INFO[id].name+" equipped."); if(AC) flute(11,AC.currentTime,.3,.5); }
       else { say("Not owned — buy it at the stall."); blip(150,.08,.2); } }
@@ -281,7 +285,7 @@ function sysActivate(i){
     else { autoSave(); toTitle(); }
   }
 }
-const pagesWho=()=>SYSTABS[sys.tab]==='Status'||SYSTABS[sys.tab]==='Skills';
+const pagesWho=()=>['Status','Skills','Equip'].includes(SYSTABS[sys.tab]);
 /* does this crop or good ('g:'+key) help just one person (and so need a choice of who)? */
 function oneTarget(k){
   const e=isGoodKey(k)?goodEffect(k.slice(2)):EAT[k];
@@ -359,10 +363,14 @@ function sysFoot(){
   if(t==='Items'&&R.good){ const g=GOODS[R.good];
     const e=goodEffect(R.good);
     if(g.kind==='quest') return [g.name+"  x"+G.goods[R.good],g.flavor];
-    return [g.name+"  x"+G.goods[R.good],(g.flavor?g.flavor+" ":"")+(e?(g.kind==='food'?"Use (A): ":"Eat (A): ")+effText(e):"")+(g.kind==='food'?"":(e?" · ":"")+"sells "+goodsPrice(R.good)+"c at the stall or market")]; }
+    return [g.name+"  x"+G.goods[R.good],(g.flavor?g.flavor+" ":"")+(e?(g.kind==='food'?"Use (A): ":"Eat (A): ")+effText(e):"")+(g.kind==='food'?"":(e?" · ":"")+"sells "+goodsPrice(R.good)+"c at Juniper's in town")]; }
   if(t==='Items') return R.crop?[SPECIES[R.crop].name+"  x"+G.crops[R.crop],(SPECIES[R.crop].flavor?SPECIES[R.crop].flavor+" ":"")+"Eat: "+eatText(R.crop)+" · sells "+sellPrice(R.crop)+"c"]
                                :[seedName(R.seed)+"  x"+G.seeds[R.seed],SPECIES[R.seed].kind==='tree'?"Plant it in a stone ring.":"Plant it in an empty garden spot."];
-  if(t==='Gear') return R.flute?[FLUTE_INFO[R.flute].name,"Songs x"+FLUTE_INFO[R.flute].mul.toFixed(2)+(fluteOwned(R.flute)?(G.flute===R.flute?" · equipped":" · A to equip"):" · not owned yet")]
+  if(t==='Equip'&&R.head) return null;
+  if(t==='Equip'&&R.slot){ const id=whoId(), k=equipOf(id)[R.slot], name=EQUIP_SLOTS.find(s=>s[0]===R.slot)[1];
+    return k?[name+": "+EQUIP[k].name,EQUIP[k].desc+(IS_TOUCH?"  Tap again to change.":"  J to change.")]
+            :[name+": nothing",equipChoices(id,R.slot).length>1?(IS_TOUCH?"Tap again to put something on.":"J to put something on."):"Nothing to wear here yet."]; }
+  if(t==='Equip') return R.flute?[FLUTE_INFO[R.flute].name,"Songs x"+FLUTE_INFO[R.flute].mul.toFixed(2)+(fluteOwned(R.flute)?(G.flute===R.flute?" · equipped":" · A to equip"):" · not owned yet")]
                                :[R.gear.name+(gearOn(R.gear.id)?"  ·  on":"  ·  off"),cap(R.gear.desc)+". A to switch "+(gearOn(R.gear.id)?"off.":"on.")];
   if(t==='Lore') return loreFoot(R);
   if(t==='Settings'){ const S=R.set; return [S.name+":  "+S.label(S.get()),S.about(S.get())+(IS_TOUCH?"  Tap again to change.":"  ◀ ▶ or J to change.")]; }
@@ -394,8 +402,10 @@ function drawSys(){
     if(t==='Items'&&r.crop) drawCropIcon(b,r.crop,P.x+46,y+R.h/2-1,24);
     if(t==='Items'&&r.good) drawGoodIcon(b,r.good,P.x+46,y+R.h/2-1,22);
     if(t==='Items'&&r.seed) drawShopPic(seedName(r.seed).toLowerCase(),P.x+46,y+R.h/2-1,18,26);
-    if(t==='Gear'&&r.gear) drawShopPic(r.gear.name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
-    if(t==='Gear'&&r.flute) drawShopPic(FLUTE_INFO[r.flute].name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
+    if(t==='Equip'&&r.head){ b.fillStyle='rgba(255,224,138,.25)'; b.fillRect(P.x+12,y+R.h/2+6,P.w-24,1); }
+    if(t==='Equip'&&r.slot){ const k=equipOf(whoId())[r.slot]; if(k) drawShopPic(EQUIP[k].name.toLowerCase(),P.x+46,y+R.h/2-1,26,26); }
+    if(t==='Equip'&&r.gear) drawShopPic(r.gear.name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
+    if(t==='Equip'&&r.flute) drawShopPic(FLUTE_INFO[r.flute].name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
     if(t==='Lore') loreRowPic(r,P,y,R.h);
   });
   if(t==='Status'){ const id=whoId(), M=member(id);
@@ -454,7 +464,11 @@ function drawSys(){
       if(r.good){ TS(GOODS[r.good].name,P.x+66,y+21,18,'#f4f6ff',null,sel); TS("x"+G.goods[r.good],P.x+P.w-12,y+21,18,'#ffe08a','right',true); }
       else if(r.crop){ TS(SPECIES[r.crop].name,P.x+66,y+21,19,'#f4f6ff',null,sel); TS("x"+G.crops[r.crop],P.x+P.w-12,y+21,18,'#ffe08a','right',true); }
       else { TS(seedName(r.seed),P.x+66,y+21,17,'#c8d4ff'); TS("x"+G.seeds[r.seed],P.x+P.w-12,y+21,17,'#c8d4ff','right'); } }
-    else if(t==='Gear'){
+    else if(t==='Equip'&&r.head) TS(r.head,P.x+14,y+R.h/2+2,18,'#ffe08a',null,true);
+    else if(t==='Equip'&&r.slot){ const k=equipOf(whoId())[r.slot];
+      TS(EQUIP_SLOTS.find(s=>s[0]===r.slot)[1],P.x+66,y+14,14,'#8a94c4');
+      TS(k?EQUIP[k].name:"—",P.x+66,y+29,18,k?'#f4f6ff':'#7c84b0',null,sel); }
+    else if(t==='Equip'){
       if(r.flute){ const own=fluteOwned(r.flute), eq=G.flute===r.flute;
         TS(FLUTE_INFO[r.flute].name,P.x+66,y+21,19,own?'#f4f6ff':'#7c84b0',null,sel||eq);
         TS(eq?"equipped":own?"":"locked",P.x+P.w-12,y+21,15,eq?'#b8f0a0':'#7c84b0','right'); }
@@ -468,7 +482,7 @@ function drawSys(){
   });
   if(t==='Lore'&&sys.loreSel) loreDetailText(P);
   if(t==='Items'&&!R.rows.length) TS("Nothing yet — harvest some crops!",P.x+P.w/2,P.y+90,17,'#aab6e8','center');
-  if(t==='Gear'&&!ownedGearList().length) TS("Accessories you buy show up here.",P.x+P.w/2,rowY(3)+22,16,'#aab6e8','center');
+
   if(t==='Save') TS("Slot "+G.slot+" · Lv."+G.player.lv+" · "+G.coins+"c · "+SEASON_NAME[season()]+" Day "+G.day,P.x+P.w/2,P.y+250,17,'#c8d4ff','center');
   if(t==='Status'){ const id=whoId(), M=member(id), y=P.y+pageRowsY()+(STATS.length+1)*R.h+8;
     TS("EXP "+M.xp+" / "+M.next+" to Lv."+(M.lv+1),P.x+20,y,17,'#ffe08a',null,true); }

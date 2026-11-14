@@ -74,6 +74,8 @@ const GOODS={
   coffee:     {name:"Coffee",           value:0,  kind:'food', col:'#6a3a1a', use:{coffee:120000}, flavor:"Liquid motivation."},
   tea:        {name:"Herbal Tea",       value:0,  kind:'food', col:'#8ac86a', use:{mpAll:10}, flavor:"Calming herbs, steeped with care."},
   bun:        {name:"Honey Bun",        value:0,  kind:'food', col:'#e8b04a', use:{hpAll:20}, flavor:"Sticky, sweet and a little bit glazed. Just like Mabel."},
+  cider:      {name:"Mug of Cider",     value:0,  kind:'food', col:'#d8902a', use:{hpAll:15,mpAll:5}, flavor:"Hot spiced apple cider from the Tipsy Toad. Warms you right down to your boots."},
+  toddy:      {name:"Hot Toddy",        value:0,  kind:'food', col:'#c86a2a', use:{mpAll:15}, flavor:"Honey, lemon and a little something. Gus swears it cures everything."},
 };
 const goodsList=()=>Object.keys(GOODS).filter(k=>G.goods[k]>0);
 const sellGoods=()=>goodsList().filter(k=>GOODS[k].kind!=='food'&&GOODS[k].kind!=='quest');   /* quest things are kept */
@@ -94,20 +96,57 @@ const PLACES={
             [0,245,100,260],[585,470,135,150],[0,560,330,160],[0,500,60,60],[240,530,120,60],[370,630,110,90],
             [620,620,100,100],[660,330,60,140]],
     exits:[{x:612,y:712,r:42,to:'garden',label:"Back to the garden"}],          /* where the road leaves, bottom right */
-    arrive:{garden:{x:556,y:640,dir:0}},
+    /* doors into the buildings (where she stands to go in, with A); hours: TOWN_HOURS */
+    doors:[{x:156,y:226,to:'cafe'},{x:258,y:204,to:'music'},{x:525,y:230,to:'fishshop'},{x:420,y:108,to:'bar'}],
+    arrive:{garden:{x:556,y:640,dir:0}, cafe:{x:156,y:232,dir:4}, music:{x:258,y:210,dir:4},
+            fishshop:{x:525,y:236,dir:4}, bar:{x:420,y:116,dir:4}},
+    /* at: when they're out here (TOWN_HOURS); the shopkeepers are inside their shops */
     people:[
-      {name:"Mabel",x:132,y:262,col:'#c8584a',hair:'#e8e0d0',shop:'cafe',
-       lines:["Welcome to the café, dear! Something warm for the road?"]},
-      {name:"Rosa",x:276,y:206,col:'#4a8ad8',hair:'#3a2418',shop:'store',
-       lines:["Seeds, seeds and more seeds! What are you growing this season?"]},
-      {name:"Mr. Hollis",x:548,y:246,col:'#6a6a6a',hair:'#8a8a8a',shop:'tools',
-       lines:["Good tools make good gardeners. Have a look."]},
-      {name:"Juniper",x:596,y:338,col:'#e8a03a',hair:'#a85a2a',shop:'market',
-       lines:["I'll buy anything you forage or catch up on the mountain!"]},
-      {name:"Old Pete",x:286,y:450,col:'#7a6a5a',hair:'#d8d8d8',
+      {name:"Juniper",x:596,y:338,col:'#e8a03a',hair:'#a85a2a',shop:'junk',at:'shop',
+       lines:["Juniper's Junk Shop! I'll buy anything you forage, catch, or pry off a pest. And if you miss it, you can buy it back!"]},
+      {name:"Old Pete",x:286,y:450,col:'#7a6a5a',hair:'#d8d8d8',at:'day',
        lines:["The mountain path is north of your garden, you know.","Mushrooms come up in the fall. The good ones are orange."]},
-      {name:"Milo",x:452,y:478,col:'#5aa85a',hair:'#e8c84a',
+      {name:"Milo",x:452,y:478,col:'#5aa85a',hair:'#e8c84a',at:'kid',
        lines:["Have you seen a snake with a gold ring around its neck? That'd be so cool!"]},
+    ]},
+  /* Inside the town's buildings: placeholder rooms drawn in code until they have paintings
+     (room: floor and wall colours, wall: how deep the back wall is, furn [x,y,w,h,colour,label]
+     solid furniture). Each is entered from its door in town and left by the doorway at the
+     bottom. */
+  cafe:{name:"Mabel's Café", room:true, w:450, h:520, floor:'#b88a5a', wallCol:'#e8d0a8', wall:120,
+    furn:[[60,192,190,34,'#8a5a3a',"counter"],[40,124,120,40,'#6a4a2a',"ovens"],[290,250,70,46,'#a86a3a',"table"],
+          [320,370,70,46,'#a86a3a',"table"],[80,360,70,46,'#a86a3a',"table"],[300,124,110,30,'#c8a07a',"pastry case"]],
+    exits:[{x:225,y:520,r:44,to:'town',label:"Back outside"}], arrive:{town:{x:225,y:452,dir:0}},
+    people:[{name:"Mabel",x:150,y:180,col:'#c8584a',hair:'#e8e0d0',shop:'cafe',at:'shop',reach:58,
+      lines:["Welcome to the café, dear! Something warm for the road?"]}]},
+  music:{name:"Rosa's Music Shop", room:true, w:450, h:520, floor:'#8a5a4a', wallCol:'#d8c8e8', wall:120,
+    furn:[[150,192,150,34,'#6a3a2a',"counter"],[20,130,40,260,'#5a3a2a',"sheet music"],[390,130,40,260,'#5a3a2a',"flutes & fiddles"],
+          [300,300,80,56,'#2a2020',"piano"],[90,330,60,40,'#a87a3a',"drum"]],
+    exits:[{x:225,y:520,r:44,to:'town',label:"Back outside"}], arrive:{town:{x:225,y:452,dir:0}},
+    people:[{name:"Rosa",x:225,y:180,col:'#4a8ad8',hair:'#3a2418',shop:'music',at:'shop',reach:58,
+      lines:["Welcome to the music shop! New sheet music comes in all the time."]}]},
+  fishshop:{name:"Hollis Fishing Supply", room:true, w:450, h:520, floor:'#7a8a8a', wallCol:'#c8d8d8', wall:120,
+    furn:[[230,192,170,34,'#5a4a3a',"counter"],[20,130,34,250,'#6a4a2a',"rod rack"],[60,124,140,34,'#4a6a8a',"tackle"],
+          [280,320,120,56,'#3a6a8a',"bait tanks"],[70,340,70,50,'#8a6a4a',"crates"]],
+    exits:[{x:225,y:520,r:44,to:'town',label:"Back outside"}], arrive:{town:{x:225,y:452,dir:0}},
+    people:[{name:"Mr. Hollis",x:315,y:180,col:'#6a6a6a',hair:'#8a8a8a',shop:'fishing',at:'shop',reach:58,
+      lines:["Rods, reels and good advice. The advice is free."]}]},
+  /* the bar opens at 6 PM, when the shops close: some of the townsfolk come here */
+  bar:{name:"The Tipsy Toad", room:true, w:450, h:520, floor:'#5a3a2a', wallCol:'#7a4a3a', wall:120,
+    furn:[[50,192,350,34,'#3a2416',"bar"],[50,124,350,30,'#2a1a10',"bottles"],[70,330,70,46,'#6a4a2a',"table"],
+          [310,330,70,46,'#6a4a2a',"table"]],
+    exits:[{x:225,y:520,r:44,to:'town',label:"Back outside"}], arrive:{town:{x:225,y:470,dir:0}},
+    people:[
+      {name:"Gus",x:225,y:180,col:'#3a5a3a',hair:'#5a3a2a',shop:'bar',at:'night',reach:58,
+       lines:["Welcome to the Tipsy Toad! Pull up a stool. What'll it be?"]},
+      {name:"Old Pete",x:110,y:318,col:'#7a6a5a',hair:'#d8d8d8',at:'night',
+       lines:["Did I ever tell you about the summer my tomatoes grew as big as pumpkins?","...No? Well, neither did they. But it's a good story."]},
+      {name:"Mr. Hollis",x:350,y:318,col:'#6a6a6a',hair:'#8a8a8a',at:'night',
+       lines:["Nothing like a quiet drink after a day of tangled line.","Caught a catfish this big once. ...Well, maybe this big."]},
+      {name:"Rosa",x:290,y:350,col:'#4a8ad8',hair:'#3a2418',at:'night',
+       lines:["Gus says he'll play the old piano tonight. He says that every night."]},
+      {name:"Juniper",x:160,y:350,col:'#e8a03a',hair:'#a85a2a',at:'night',
+       lines:["You wouldn't believe what people try to sell me. Today: one left boot.","Bought it, of course. Somebody out there has the right one."]},
     ]},
   /* Bramble Peak (maps/mountain_<season>): a trail winds up from the garden at the
      bottom to the rocky top, a meadow beside it and a stream down the right side to fish
@@ -122,6 +161,18 @@ const PLACES={
             [714,406],[198,674],[450,234],[378,1034],[566,866],[806,1130],[750,778],[390,626],[666,1222]],
     people:[]},
 };
+/* Town hours (minutes of the day): shops are open from 8 AM to 6 PM, the bar from 6 PM.
+   A person's at: 'shop' (while the shops are open), 'day' (until 6 PM), 'kid' (until 8 PM),
+   'night' (from 6 PM); no at: always there. */
+const TOWN_HOURS={open:8*60,close:18*60,kidHome:20*60};
+const shopsOpen=()=>G.clock>=TOWN_HOURS.open&&G.clock<TOWN_HOURS.close;
+const barOpen=()=>G.clock>=TOWN_HOURS.close;
+const atNow=at=>!at||(at==='shop'?shopsOpen():at==='day'?G.clock<TOWN_HOURS.close:at==='kid'?G.clock<TOWN_HOURS.kidHome:at==='night'?barOpen():true);
+/* who is in a place right now */
+const placePeople=P=>(P.people||[]).filter(p=>atNow(p.at));
+/* a building's door is open: the bar after 6 PM, the shops during the day */
+const doorOpen=d=>d.to==='bar'?barOpen():shopsOpen();
+const nearTownDoor=(f=1)=>(curPlace().doors||[]).find(d=>Math.hypot(G.player.x-d.x,G.player.y-d.y)<24*f);
 /* how big Kaitlyn is drawn in each place, next to its painting (1 = as in the garden) */
 const PLACE_KAIT={town:0.8, mountain:0.7};
 const placeKait=()=>PLACE_KAIT[G.area]||1;
@@ -159,7 +210,7 @@ function goTo(area){
   if(area==='mountain'&&typeof fishImg==='function') fishImg();      /* and the pond, for fishing */
   travel(()=>{
     const from=G.area; G.area=area; G.swim=false;
-    const a=area==='garden'?GARDEN_ARRIVE[from]:PLACES[area].arrive.garden;
+    const a=area==='garden'?GARDEN_ARRIVE[from]:PLACES[area].arrive[from]||PLACES[area].arrive.garden;
     G.player.x=a.x; G.player.y=a.y; G.player.dir=a.dir; G.player.moving=false; exitArmed=false;
     if(area==='mountain') gatherToday();
   });
@@ -175,14 +226,15 @@ function placeSolid(x,y){
   const C=PLACE_COL[G.area];
   if(C){ const cx=Math.floor(x/PLACE_GRID), cy=Math.floor(y/PLACE_GRID);
     if(cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1) return true;
-    return (P.people||[]).some(p=>Math.hypot(x-p.x,y-p.y)<10); }      /* and the townsfolk */
+    return placePeople(P).some(p=>Math.hypot(x-p.x,y-p.y)<10); }      /* and the townsfolk */
   if(P.cliffs&&y<150) return true;
+  if(P.room&&(y<P.wall+14||(P.furn||[]).some(([fx,fy,fw,fh])=>x>fx-8&&x<fx+fw+8&&y>fy-2&&y<fy+fh+8))) return true;
   if(P.fountain&&Math.hypot(x-P.fountain.x,y-P.fountain.y)<P.fountain.r+6) return true;
   if(P.pond&&(((x-P.pond.x)/(P.pond.rx))**2+((y-P.pond.y)/(P.pond.ry))**2<1)) return true;
   if((P.houses||[]).some(h=>x>h.x-6&&x<h.x+h.w+6&&y>h.y&&y<h.y+h.h+8)) return true;
   if((P.blocks||[]).some(([bx,by,bw,bh])=>x>bx&&x<bx+bw&&y>by&&y<by+bh)) return true;
-  if(P.trees.some(([tx,ty])=>Math.hypot(x-tx,y-ty)<16)) return true;
-  return (P.people||[]).some(p=>Math.hypot(x-p.x,y-p.y)<10);
+  if((P.trees||[]).some(([tx,ty])=>Math.hypot(x-tx,y-ty)<16)) return true;
+  return placePeople(P).some(p=>Math.hypot(x-p.x,y-p.y)<10);
 }
 
 /* ---------- pests on the mountain trail ----------
@@ -256,12 +308,15 @@ function nearPond(f=1){
   const d=Math.hypot((G.player.x-P.pond.x)/(P.pond.rx+30),(G.player.y+9-P.pond.y)/(P.pond.ry+30));
   return d<1+0.15*(f-0.5);
 }
-const nearPerson=(f=1)=>(curPlace().people||[]).find(p=>Math.hypot(G.player.x-p.x,G.player.y-p.y)<30*f);
+const nearPerson=(f=1)=>placePeople(curPlace()).find(p=>Math.hypot(G.player.x-p.x,G.player.y-p.y)<(p.reach||30*f));   /* reach: across a counter */
 const nearPlaceExit=(f=1)=>curPlace().exits.find(e=>Math.hypot(G.player.x-e.x,G.player.y-e.y)<e.r*f);
 
 function placeInteract(){
   const ex=nearPlaceExit(); if(ex){ goTo(ex.to); return; }
   const who=nearPerson();
+  const dr=nearTownDoor();
+  if(dr){ if(doorOpen(dr)){ goTo(dr.to); return; }
+    say(dr.to==='bar'?PLACES.bar.name+" opens at 6 PM.":PLACES[dr.to].name+" is closed. Open 8 AM to 6 PM."); blip(150,.08,.2); return; }
   if(nearTinyEgg()){ playStory(tinyEggFound()); return; }
   if(who){ const lines=personLines(who).map(t=>({say:'npc',who,text:t}));
     if(who.shop) lines.push({run:()=>openTownShop(who.shop,who)});
@@ -275,6 +330,7 @@ function placeInteract(){
 function placeLabel(){
   const R=PROMPT_REACH;
   const who=nearPerson(R); if(who) return who.shop?who.name+" (shop)":who.name;
+  const dr=nearTownDoor(R*1.6); if(dr) return doorOpen(dr)?PLACES[dr.to].name:"Closed";
   if(nearTinyEgg(R)) return "Check";
   if(nearGather(R)>=0) return "Gather";
   if(nearPond(R)) return season()==='winter'?"Frozen":G.rod?"Fish ("+FISH_MIN+" min)":"Fish (needs a rod)";
@@ -309,6 +365,7 @@ function placeCanvas(area){
   const P=PLACES[area], cv2=document.createElement('canvas'), wint=season()==='winter', fall=season()==='fall';
   const W=placeW(P), H=placeH(P), s=P.w?1:PLACE_PX;          /* a big place at 1 px each, to keep it light */
   cv2.width=W*s; cv2.height=H*s; const c=cv2.getContext('2d'); c.scale(s,s);
+  if(P.room){ drawRoom(c,P); PLACE_CANVAS[key]=cv2; return cv2; }
   c.fillStyle=wint?'#e8eef4':fall?'#a8a05a':P.ground; c.fillRect(0,0,W,H);
   for(let i=0;i<900*W*H/(WORLD_W*WORLD_H);i++){ const x=(i*97.3)%W, y=(i*61.7)%H;   /* grass flecks */
     c.fillStyle=wint?'rgba(255,255,255,.5)':'rgba(40,80,30,.18)'; c.fillRect(x,y,2,3); }
@@ -340,6 +397,27 @@ function placeCanvas(area){
     if(P.cliffs){ c.beginPath(); c.moveTo(x,y-46); c.lineTo(x-18,y); c.lineTo(x+18,y); c.fill(); }
     else { c.beginPath(); c.arc(x,y-18,20,0,7); c.fill(); c.beginPath(); c.arc(x-10,y-10,13,0,7); c.arc(x+10,y-10,13,0,7); c.fill(); } });
   PLACE_CANVAS[key]=cv2; return cv2;
+}
+/* a placeholder room: floorboards, the back wall with windows, furniture with labels, and
+   the doorway at the bottom */
+function drawRoom(c,P){
+  const W=P.w, H=P.h;
+  c.fillStyle=P.floor; c.fillRect(0,0,W,H);
+  c.fillStyle='rgba(0,0,0,.12)'; for(let y=P.wall;y<H;y+=22) c.fillRect(0,y,W,2);
+  for(let y=P.wall,r=0;y<H;y+=22,r++) for(let x=(r%2)*60;x<W;x+=120) c.fillRect(x,y,2,22);
+  c.fillStyle=P.wallCol; c.fillRect(0,0,W,P.wall);
+  c.fillStyle='rgba(0,0,0,.18)'; c.fillRect(0,P.wall-26,W,26);                 /* wainscot */
+  c.fillStyle='rgba(0,0,0,.35)'; c.fillRect(0,P.wall-3,W,3);
+  [[70,20],[330,20]].forEach(([x,y])=>{ c.fillStyle='#4a3a2a'; c.fillRect(x-4,y-4,58,48); c.fillStyle='#a8c8e8'; c.fillRect(x,y,50,40);
+    c.fillStyle='rgba(255,255,255,.35)'; c.fillRect(x+4,y+4,16,32); });
+  (P.furn||[]).forEach(([x,y,w,h,col,label])=>{
+    c.fillStyle='rgba(0,0,0,.25)'; c.fillRect(x+4,y+h-2,w,8);
+    c.fillStyle=col; c.fillRect(x,y,w,h); c.fillStyle='rgba(255,255,255,.18)'; c.fillRect(x,y,w,5);
+    c.fillStyle='rgba(255,246,216,.85)'; c.font='bold 9px '+FONT; c.textAlign='center'; c.fillText(label,x+w/2,y+h/2+3); });
+  c.fillStyle='#2a1a10'; c.fillRect(W/2-40,H-14,80,14);                       /* the doorway */
+  c.fillStyle='#8a3a3a'; c.fillRect(W/2-34,H-34,68,16);                       /* the mat */
+  c.fillStyle='rgba(255,246,216,.5)'; c.font='bold 10px '+FONT; c.textAlign='center';
+  c.fillText(P.name+" (placeholder)",W/2,P.wall-34); c.textAlign='left';
 }
 /* a townsperson: a simple stand-in figure until they have art */
 function drawPerson(c,p){
@@ -373,7 +451,7 @@ function drawPlace(){
   b.imageSmoothingEnabled=true;
   if(pim||!painted) b.drawImage(pim||placeCanvas(G.area),-cam.x,-cam.y,placeW(P),placeH(P));
   const ents=[];
-  (P.people||[]).forEach(p=>ents.push({y:p.y,f:()=>drawPerson(b,{...p,x:p.x-cam.x,y:p.y-cam.y})}));
+  placePeople(P).forEach(p=>ents.push({y:p.y,f:()=>drawPerson(b,{...p,x:p.x-cam.x,y:p.y-cam.y})}));
   if(nearTinyEgg(9)) ents.push({y:TINY_EGG.y,f:()=>drawTinyEgg(b,TINY_EGG.x-cam.x,TINY_EGG.y-cam.y)});   /* Tiny One's egg, under the pine */
   if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
   /* the pests, scaled like her here (shadow and all), around their feet */
@@ -391,12 +469,12 @@ function drawPlace(){
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   /* what she walks behind (maps/<place>_<season>_front: tree tops and the like) goes over everyone */
   const fr=frontImg(G.area+'_'+season()); if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,placeW(P),placeH(P)); }
-  (P.people||[]).forEach(p=>{ b.font='bold 7px '+FONT; b.textAlign='center'; b.fillStyle='rgba(20,12,4,.55)';
+  placePeople(P).forEach(p=>{ b.font='bold 7px '+FONT; b.textAlign='center'; b.fillStyle='rgba(20,12,4,.55)';
     const w=b.measureText(p.name).width+6; b.fillRect(p.x-cam.x-w/2,p.y-cam.y-46,w,10);
     b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,p.y-cam.y-38.5); b.textAlign='left';
     if(personMarked(p)) drawMarker(b,p.x-cam.x,p.y-cam.y-54); });
   b.restore();
-  tintView(b);
+  if(!P.room) tintView(b);                    /* lamps are lit indoors */
   b.restore();
   drawClockBack(); drawBuffsBack();
   blit();
@@ -416,34 +494,39 @@ const TOWN_SHOPS={
     {name:"Coffee",cost:30,desc:"Walk 50% faster for 2 minutes. Goes in your bag.",buy:()=>addGood('coffee')},
     {name:"Herbal Tea",cost:24,desc:"Restores 10 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('tea')},
     {name:"Honey Bun",cost:28,desc:"Restores 20 HP to everyone in the party. Goes in your bag.",buy:()=>addGood('bun')}]},
-  store:{title:"Rosa's General Store", items:()=>UNLOCK_ORDER.filter(s=>G.unlocked.includes(s)).map(s=>({
-    name:seedName(s),cost:SPECIES[s].cost,desc:"Needs "+SPECIES[s].grow+" growth · best in "+SEASON_NAME[SPECIES[s].best]+". You have "+(G.seeds[s]||0)+".",
-    buy:()=>{ G.seeds[s]=(G.seeds[s]||0)+1; }})).concat(
-    /* sheet music: a new song to practice at the music stand */
+  /* Rosa's music shop: sheet music for new songs to practice at the music stand */
+  music:{title:"Rosa's Music Shop", empty:"Nothing new in yet. Check back soon!", items:()=>
     PRACTICE_SONGS.filter(s=>!songKnown(s)).map(s=>({name:"Sheet music: "+s.name,cost:s.cost,
-      desc:"A new song to practice at home: up to "+practiceXp(1,s)+" EXP a day.",buy:()=>{ G.sheets.push(s.id); }})))},
-  tools:{title:"Hollis Tools", items:()=>{
-    /* the next rod and reel up (one set at a time), then the garden gear */
-    const n=(G.rod||0)+1, L=n<RODS.length?[{name:RODS[n].name,cost:RODS[n].cost,desc:RODS[n].about+(n===1?" You need one to fish.":""),
-      buy:()=>{ G.rod=n; }}]:[];
-    return L.concat(GEAR.filter(g=>!G.gear[g.id]).map(g=>({name:g.name,cost:g.cost,desc:cap(g.desc)+".",
-      buy:()=>{ G.gear[g.id]=1; }}))); }},
-  market:{title:"Juniper's Market", sell:true, items:()=>{
-    const L=sellGoods().map(k=>({name:GOODS[k].name+"  x"+G.goods[k],cost:goodsPrice(k),desc:"Sell one for "+goodsPrice(k)+"c.",
-      buy:()=>{ G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k]; G.coins+=goodsPrice(k); }}));
+      desc:"A new song to practice at home: up to "+practiceXp(1,s)+" EXP a day.",buy:()=>{ G.sheets.push(s.id); }}))},
+  /* Mr. Hollis: the next rod and reel up, one set at a time */
+  fishing:{title:"Hollis Fishing Supply", empty:"You've got the best rod I sell!", items:()=>{
+    const n=(G.rod||0)+1;
+    return n<RODS.length?[{name:RODS[n].name,cost:RODS[n].cost,desc:RODS[n].about+(n===1?" You need one to fish.":""),buy:()=>{ G.rod=n; }}]:[]; }},
+  /* Juniper buys forage, fish and what pests leave behind, and sells back anything she
+     bought from you (G.pawn) for half again as much */
+  junk:{title:"Juniper's Junk Shop", empty:"Nothing to sell — try foraging on the mountain!", items:()=>{
+    const L=sellGoods().map(k=>({sell:true,name:GOODS[k].name+"  x"+G.goods[k],cost:goodsPrice(k),desc:"Sell one for "+goodsPrice(k)+"c. You can buy it back later for "+buyBackPrice(k)+"c.",
+      buy:()=>{ G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k]; G.coins+=goodsPrice(k); pawn(k,1); }}));
     if(L.length){ const tot=sellGoods().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
-      L.push({name:"Sell everything",cost:tot,desc:"Sell all your forage and fish for "+tot+"c.",
-        buy:()=>{ G.coins+=tot; sellGoods().forEach(k=>delete G.goods[k]); }}); }
-    return L; }},
+      L.push({sell:true,name:"Sell everything",cost:tot,desc:"Sell all your forage, fish and pest finds for "+tot+"c.",
+        buy:()=>{ G.coins+=tot; sellGoods().forEach(k=>{ pawn(k,G.goods[k]); delete G.goods[k]; }); }}); }
+    return L.concat(Object.keys(G.pawn).filter(k=>G.pawn[k]>0&&GOODS[k]).map(k=>({name:"Buy back: "+GOODS[k].name+"  x"+G.pawn[k],cost:buyBackPrice(k),
+      desc:GOODS[k].flavor+" Buy one back for "+buyBackPrice(k)+"c.",buy:()=>{ G.pawn[k]--; if(G.pawn[k]<=0) delete G.pawn[k]; addGood(k); }}))); }},
+  /* the Tipsy Toad, from 6 PM */
+  bar:{title:"The Tipsy Toad", items:()=>[
+    {name:"Mug of Cider",cost:40,desc:"Restores 15 HP and 5 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('cider')},
+    {name:"Hot Toddy",cost:45,desc:"Restores 15 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('toddy')}]},
 };
+const buyBackPrice=k=>Math.ceil(goodsPrice(k)*1.5);
+const pawn=(k,n)=>{ G.pawn[k]=(G.pawn[k]||0)+n; };
 let tshop=null;
 function openTownShop(kind,who){ tshop={kind,who,idx:0,top:0}; G.scene='tshop'; }
 function tshopBuy(i){
   const S=TOWN_SHOPS[tshop.kind], it=S.items()[i]; if(!it) return;
-  if(!S.sell&&G.coins<it.cost){ say("Not enough coins."); blip(150,.08,.2); return; }
+  if(!it.sell&&G.coins<it.cost){ say("Not enough coins."); blip(150,.08,.2); return; }
   if(it.buy()===false) return;
-  if(!S.sell) G.coins-=it.cost;
-  say(S.sell?"Sold!":"Bought "+it.name+"."); blip(660,0.05,0.1,'triangle');
+  if(!it.sell) G.coins-=it.cost;
+  say(it.sell?"Sold!":"Bought "+it.name.replace(/^Buy back: /,'').replace(/  x\d+$/,'')+"."); blip(660,0.05,0.1,'triangle');
   tshop.idx=Math.min(tshop.idx,Math.max(0,S.items().length-1)); autoSave();
 }
 const TSHOP={x:14,y:40,w:332,h:400,row:30,top:62};
@@ -470,13 +553,14 @@ function drawTownShop(){
   blit();
   TS(S.title,W.x+14,W.y+28,24,'#f4f6ff',null,true);
   TS(G.coins+"c",W.x+W.w-14,W.y+28,22,'#ffe08a','right',true);
-  if(!L.length) TS(S.sell?"Nothing to sell — try foraging on the mountain!":"Sold out!",W.x+W.w/2,W.y+120,17,'#aab6e8','center');
-  L.slice(tshop.top,tshop.top+fit).forEach((it,j)=>{ const i=tshop.top+j, y=W.y+W.top+j*W.row+20, ok=S.sell||G.coins>=it.cost;
-    TS(it.name,W.x+40,y,19,ok?'#f4f6ff':'#7c84b0',null,i===tshop.idx);
-    TS((S.sell?"+":"")+it.cost+"c",W.x+W.w-14,y,18,ok?'#ffe08a':'#7c84b0','right'); });
+  if(!L.length) TS(S.empty||"Sold out!",W.x+W.w/2,W.y+120,17,'#aab6e8','center');
+  L.slice(tshop.top,tshop.top+fit).forEach((it,j)=>{ const i=tshop.top+j, y=W.y+W.top+j*W.row+20, ok=it.sell||G.coins>=it.cost;
+    TS(it.name,W.x+40,y,19,ok?(it.sell?'#f4f6ff':'#e4e8ff'):'#7c84b0',null,i===tshop.idx);
+    TS((it.sell?"+":"")+it.cost+"c",W.x+W.w-14,y,18,ok?(it.sell?'#b8f0a0':'#ffe08a'):'#7c84b0','right'); });
   const it=L[tshop.idx];
   if(it) wrapLines(it.desc,16,W.w-44).slice(0,2).forEach((ln,i)=>TS(ln,W.x+20,W.y+W.h-48+i*17,16,'#c8d4ff'));
-  TS(IS_TOUCH?"tap twice to "+(S.sell?"sell":"buy")+" · B to leave":"J "+(S.sell?"sell":"buy")+" · H leave",W.x+W.w/2,W.y+W.h+18,16,'#8a94c4','center');
+  const verb=it&&it.sell?"sell":"buy";
+  TS(IS_TOUCH?"tap twice to "+verb+" · B to leave":"J "+verb+" · H leave",W.x+W.w/2,W.y+W.h+18,16,'#8a94c4','center');
   if(G.msgT>0) TS(G.msg,W.x+W.w/2,W.y+W.h-82,16,'#ffe08a','center');
 }
 

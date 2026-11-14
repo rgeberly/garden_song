@@ -188,6 +188,27 @@ const GEAR=[
   {id:'silver', name:"Silver Flute",   cost:800, desc:"+15% song growth & damage"},
   {id:'dizi',   name:"Mystic Dizi",    cost:1800, desc:"+35% song growth & damage"},
 ];
+/* Equipment: what each party member wears, in four slots. EQUIP lists what can be worn:
+   key: {name, slot 'weapon'|'clothes'|'acc' (either accessory slot), who: ids who can wear it
+   (anyone if left out), desc, own(): whether she has it}. Empty until the items are chosen. */
+const EQUIP_SLOTS=[['weapon',"Weapon"],['clothes',"Clothes"],['acc1',"Accessory 1"],['acc2',"Accessory 2"]];
+const EQUIP={};
+const equipOf=id=>G.equip[id]||(G.equip[id]={});
+const slotKind=slot=>slot.startsWith('acc')?'acc':slot;
+/* what could go in a member's slot: nothing, or anything of that kind they can wear that
+   nobody else has on (and isn't in their other accessory slot) */
+function equipChoices(id,slot){
+  const worn=new Set(); for(const m in G.equip) for(const s in G.equip[m]) if(!(m===id&&s===slot)&&G.equip[m][s]) worn.add(G.equip[m][s]);
+  return [null].concat(Object.keys(EQUIP).filter(k=>{ const E=EQUIP[k];
+    return E.slot===slotKind(slot)&&(!E.who||E.who.includes(id))&&(!E.own||E.own())&&!worn.has(k); }));
+}
+/* A on a slot: the next thing that fits, round to nothing */
+function cycleEquip(id,slot){
+  const L=equipChoices(id,slot), cur=equipOf(id)[slot]||null;
+  if(L.length<2){ say("Nothing to wear here yet."); blip(150,.08,.2); return; }
+  const nx=L[(L.indexOf(cur)+1)%L.length]; equipOf(id)[slot]=nx;
+  say(nx?PARTY_INFO[id].name+" puts on the "+EQUIP[nx].name+".":PARTY_INFO[id].name+" takes it off."); blip(620,.05,.1,'triangle'); autoSave();
+}
 const YARD=[
   {id:'bed5',    name:"Till the Back Row", cost:680, desc:"+3 spots in the ground plot"},
   {id:'bed6',    name:"Second Bed Row",    cost:840, desc:"+4 spots in the raised bed"},
