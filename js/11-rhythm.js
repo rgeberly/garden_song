@@ -564,8 +564,7 @@ function drawRhythm(){
     else { b.globalAlpha=a; px(b,Math.round(f.x),Math.round(f.y),3,3,'#c8ffb0'); b.globalAlpha=1; } });
   px(b,0,T0,LW,46,'#101820'); px(b,0,T0+46,LW,2,'#2a3a48');   /* header pinned to the top edge */
   drawFluteIcon(b,LW-52,T0+26,1.3);
-  if(!R_.done){ px(b,CANCEL.x,CANCEL.y+T0,CANCEL.w,CANCEL.h,'#3a2a2a');
-    px(b,CANCEL.x+2,CANCEL.y+T0+2,CANCEL.w-4,CANCEL.h-4,'#c9a08a'); }
+  if(!R_.done) rpgWin({x:CANCEL.x,y:CANCEL.y+T0,w:CANCEL.w,h:CANCEL.h});
   let liveHold=null;
   for(const n of R_.chart.notes) if(n.type==='hold'&&R_.time>=n.t&&R_.time<=n.t+n.dur) liveHold=n;
   if(R_.done){
@@ -587,7 +586,7 @@ function drawRhythm(){
   T("Combo "+R_.combo+"    Max "+R_.maxcombo+"    P"+R_.perfect+" G"+R_.good+" M"+R_.miss,
     9,T0+37,20,'#e8c34a');
   T(FLUTE_INFO[G.flute||'recorder'].name,LW-52,T0+44,15,'#9fb2c6','center');
-  if(!R_.done) T("✕  Stop",CANCEL.x+CANCEL.w/2,CANCEL.y+T0+18,20,'#3a2a1a','center',true);
+  if(!R_.done) TS("✕  Stop",CANCEL.x+CANCEL.w/2,CANCEL.y+T0+18,18,WIN_TXT.title,'center',true);
   /* the count-in, and which key plays which lane until the first note arrives */
   const cb=countBeat();
   if(!R_.done&&cb<COUNT_BEATS){
@@ -603,11 +602,11 @@ function drawRhythm(){
   if(R_.done){
     const acc=rhythmAcc();
     const rank=acc>0.93?'S':acc>0.8?'A':acc>0.62?'B':acc>0.4?'C':'D';
-    T("Song Complete",180,183,34,'#3a2a1a','center',true);
-    T("Accuracy   "+Math.round(acc*100)+"%",180,213,26,'#3a2a1a','center');
-    T("Max combo   "+R_.maxcombo,180,236,26,'#3a2a1a','center');
-    T(rank,180,275,52,rank==='S'?'#c9701c':'#8a6a3a','center',true);
-    if(rank==='S') T("the frogs approve!",180,320,22,'#5a7a3a','center',true);
-    else T("tap to continue",180,315,22,'#7a6a4a','center');
+    TS("Song Complete",180,183,28,WIN_TXT.title,'center',true);
+    TS("Accuracy   "+Math.round(acc*100)+"%",180,213,21,WIN_TXT.body,'center');
+    TS("Max combo   "+R_.maxcombo,180,236,21,WIN_TXT.body,'center');
+    TS(rank,180,275,52,rank==='S'?WIN_TXT.gold:WIN_TXT.title,'center',true);
+    if(rank==='S') TS("the frogs approve!",180,320,19,WIN_TXT.good,'center',true);
+    else TS("tap to continue",180,315,17,WIN_TXT.dim,'center');
   }
 }

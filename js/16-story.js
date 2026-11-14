@@ -6,7 +6,8 @@
    functions that move people around between them. A tap or A moves on.
    ================================================================ */
 /* her id stays 'bling' (saves and art files use it); the name players see is in PARTY_INFO */
-const SPEAKER={kaitlyn:{name:"Kaitlyn",col:'#a06a1a'}, bling:{get name(){ return PARTY_INFO.bling.name; },col:'#7a5a12'}};
+/* speakers' names in the talk box, in a colour each (on the blue window) */
+const SPEAKER={kaitlyn:{name:"Kaitlyn",col:'#ffd08a'}, bling:{get name(){ return PARTY_INFO.bling.name; },col:'#e8e070'}};
 const TALK_MS=28;                 /* typing speed: ms per letter */
 let story=null;
 function playStory(steps){
@@ -63,22 +64,22 @@ function drawStory(){
 }
 /* the talk box along the bottom of the view: portrait, name, the line typing out */
 function drawTalk(s,bottom){
-  const x=10, h=112, y=bottom-h-12, w=LW-20, who=s.who?{name:s.who.name,col:'#5a4a8a'}:SPEAKER[s.say];
+  const x=10, h=112, y=bottom-h-12, w=LW-20, who=s.who?{name:s.who.name,col:'#c8b8ff'}:SPEAKER[s.say];
   wipeBuf();
   panel(x,y,w,h);
-  px(b,x+9,y+9,86,h-18,'#e2d3ae');
+  b.fillStyle='rgba(10,15,42,.55)'; b.beginPath(); b.roundRect(x+9,y+9,86,h-18,4); b.fill();
   const im=portraitImg(s.face||(s.who?s.who.name.toLowerCase():s.say));       /* townsfolk by name; face: another portrait (a baby's) */
   if(im){ const ph=h-22, pw=ph*im.naturalWidth/im.naturalHeight;
     b.save(); b.beginPath(); b.rect(x+9,y+9,86,h-18); b.clip(); b.imageSmoothingEnabled=true;
     b.drawImage(im,x+9+(86-pw)/2,y+11,pw,ph); b.restore(); }
   else if(s.who){ b.save(); b.translate(x+52,y+h-8); b.scale(2.6,2.6); drawPerson(b,{...s.who,x:0,y:0}); b.restore(); }
   blit();
-  T(s.label||who.name,x+108,y+26,22,who.col,'left',true);       /* label: a one-off name for this line */
+  TS(s.label||who.name,x+108,y+26,20,who.col,'left',true);       /* label: a one-off name for this line */
   const n=typed(s);
   wrapLines(s.text,23,w-120).reduce((acc,ln,i)=>{
-    const left=Math.max(0,n-acc); if(left>0) T(ln.slice(0,left),x+108,y+50+i*19,23,'#3a2a1a');
+    const left=Math.max(0,n-acc); if(left>0) TS(ln.slice(0,left),x+108,y+50+i*19,21,WIN_TXT.title);
     return acc+ln.length+1; },0);
-  if(n>=s.text.length&&Math.floor(G.t/400)%2===0) T("▼",x+w-14,y+h-10,18,'#a06a1a','center');
+  if(n>=s.text.length&&Math.floor(G.t/400)%2===0) TS("▼",x+w-14,y+h-10,16,WIN_TXT.gold,'center');
 }
 /* a window in the middle of the view, e.g. someone joining the party (who: shown in it) */
 function drawPopup(text,who){
@@ -86,12 +87,12 @@ function drawPopup(text,who){
   wipeBuf();
   b.globalAlpha=.35; px(b,0,0,LW,VIEW_H,'#0d1410'); b.globalAlpha=1;
   panel(x,y,w,h);
-  px(b,x+8,y+8,w-16,3,'#e8c34a');
+  b.fillStyle='rgba(255,224,138,.7)'; b.fillRect(x+10,y+8,w-20,1.5);
   if(who==='bling') drawBlingMap(b,LW/2,y+62,64,null,false,false);
   if(who==='tiny') drawTinyBird(b,LW/2,y+70,52,false);
   blit();
-  wrapLines(text,24,w-28).forEach((ln,i)=>T(ln,LW/2,ty+i*18,24,'#3a2a1a','center',true));
-  if(story.t>450&&Math.floor(G.t/500)%2===0) T(IS_TOUCH?"tap or press A":"press J",LW/2,y+h-6,16,'#8a7a5a','center');
+  wrapLines(text,24,w-28).forEach((ln,i)=>TS(ln,LW/2,ty+i*18,24,WIN_TXT.title,'center',true));
+  if(story.t>450&&Math.floor(G.t/500)%2===0) TS(IS_TOUCH?"tap or press A":"press J",LW/2,y+h-6,16,WIN_TXT.dim,'center');
 }
 /* going from one place to another: footsteps over a fade to black and back (~2 s) */
 const TRAVEL_MS=1000;

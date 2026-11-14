@@ -40,15 +40,13 @@ function clockText(){
   const mins=Math.floor(G.clock)%MIDNIGHT, h=Math.floor(mins/60), mm=mins%60;
   return {h:((h+11)%12)+1, mm:String(mm).padStart(2,'0'), ap:h<12?'AM':'PM'};
 }
-/* a cream tag in the bottom-right of the garden view, drawn at CK times its first size */
-const CK=1.5, CLOCK={w:84*CK,h:27*CK,x:LW-84*CK-5};
+/* a little window in the bottom-right of the garden view (30% see-through), drawn at CK
+   times its first size */
+const CK=1.5, CLOCK={w:84*CK,h:27*CK,x:LW-84*CK-5}, CLOCK_GLASS=0.7;
 const clockY=()=>VIEW_H-CLOCK.h-5;          /* bottom-right corner of the garden view */
 function drawClockBack(){
   const {x,w,h}=CLOCK, y=clockY();
-  b.fillStyle='rgba(20,14,8,.35)';
-  b.beginPath(); b.roundRect(x+1,y+2,w,h,9*CK); b.fill();
-  b.fillStyle='#2b1c12'; b.beginPath(); b.roundRect(x,y,w,h,9*CK); b.fill();
-  b.fillStyle='#f3ead2'; b.beginPath(); b.roundRect(x+1.5,y+1.5,w-3,h-3,7.5*CK); b.fill();
+  rpgWin({x,y,w,h},CLOCK_GLASS);
   const hr=G.clock/60, cx=x+12*CK, cy=y+h/2;
   b.save(); b.translate(cx,cy); b.scale(CK,CK);
   if(hr>=SUNRISE&&hr<SUNSET){                        /* sun */
@@ -57,9 +55,9 @@ function drawClockBack(){
       b.beginPath(); b.moveTo(Math.cos(a)*5.5,Math.sin(a)*5.5);
       b.lineTo(Math.cos(a)*7.5,Math.sin(a)*7.5); b.stroke(); }
     b.fillStyle='#f2c84b'; b.beginPath(); b.arc(0,0,4.2,0,7); b.fill();
-  } else {                                            /* crescent moon */
-    b.fillStyle='#7d8cc8'; b.beginPath(); b.arc(0,0,5.5,0,7); b.fill();
-    b.fillStyle='#f3ead2'; b.beginPath(); b.arc(2.6,-1.8,4.6,0,7); b.fill();
+  } else {                                            /* crescent moon: a disc with a bite out of it */
+    b.save(); b.beginPath(); b.arc(0,0,5.5,0,7); b.clip();
+    b.fillStyle='#e8ecff'; b.beginPath(); b.rect(-7,-7,14,14); b.arc(2.6,-1.8,4.6,0,7,true); b.fill('evenodd'); b.restore();
   }
   b.restore();
 }
@@ -67,9 +65,9 @@ function drawClockText(){
   const {x}=CLOCK, y=clockY(), t=clockText();
   // the colon blinks once a game minute
   const colon=Math.floor(G.clock*2)%2===0||G.scene!=='world'?':':' ';
-  T(t.h+colon+t.mm,x+52*CK,y+14*CK,27*CK,'#3a2a1a','right',true);
-  T(t.ap,x+54*CK,y+14*CK,17*CK,'#7a6a4a','left',true);
-  T(SEASON_NAME[season()]+' · Day '+G.day,x+48*CK,y+24*CK,15*CK,'#8a7a5a','center');
+  TS(t.h+colon+t.mm,x+52*CK,y+14*CK,27*CK,WIN_TXT.title,'right',true);
+  TS(t.ap,x+54*CK,y+14*CK,17*CK,WIN_TXT.gold,'left',true);
+  TS(SEASON_NAME[season()]+' · Day '+G.day,x+48*CK,y+24*CK,15*CK,WIN_TXT.body,'center');
 }
 
 /* ---------- sun, shadow and colour of the hour ---------- */
@@ -247,38 +245,36 @@ function drawAsk(){
   const top=ask.top||0, V=L.slice(top,top+ASK_FIT);
   panel(ASK.x,ASK.y,ASK.w,askH());
   V.forEach((c,j)=>{ const i=top+j, on=ask.idx===i, x=ASK.x+16, y=ASK.y+ASK.top+j*askRow(), w=ASK.w-32, h=askRow()-6;
-    px(b,x,y,w,h,on?'#a8781e':'#2b1c12');
-    px(b,x+2,y+2,w-4,h-4,c.id==='no'?'#e2d3ae':'#c8d8f0');
-    if(on){ px(b,x+2,y+2,w-4,3,'#fff3c0'); fluteCursor(x+26,y+h/2); } });
+    menuRow(x,y,w,h,on); });
   blit();
   if(stand){
-    if(top>0) T("▲",LW/2,ASK.y+ASK.top-6,18,'#7a6a4a','center');
-    if(top+ASK_FIT<L.length) T("▼",LW/2,ASK.y+askH()+4,18,'#7a6a4a','center');
+    if(top>0) TS("▲",LW/2,ASK.y+ASK.top-6,18,WIN_TXT.note,'center');
+    if(top+ASK_FIT<L.length) TS("▼",LW/2,ASK.y+askH()+4,18,WIN_TXT.note,'center');
     if(SONG_TEST){
-      T("Song test",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
-      T("Any song, any number of times. No EXP.",LW/2,ASK.y+54,18,'#6a5a3a','center');
-      T("Autoplay hits every note, so you can listen.",LW/2,ASK.y+73,16,'#7a6a4a','center');
+      TS("Song test",LW/2,ASK.y+32,30,WIN_TXT.title,'center',true);
+      TS("Any song, any number of times. No EXP.",LW/2,ASK.y+54,18,WIN_TXT.body,'center');
+      TS("Autoplay hits every note, so you can listen.",LW/2,ASK.y+73,16,WIN_TXT.note,'center');
       V.forEach((c,j)=>{ const y=ASK.y+ASK.top+j*askRow()+20;
-        if(c.id!=='test'){ T(c.name,LW/2+12,y+9,22,c.id==='auto'&&songAuto?'#2a6a2a':'#3a2a1a','center',true); return; }
+        if(c.id!=='test'){ TS(c.name,LW/2+12,y+9,22,c.id==='auto'&&songAuto?WIN_TXT.good:WIN_TXT.title,'center',true); return; }
         const D=SONG_DATA[c.key];
-        T(c.name,ASK.x+50,y,20,'#3a2a1a','left',true);
-        T(D.n.length+" notes · "+D.len.toFixed(1)+" s",ASK.x+50,y+18,17,'#3a4a6a','left'); });
+        TS(c.name,ASK.x+50,y,20,WIN_TXT.title,'left',true);
+        TS(D.n.length+" notes · "+D.len.toFixed(1)+" s",ASK.x+50,y+18,17,WIN_TXT.mp,'left'); });
       b.restore(); m.restore(); return;
     }
-    T("Practice which song?",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
-    T(tired?"You've practiced today. Come back tomorrow!":"Practice once a day for EXP.",LW/2,ASK.y+54,19,tired?'#9a4a2a':'#6a5a3a','center');
-    T(PRACTICE_SONGS.some(s=>!songKnown(s))?"Rosa's store in town sells sheet music.":"More songs to come as sheet music in town.",LW/2,ASK.y+73,16,'#7a6a4a','center');
+    TS("Practice which song?",LW/2,ASK.y+32,30,WIN_TXT.title,'center',true);
+    TS(tired?"You've practiced today. Come back tomorrow!":"Practice once a day for EXP.",LW/2,ASK.y+54,19,tired?WIN_TXT.bad:WIN_TXT.body,'center');
+    TS(PRACTICE_SONGS.some(s=>!songKnown(s))?"Rosa's store in town sells sheet music.":"More songs to come as sheet music in town.",LW/2,ASK.y+73,16,WIN_TXT.note,'center');
     V.forEach((c,j)=>{ const y=ASK.y+ASK.top+j*askRow()+20;
-      if(c.id!=='song'){ T(c.name,LW/2+12,y+9,22,'#3a2a1a','center',true); return; }
-      T(c.name,ASK.x+50,y,21,tired?'#8a7a5a':'#3a2a1a','left',true);
-      T("up to "+practiceXp(1,c.song)+" EXP · "+(c.song.min||60)+" min",ASK.x+50,y+18,17,tired?'#9a8a6a':'#3a4a6a','left'); });
+      if(c.id!=='song'){ TS(c.name,LW/2+12,y+9,22,WIN_TXT.title,'center',true); return; }
+      TS(c.name,ASK.x+50,y,21,tired?WIN_TXT.dim:WIN_TXT.title,'left',true);
+      TS("up to "+practiceXp(1,c.song)+" EXP · "+(c.song.min||60)+" min",ASK.x+50,y+18,17,tired?WIN_TXT.off:WIN_TXT.mp,'left'); });
     b.restore(); m.restore(); return;
   }
   const early=G.clock<=EARLY_BED, t=clockText();
-  T("Time for bed?",LW/2,ASK.y+32,30,'#3a2a1a','center',true);
-  T("It's "+t.h+":"+t.mm+" "+t.ap+".",LW/2,ASK.y+54,20,'#6a5a3a','center');
-  T(early?"Asleep by 10 PM: a free coffee in the morning!":"A night's sleep: she'll wake at 6 AM.",LW/2,ASK.y+73,17,early?'#5a7a3a':'#7a6a4a','center');
-  L.forEach((c,i)=>T(c.name,LW/2+12,ASK.y+ASK.top+i*ASK.row+23,22,'#3a2a1a','center',true));
+  TS("Time for bed?",LW/2,ASK.y+32,30,WIN_TXT.title,'center',true);
+  TS("It's "+t.h+":"+t.mm+" "+t.ap+".",LW/2,ASK.y+54,20,WIN_TXT.body,'center');
+  TS(early?"Asleep by 10 PM: a free coffee in the morning!":"A night's sleep: she'll wake at 6 AM.",LW/2,ASK.y+73,17,early?WIN_TXT.good:WIN_TXT.note,'center');
+  L.forEach((c,i)=>TS(c.name,LW/2+12,ASK.y+ASK.top+i*ASK.row+23,22,WIN_TXT.title,'center',true));
   b.restore(); m.restore();
 }
 let sleep=null;
@@ -354,15 +350,15 @@ function drawYawn(){
   wipeBuf();
   b.globalAlpha=.35; px(b,0,0,LW,VIEW_H,'#0d1410'); b.globalAlpha=1;
   panel(x,y,w,h);
-  px(b,x+9,y+9,86,h-18,'#e2d3ae');
+  b.fillStyle='rgba(10,15,42,.55)'; b.beginPath(); b.roundRect(x+9,y+9,86,h-18,4); b.fill();
   if(IMG_PT.complete&&IMG_PT.naturalWidth){
     const ph=h-22, pw=ph*IMG_PT.naturalWidth/IMG_PT.naturalHeight;
     b.save(); b.beginPath(); b.rect(x+9,y+9,86,h-18); b.clip(); b.imageSmoothingEnabled=true;
     b.drawImage(IMG_PT,x+9+(86-pw)/2,y+11,pw,ph); b.restore();
   }
   blit();
-  T("Kaitlyn",x+108,y+28,22,'#a06a1a','left',true);
-  T("*Yawn*",x+108,y+56,30,'#3a2a1a','left',true);
-  T("Ohhhh I'm so sleepy!",x+108,y+82,27,'#3a2a1a','left');
-  if(Math.floor(G.t/500)%2===0) T("tap to sleep",x+w-12,y+h-10,17,'#8a7a5a','right');
+  TS("Kaitlyn",x+108,y+28,22,WIN_TXT.gold,'left',true);
+  TS("*Yawn*",x+108,y+56,30,WIN_TXT.title,'left',true);
+  TS("Ohhhh I'm so sleepy!",x+108,y+82,27,WIN_TXT.title,'left');
+  if(Math.floor(G.t/500)%2===0) TS("tap to sleep",x+w-12,y+h-10,17,WIN_TXT.dim,'right');
 }

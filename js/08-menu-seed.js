@@ -52,15 +52,15 @@ function drawMenu(){
     if(!drawShopPic(seedName(s).toLowerCase(),39+ROW_PAD+6,y+16.5,20,30)){
       px(b,39+ROW_PAD,y+11,12,12,S.fruit); px(b,39+ROW_PAD,y+11,6,6,S.dk); } });
   blit();
-  T(menu.plot.tree?"Plant a sapling":(menu.plot.raised?"Raised bed  ·  +30% growth":"Plant a seed"),
-    180,117,30,'#3a2a1a','center',true);
-  T(gearOn('apron')?"Seed Apron fills this part of the garden":"value shown per harvest",180,133,20,'#7a6a4a','center');
+  TS(menu.plot.tree?"Plant a sapling":(menu.plot.raised?"Raised bed  ·  +30% growth":"Plant a seed"),
+    180,117,26,WIN_TXT.title,'center',true);
+  TS(gearOn('apron')?"Seed Apron fills this part of the garden":"value shown per harvest",180,133,16,WIN_TXT.note,'center');
   menu.items.forEach((s,i)=>{ const S=SPECIES[s], y=SEED_TOP+i*SEED_ROW, x=39+ROW_PAD+18;
-    T(S.name,x,y+16,26,'#3a2a1a',null,i===menu.idx);
-    T(S.notes+"-note song",x,y+29,18,'#6a5a3a');
-    T(S.value+"c",279,y+16,24,'#a06a1a','right',true);
-    T(S.xp+" xp",279,y+29,18,'#5a7a3a','right');
-    T("x"+G.seeds[s],316,y+23,22,'#7a6a4a','right'); });
+    TS(S.name,x,y+16,22,WIN_TXT.title,null,i===menu.idx);
+    TS(S.notes+"-note song",x,y+29,16,WIN_TXT.note);
+    TS(S.value+"c",279,y+16,20,WIN_TXT.gold,'right',true);
+    TS(S.xp+" xp",279,y+29,16,WIN_TXT.good,'right');
+    TS("x"+G.seeds[s],316,y+23,19,WIN_TXT.body,'right'); });
   keyHint("W/S choose  ·  J plant  ·  H cancel  (or tap below)",180,SEED_TOP+menu.items.length*SEED_ROW+24,
     "tap a seed to plant it  ·  tap below to cancel");
 }

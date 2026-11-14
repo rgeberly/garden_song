@@ -147,61 +147,55 @@ function drawShop(){
   if(sel){
     /* the pop-up card, pointing at the highlighted row */
     const py=clamp(L.y+shop.idx*L.step+L.h/2,C.y+12,C.y+C.h-12);
-    b.fillStyle='rgba(20,12,4,.3)'; b.beginPath(); b.roundRect(C.x+2,C.y+3,C.w,C.h,8); b.fill();
-    b.fillStyle='#a8781e'; b.beginPath(); b.roundRect(C.x-1.5,C.y-1.5,C.w+3,C.h+3,9.5); b.fill();
-    b.beginPath(); b.moveTo(C.x,py-7); b.lineTo(C.x-7,py); b.lineTo(C.x,py+7); b.fill();
-    b.fillStyle='#fffaf0'; b.beginPath(); b.roundRect(C.x,C.y,C.w,C.h,8); b.fill();
-    b.beginPath(); b.moveTo(C.x+1,py-5.2); b.lineTo(C.x-4.6,py); b.lineTo(C.x+1,py+5.2); b.fill();
-    px(b,C.x+8,C.y+96,C.w-16,1,'#e2d3ae');
+    rpgWin(C,1);
+    b.fillStyle='#e6eaf6'; b.beginPath(); b.moveTo(C.x+1,py-7); b.lineTo(C.x-6,py); b.lineTo(C.x+1,py+7); b.fill();
+    b.fillStyle='#4a64c0'; b.beginPath(); b.moveTo(C.x+2,py-4.6); b.lineTo(C.x-3,py); b.lineTo(C.x+2,py+4.6); b.fill();
+    b.fillStyle='rgba(200,212,255,.3)'; b.fillRect(C.x+8,C.y+96,C.w-16,1);
     drawShopArt(sel,C.x+C.w/2,C.y+8,C.w-20,84);
     const ok=can(sel), BUY=SHOP_BUY;
-    px(b,BUY.x,BUY.y,BUY.w,BUY.h,ok?'#a8781e':'#9c9484');
-    px(b,BUY.x+2,BUY.y+2,BUY.w-4,BUY.h-4,ok?'#f0cf6a':'#d8cfbb');
-    if(ok) px(b,BUY.x+2,BUY.y+2,BUY.w-4,3,'#fff0b0');
+    winButton(BUY.x,BUY.y,BUY.w,BUY.h,ok,!ok);
   }
-  if(pageCount()>1){ px(b,21,414,69,26,'#c9b894'); px(b,270,414,69,26,'#c9b894'); }
+  if(pageCount()>1){ winButton(21,414,69,26,false); winButton(270,414,69,26,false); }
   if(shop.confirm){
-    px(b,0,0,LW,LH,'#0d1410');
+    b.globalAlpha=.6; px(b,0,0,LW,LH,'#0d1410'); b.globalAlpha=1;
     panel(30,180,300,180);
-    px(b,39,189,282,51,'#e2d3ae');
-    [[51,'#9fc48a'],[192,'#d8a89a']].forEach(([bx,col],i)=>{ const on=shop.cIdx===i;
-      px(b,bx,306,117,42,on?'#a8781e':'#2b1c12'); px(b,bx+3,309,111,36,col);
-      if(on){ px(b,bx+3,309,111,3,'#fff3c0'); fluteCursor(bx+33,327); } });
+    [51,192].forEach((bx,i)=>{ const on=shop.cIdx===i;
+      winButton(bx,306,117,42,on); if(on) fluteCursor(bx+33,327); });
   }
   blit();
   if(shop.confirm){
     const sellAllAsk=shop.confirm.type==='sellall';
-    T(sellAllAsk?"Sell everything?":"Confirm purchase",180,216,32,'#3a2a1a','center',true);
-    T(sellAllAsk?shop.confirm.desc:shop.confirm.name,180,258,sellAllAsk?22:28,'#3a2a1a','center',true);
-    T((sellAllAsk?"You get ":"Cost ")+shop.confirm.cost+"c",180,286,22,'#a06a1a','center',true);
-    T("you have "+G.coins+"c",180,302,18,'#7a6a4a','center');
-    T(sellAllAsk?"Sell":"Buy",118,333,30,'#1f3d20','center',true);
-    T("Cancel",259,333,30,'#5a2a20','center',true);
+    TS(sellAllAsk?"Sell everything?":"Confirm purchase",180,216,26,WIN_TXT.title,'center',true);
+    TS(sellAllAsk?shop.confirm.desc:shop.confirm.name,180,256,sellAllAsk?19:22,WIN_TXT.body,'center',true);
+    TS((sellAllAsk?"You get ":"Cost ")+shop.confirm.cost+"c",180,282,20,WIN_TXT.gold,'center',true);
+    TS("you have "+G.coins+"c",180,298,16,WIN_TXT.note,'center');
+    TS(sellAllAsk?"Sell":"Buy",118,333,24,WIN_TXT.title,'center',true);
+    TS("Cancel",259,333,24,WIN_TXT.title,'center',true);
     keyHint("A/D choose  ·  J confirm  ·  H back",180,375);
     return;
   }
-  T("Garden Stall",228,78,34,'#3a2a1a','center',true);
-  T("you have",228,104,22,'#7a6a4a','center');
-  T(G.coins+"c",228,134,38,'#a06a1a','center',true);
-  TABS.forEach((t,i)=>T(t,21+i*TAB_STEP+TAB_W/2,181,24,'#3a2a1a','center',i===shop.tab));
+  TS("Garden Stall",228,78,28,WIN_TXT.title,'center',true);
+  TS("you have",228,104,17,WIN_TXT.note,'center');
+  TS(G.coins+"c",228,134,30,WIN_TXT.gold,'center',true);
+  TABS.forEach((t,i)=>TS(t,21+i*TAB_STEP+TAB_W/2,181,20,i===shop.tab?WIN_TXT.gold:WIN_TXT.body,'center',i===shop.tab));
   items.forEach((it,i)=>{ const y=L.y+i*L.step, afford=can(it);
-    T(it.name+(it.type==='crop'?" x"+G.crops[it.id]:it.type==='good'?" x"+G.goods[it.id]:""),L.x+ROW_PAD+1,y+17,22,afford?'#3a2a1a':'#8a7a68',null,i===shop.idx||it.type==='sellall');
-    T((it.sell?"+":"")+it.cost+"c",L.x+L.w-6,y+17,21,it.sell?'#5a7a3a':afford?'#a06a1a':'#b09a86','right',true); });
-  if(!items.length) T(shop.tab===TAB_SELL?"Nothing to sell yet.":"Sold out — you have it all!",104,230,20,'#7a6a4a','center');
-  if(!items.length&&shop.tab===TAB_SELL) T("Harvest crops to sell them here.",104,248,17,'#8a7a5a','center');
+    TS(it.name+(it.type==='crop'?" x"+G.crops[it.id]:it.type==='good'?" x"+G.goods[it.id]:""),L.x+ROW_PAD+1,y+17,19,afford?WIN_TXT.title:WIN_TXT.off,null,i===shop.idx||it.type==='sellall');
+    TS((it.sell?"+":"")+it.cost+"c",L.x+L.w-6,y+17,18,it.sell?WIN_TXT.good:afford?WIN_TXT.gold:WIN_TXT.off,'right',true); });
+  if(!items.length) TS(shop.tab===TAB_SELL?"Nothing to sell yet.":"Sold out — you have it all!",104,230,20,WIN_TXT.note,'center');
+  if(!items.length&&shop.tab===TAB_SELL) TS("Harvest crops to sell them here.",104,248,17,WIN_TXT.dim,'center');
   if(sel){
     const cx=C.x+C.w/2;
-    wrapLines(sel.name,22,C.w-14).slice(0,2).forEach((ln,i)=>T(ln,cx,C.y+114+i*15,22,'#3a2a1a','center',true));
-    const top=C.y+114+(TW(sel.name,22,true)>C.w-14?30:16);
-    wrapLines(sel.desc,17,C.w-16).slice(0,4).forEach((ln,i)=>T(ln,cx,top+i*13,17,'#6a5a3a','center'));
-    if(sel.note) T(sel.note,cx,C.y+170,16,'#8a7a5a','center');
+    wrapLines(sel.name,20,C.w-14).slice(0,2).forEach((ln,i)=>TS(ln,cx,C.y+114+i*15,20,WIN_TXT.title,'center',true));
+    const top=C.y+114+(TW(sel.name,20,true)>C.w-14?30:16);
+    wrapLines(sel.desc,16,C.w-16).slice(0,4).forEach((ln,i)=>TS(ln,cx,top+i*13,16,WIN_TXT.body,'center'));
+    if(sel.note) TS(sel.note,C.x+8,C.y+16,14,WIN_TXT.note,'left');      /* (up in the corner: long descriptions fill the bottom) */
     const ok=can(sel), BUY=SHOP_BUY;
-    T(sel.btn||(ok?"Buy  ·  "+sel.cost+"c":"Need "+sel.cost+"c"),BUY.x+BUY.w/2,BUY.y+16.5,20,ok?'#3a2a1a':'#7a6e5e','center',true);
+    TS(sel.btn||(ok?"Buy  ·  "+sel.cost+"c":"Need "+sel.cost+"c"),BUY.x+BUY.w/2,BUY.y+16.5,18,ok?WIN_TXT.gold:WIN_TXT.off,'center',true);
   }
   if(pageCount()>1){
-    T(IS_TOUCH?"< prev":"< prev  Q",55,432,22,'#3a2a1a','center',true);
-    T(IS_TOUCH?"next >":"E  next >",304,432,22,'#3a2a1a','center',true);
-    T("page "+(shop.page+1)+" / "+pageCount(),180,432,22,'#7a6a4a','center');
+    TS(IS_TOUCH?"< prev":"< prev  Q",55,432,18,WIN_TXT.title,'center',true);
+    TS(IS_TOUCH?"next >":"E  next >",304,432,18,WIN_TXT.title,'center',true);
+    TS("page "+(shop.page+1)+" / "+pageCount(),180,432,17,WIN_TXT.note,'center');
   }
   keyHint("W/S choose  ·  A/D tabs  ·  J "+(shop.tab===TAB_SELL?"sell":"buy")+"  ·  H leave  (or tap here)",180,456,
     "tap an item, then tap it again or the button  ·  tap here to leave");

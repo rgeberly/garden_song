@@ -17,7 +17,7 @@ const TINY_NEED=3, TINY_WORMS=5;
 const TINY_BABY_UP=5.5;                        /* how far above the nest's foot the baby's feet are (logical px): in the bowl */
 const TINY_EGG_H=8;                        /* the egg's height in the nest (logical px) */
 const TINY_FALL=2*DAYS_PER_SEASON+1;       /* the first day of the first fall */
-SPEAKER.tiny={get name(){ return PARTY_INFO.tiny.name; },col:'#7a5a2a'};
+SPEAKER.tiny={get name(){ return PARTY_INFO.tiny.name; },col:'#ffc8a0'};
 Object.assign(GOODS,{
   egg:      {name:"Tiny Egg",  value:0, kind:'quest', col:'#efe6d6', flavor:"Speckled, warm and somehow not broken. Something's in there."},
   twig:     {name:"Twig",      value:0, kind:'quest', col:'#8a6a3a', flavor:"A good bendy twig. Nest material."},

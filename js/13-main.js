@@ -186,8 +186,8 @@ const slotText=s=>s?"Lv."+s.lv+" · "+SEASON_NAME[seasonOf(s.day)]+", Day "+s.da
 function drawTitleMenuBack(bot){
   if(TM.mode==='main'){ const L=titleItems();
     L.forEach((it,i)=>{ const Y=tbtnY(bot,i,L.length);
-      b.fillStyle='rgba(14,20,16,.78)'; b.beginPath(); b.roundRect(TBTN.x,Y,TBTN.w,TBTN.h,8); b.fill();
-      if(i===TM.idx){ b.strokeStyle='#ffd870'; b.lineWidth=1.5; b.stroke(); } });
+      rpgWin({x:TBTN.x,y:Y,w:TBTN.w,h:TBTN.h});
+      if(i===TM.idx){ b.fillStyle='rgba(255,214,110,.3)'; b.beginPath(); b.roundRect(TBTN.x+3,Y+3,TBTN.w-6,TBTN.h-6,4); b.fill(); } });
     return; }
   const Y=tslotY(bot);
   rpgWin({x:TSLOT.x,y:Y,w:TSLOT.w,h:TSLOT.top+(SAVE_SLOTS+1)*TSLOT.row+10});
@@ -200,7 +200,7 @@ function drawTitleMenuBack(bot){
 function drawTitleMenuWords(bot){
   if(TM.mode==='main'){ const L=titleItems();
     L.forEach((it,i)=>{ const Y=tbtnY(bot,i,L.length);
-      TS(it.name,180,Y+23,24,i===TM.idx?'#ffe08a':'#f7f0dc','center',true); });
+      TS(it.name,180,Y+23,22,i===TM.idx?WIN_TXT.gold:WIN_TXT.title,'center',true); });
     if(TM.err) TS(TM.err,180,tbtnY(bot,0,L.length)-10,17,'#ff9a8a','center');
     return; }
   const Y=tslotY(bot);

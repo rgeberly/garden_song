@@ -96,7 +96,9 @@ function drawDeck(){
   drawControls();
   m.restore();
 }
-function panel(x,y,w,h){ px(b,x,y,w,h,'#2b1c12'); px(b,x+3,y+3,w-6,h-6,'#f3ead2'); }
+/* a big window over the scene (the talk box, the stall...): the same blue as everywhere
+   (rpgWin), nearly solid so the clock and the like don't show through */
+function panel(x,y,w,h){ rpgWin({x,y,w,h},0.95); }
 /* The menu cursor is the flute you have equipped (its big art), laid at a slight
    tilt with a warm glow and bobbing beside the highlighted row; tipX is where its
    foot ends, y the row's middle. FLUTE_PTR holds each flute's centre, the angle of
@@ -114,21 +116,30 @@ function fluteCursor(tipX,y){
   b.fillStyle=g; b.beginPath(); b.ellipse(mx,my,PTR_LEN*0.6,PTR_LEN*0.3,PTR_TILT,0,7); b.fill();
   b.translate(mx,my); b.rotate(PTR_TILT-ang*Math.PI/180);
   const s=PTR_LEN/len; b.scale(s,s); b.imageSmoothingEnabled=true;
-  b.shadowColor='rgba(70,45,10,.75)'; b.shadowBlur=2;     /* keeps the silver flute visible on cream */
+  b.shadowColor='rgba(10,15,42,.8)'; b.shadowBlur=2;      /* keeps the silver flute visible on the blue */
   b.drawImage(IMG_FLBIG,fi*FLBIG_META.cw,0,FLBIG_META.cw,FLBIG_META.ch,-cx,-cy,FLBIG_META.cw,FLBIG_META.ch);
   b.restore();
 }
-/* a list row; the highlighted one gets a gold frame and the flute cursor in its
-   first ROW_PAD px, where row content starts */
+/* a list row in a window: a faint dark band; the highlighted one is lit (like winCursor)
+   with the flute cursor in its first ROW_PAD px, where row content starts */
 const ROW_PAD=34;
 function menuRow(x,y,w,h,sel,off){
-  if(sel){ px(b,x-1,y-1,w+2,h+2,'#a8781e'); px(b,x+1,y+1,w-2,h-2,'#fbf0c4'); fluteCursor(x+30,y+h/2); }
-  else { px(b,x,y,w,h,off?'#d8cfbb':'#e8dcc0'); px(b,x,y,w,2,'#c3b48c'); }
+  b.fillStyle=sel?'rgba(150,180,255,.32)':off?'rgba(10,15,42,.18)':'rgba(10,15,42,.32)';
+  b.beginPath(); b.roundRect(x,y,w,h,4); b.fill();
+  if(sel){ b.strokeStyle='rgba(255,224,138,.7)'; b.lineWidth=1; b.beginPath(); b.roundRect(x+0.5,y+0.5,w-1,h-1,4); b.stroke(); fluteCursor(x+30,y+h/2); }
 }
-/* a tab along the top of a menu; the open one is gold and stands a little taller */
+/* a tab along the top of a menu; the open one is lit and stands a little taller */
 function tabPill(x,y,w,h,sel){
-  if(sel){ px(b,x,y,w,h,'#a8781e'); px(b,x+2,y+2,w-4,h-2,'#f0cf6a'); px(b,x+2,y+2,w-4,3,'#fff0b0'); }
-  else { px(b,x,y+3,w,h-3,'#c9b894'); px(b,x,y+3,w,2,'#b8a67e'); }
+  if(sel){ rpgWin({x,y,w,h}); b.fillStyle='rgba(255,214,110,.3)'; b.beginPath(); b.roundRect(x+3,y+3,w-6,h-6,4); b.fill(); }
+  else { b.fillStyle='rgba(10,15,42,.45)'; b.beginPath(); b.roundRect(x,y+3,w,h-3,5); b.fill();
+    b.strokeStyle='rgba(200,212,255,.35)'; b.lineWidth=1; b.beginPath(); b.roundRect(x+0.5,y+3.5,w-1,h-4,5); b.stroke(); }
+}
+/* a button in a window (Buy, Yes / No): lit when it's the one picked, dim when it can't be used */
+function winButton(x,y,w,h,on,off){
+  b.fillStyle=off?'rgba(10,15,42,.35)':on?'rgba(255,214,110,.38)':'rgba(150,180,255,.22)';
+  b.beginPath(); b.roundRect(x,y,w,h,6); b.fill();
+  b.strokeStyle=off?'rgba(200,212,255,.25)':on?'rgba(255,224,138,.9)':'rgba(200,212,255,.55)'; b.lineWidth=1.2;
+  b.beginPath(); b.roundRect(x+0.5,y+0.5,w-1,h-1,6); b.stroke();
 }
 /* Shop pictures (assets/sprites/shop_items.png, keyed by lower-case item name) load the
    first time a menu needs them. drawShopPic fits one into a box centred on cx,cy. */
@@ -155,7 +166,7 @@ function drawShopPic(key,cx,cy,bw,bh){
   b.drawImage(img,sx,sy,w,h,Math.round(cx*SC-w*s/2),Math.round(cy*SC-h*s/2),w*s,h*s);
   b.restore(); return true;
 }
-/* Timed effects (coffee, snacks) as small cream pills stacked in the bottom-left of
+/* Timed effects (coffee, snacks) as small window pills stacked in the bottom-left of
    the garden view, each with a coloured dot and the seconds left. */
 const BUFFS=[['coffeeT','Coffee','#a8682a'],['snackT','Quick feet','#5aa347'],
              ['calmT','Calm garden','#5a9ad8'],['lureT','Pest lure','#c0563a']];
@@ -163,20 +174,18 @@ const activeBuffs=()=>BUFFS.filter(([k])=>G[k]>0);
 function drawBuffsBack(){
   activeBuffs().forEach(([k,name,col],i)=>{
     const w=TW(name+" 000s",16,true)+20, x=5, y=VIEW_H-24-i*20;
-    b.fillStyle='rgba(20,14,8,.3)'; b.beginPath(); b.roundRect(x+1,y+2,w,16,8); b.fill();
-    b.fillStyle='#2b1c12'; b.beginPath(); b.roundRect(x,y,w,16,8); b.fill();
-    b.fillStyle='#f3ead2'; b.beginPath(); b.roundRect(x+1.5,y+1.5,w-3,13,6.5); b.fill();
+    rpgWin({x,y,w,h:16},CLOCK_GLASS);
     b.fillStyle=col; b.beginPath(); b.arc(x+9,y+8,3.2,0,7); b.fill();
   });
 }
 function drawBuffsText(){
   activeBuffs().forEach(([k,name],i)=>{
-    T(name+" "+Math.ceil(G[k]/1000)+"s",5+16,VIEW_H-24-i*20+11.5,16,'#3a2a1a','left',true);
+    TS(name+" "+Math.ceil(G[k]/1000)+"s",5+16,VIEW_H-24-i*20+11.5,16,WIN_TXT.title,'left',true);
   });
 }
 /* small key reminder along the bottom of a menu */
 /* keyboard hints show on computers only; touch screens get touchTxt, if any */
-function keyHint(txt,x,y,touchTxt){ const t=IS_TOUCH?touchTxt:txt; if(t) T(t,x,y,16,'#8a7a5a','center'); }
+function keyHint(txt,x,y,touchTxt){ const t=IS_TOUCH?touchTxt:txt; if(t) TS(t,x,y,15,WIN_TXT.dim,'center'); }
 function dim(){ fillScreen(b,'#0d1410',.76); }
 /* the garden (no one in it) filling the screen behind a menu */
 function drawWorldStatic(){

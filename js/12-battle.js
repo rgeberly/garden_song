@@ -898,25 +898,21 @@ const BACKDROP={
   summer:{sky:['#5eb2ee','#f2f0cc'],far:'#4a944a',near:'#357a36',ground:['#68aa4c','#3c7a2e'],dots:['#f6d64a','#ff8a5a','#ffffff'],drift:null},
   fall:  {sky:['#e6a874','#fae2c2'],far:'#c8682c',near:'#a04a22',ground:['#b8923e','#86662a'],dots:['#e8743a','#f0b040'],drift:'leaf'},
   winter:{sky:['#a6c6e6','#f0f5fa'],far:'#d4e0ec',near:'#b8cadc',ground:['#f2f6fa','#cad8e6'],dots:[],drift:'snow'}};
-/* a classic window: dark outline, light rim, deep-blue gradient with a soft sheen. In a
-   fight the windows are a little see-through (WIN_GLASS) with one smooth gradient instead. */
+/* Every window in the game: a smooth gradient from light blue at the top to deep blue at
+   the bottom, a white rim and a dark outline, a little see-through (WIN_GLASS; `glass`
+   overrides it, e.g. the clock). Words on windows use WIN_TXT's colours, drawn with TS. */
 const WIN_GLASS=0.85;
-function rpgWin(r){
-  const {x,y,w,h}=r;
-  if(G.scene==='battle'){ const a=b.globalAlpha;
-    b.globalAlpha=a*WIN_GLASS;
-    const g=b.createLinearGradient(0,y,0,y+h); g.addColorStop(0,'#6a88dc'); g.addColorStop(0.45,'#33489e'); g.addColorStop(1,'#10164a');
-    b.fillStyle=g; b.beginPath(); b.roundRect(x+1,y+1,w-2,h-2,5.5); b.fill();
-    b.globalAlpha=a; b.lineWidth=2; b.strokeStyle='#e6eaf6'; b.beginPath(); b.roundRect(x+1,y+1,w-2,h-2,5.5); b.stroke();
-    b.lineWidth=1; b.strokeStyle='#0a0f2a'; b.beginPath(); b.roundRect(x-0.5,y-0.5,w+1,h+1,6.5); b.stroke();
-    return; }
-  b.fillStyle='rgba(0,0,0,.35)'; b.beginPath(); b.roundRect(x+1.5,y+2.5,w,h,6); b.fill();
-  b.fillStyle='#0a0f2a'; b.beginPath(); b.roundRect(x-1,y-1,w+2,h+2,7); b.fill();
-  b.fillStyle='#e6eaf6'; b.beginPath(); b.roundRect(x,y,w,h,6); b.fill();
-  const g=b.createLinearGradient(0,y,0,y+h); g.addColorStop(0,'#3d55b0'); g.addColorStop(1,'#141b52');
-  b.fillStyle=g; b.beginPath(); b.roundRect(x+2,y+2,w-4,h-4,4.5); b.fill();
-  b.fillStyle='rgba(255,255,255,.07)'; b.beginPath(); b.roundRect(x+3,y+3,w-6,(h-6)*0.42,3.5); b.fill();
+function rpgWin(r,glass){
+  const {x,y,w,h}=r, a=b.globalAlpha, rad=Math.min(5.5,h/2-1);
+  b.globalAlpha=a*(glass===undefined?WIN_GLASS:glass);
+  const g=b.createLinearGradient(0,y,0,y+h); g.addColorStop(0,'#6a88dc'); g.addColorStop(0.45,'#33489e'); g.addColorStop(1,'#10164a');
+  b.fillStyle=g; b.beginPath(); b.roundRect(x+1,y+1,w-2,h-2,rad); b.fill();
+  b.globalAlpha=a; b.lineWidth=2; b.strokeStyle='#e6eaf6'; b.beginPath(); b.roundRect(x+1,y+1,w-2,h-2,rad); b.stroke();
+  b.lineWidth=1; b.strokeStyle='#0a0f2a'; b.beginPath(); b.roundRect(x-0.5,y-0.5,w+1,h+1,rad+1); b.stroke();
 }
+/* the colours of words on windows: titles and names, body text, quieter notes, hints and
+   things you can't have, prices and highlights, good news, bad news, MP */
+const WIN_TXT={title:'#f4f6ff',body:'#c8d4ff',note:'#aab6e8',dim:'#8a94c4',off:'#7c84b0',gold:'#ffe08a',good:'#b8f0a0',bad:'#ff9a8a',mp:'#a8d8ff'};
 /* a gauge in a window: dark track, bright fill with a highlight */
 function gauge(x,y,w,h,v,max,col,hi){
   b.fillStyle='#0a0f2a'; b.beginPath(); b.roundRect(x-1,y-1,w+2,h+2,(h+2)/2); b.fill();

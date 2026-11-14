@@ -323,21 +323,21 @@ function drawWorld(){
   if(label&&G.scene==='world'){ const [fx,fy]=toView(G.player.x,G.player.y+12,cam); drawPrompt(label,fx,fy-74); }
   drawHUD();
 }
-/* What A/J will do here: a cream speech bubble over her head that floats gently.
+/* What A/J will do here: a little blue speech bubble over her head that floats gently.
    cx, by are the bubble's centre and the tip of its pointer, in logical px. */
 function drawPrompt(label,cx,by){
   const tw=TW(label,24,true), h=19, w=tw+18;
   const x=Math.round(cx-w/2), y=Math.round(by-h-5+Math.sin(G.t/520)*1.2);
   m.save(); m.scale(SC,SC);
-  m.fillStyle='rgba(20,12,4,.28)';                 /* soft shadow */
-  m.beginPath(); m.roundRect(x+1,y+2,w,h,8); m.fill();
-  m.fillStyle='#5a3d22';                            /* border, with the pointer */
-  m.beginPath(); m.roundRect(x-1.2,y-1.2,w+2.4,h+2.4,9); m.fill();
-  m.beginPath(); m.moveTo(cx-5,y+h); m.lineTo(cx,y+h+6); m.lineTo(cx+5,y+h); m.fill();
-  m.fillStyle='#fbf3dc';
-  m.beginPath(); m.roundRect(x,y,w,h,8); m.fill();
-  m.beginPath(); m.moveTo(cx-3.6,y+h-0.5); m.lineTo(cx,y+h+4); m.lineTo(cx+3.6,y+h-0.5); m.fill();
-  m.fillStyle='#fff9ea'; m.fillRect(x+4,y+1.5,w-8,2);   /* top highlight */
+  m.fillStyle='#0a0f2a';                            /* outline, with the pointer */
+  m.beginPath(); m.roundRect(x-1.5,y-1.5,w+3,h+3,9); m.fill();
+  m.beginPath(); m.moveTo(cx-5.5,y+h); m.lineTo(cx,y+h+6.5); m.lineTo(cx+5.5,y+h); m.fill();
+  m.fillStyle='#e6eaf6';                            /* white rim */
+  m.beginPath(); m.roundRect(x-0.5,y-0.5,w+1,h+1,8.5); m.fill();
+  m.beginPath(); m.moveTo(cx-4.5,y+h); m.lineTo(cx,y+h+5); m.lineTo(cx+4.5,y+h); m.fill();
+  const g=m.createLinearGradient(0,y,0,y+h); g.addColorStop(0,'#6a88dc'); g.addColorStop(0.45,'#33489e'); g.addColorStop(1,'#10164a');
+  m.fillStyle=g; m.beginPath(); m.roundRect(x+0.8,y+0.8,w-1.6,h-1.6,7); m.fill();
+  m.fillStyle='#10164a'; m.beginPath(); m.moveTo(cx-3,y+h-0.8); m.lineTo(cx,y+h+3); m.lineTo(cx+3,y+h-0.8); m.fill();
   m.restore();
-  T(label,cx,y+h/2+3.6,24,'#3a2a1a','center',true);
+  TS(label,cx,y+h/2+3.6,22,WIN_TXT.title,'center',true);
 }
