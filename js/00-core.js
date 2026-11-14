@@ -77,28 +77,34 @@ const IMG_PT=new Image(), IMG_EN=new Image(), IMG_BATL=new Image(),
 let assetsReady=0; const loadErr=[];
 const IMG_FROG=new Image(), IMG_FLBIG=new Image(),
       IMG_MAP=new Image(), IMG_MAPCOL=new Image();
-/* collision comes straight out of a 1-bit mask painted from the map */
+/* collision comes straight out of a 1-bit mask painted from the map (map_collision.png,
+   loaded with the game; each season's own, when there is one, loads after: GARDEN_COL) */
 let COL=null;
-IMG_MAPCOL.onload=()=>{
+const GARDEN_COL={};
+IMG_MAPCOL.onload=()=>{ COL=gardenMask(IMG_MAPCOL); };
+function gardenMask(img){
   const cc=document.createElement('canvas');
   cc.width=cc.height=MAP_META.cells;
   const g=cc.getContext('2d');
-  g.drawImage(IMG_MAPCOL,0,0,MAP_META.cells,MAP_META.cells);
+  g.drawImage(img,0,0,MAP_META.cells,MAP_META.cells);
   const d=g.getImageData(0,0,MAP_META.cells,MAP_META.cells).data;
   const C=MAP_META.cells, raw=new Uint8Array(C*C);
   for(let i=0,j=0;i<raw.length;i++,j+=4) raw[i]=d[j]>128?0:1;   // 1 = blocked
   /* give her some wiggle room: a cell stays blocked only if every cell within
      COL_SLACK of it is blocked too, so blocked areas shrink by that many cells */
-  COL=new Uint8Array(C*C);
+  const M=new Uint8Array(C*C);
   for(let y=0;y<C;y++) for(let x=0;x<C;x++){
     let all=raw[y*C+x];
     for(let dy=-COL_SLACK;all&&dy<=COL_SLACK;dy++) for(let dx=-COL_SLACK;all&&dx<=COL_SLACK;dx++){
       const xx=x+dx, yy=y+dy;
       if(xx>=0&&yy>=0&&xx<C&&yy<C&&!raw[yy*C+xx]) all=0;
     }
-    COL[y*C+x]=all;
+    M[y*C+x]=all;
   }
-};
+  return M;
+}
+if(typeof SEASON_WALLS!=='undefined') (SEASON_WALLS.garden||[]).forEach(s=>{ const im=new Image();
+  im.onload=()=>{ GARDEN_COL[s]=gardenMask(im); }; im.src='assets/sprites/map_collision_'+s+'.png'; });
 const COL_SLACK=2;   // cells (2 world px each)
 [[IMG_PT,ASSET_PT],[IMG_EN,ASSET_EN],[IMG_BATL,ASSET_BATL],
  [IMG_POSE,ASSET_POSE],[IMG_FL,ASSET_FL],[IMG_FROG,ASSET_FROG],

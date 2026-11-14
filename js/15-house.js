@@ -55,16 +55,19 @@ function houseSolid(x,y){
 }
 function nearBed(){ const P=G.player, [x0,y0,x1,y1]=HOUSE_BED;
   return Math.hypot(P.x-clamp(P.x,x0,x1),P.y-clamp(P.y,y0,y1))<28; }
-const nearHouseDoor=()=>G.player.y>604&&Math.abs(G.player.x-HOUSE.door.x)<44;
+/* by the way out: the house's entry/exit map (maps/house_transitions), or near the doorway */
+const nearHouseDoor=()=>AREA_ZONE.house?areaZoneAt('house',G.player.x,G.player.y,12)==='garden'
+  :G.player.y>604&&Math.abs(G.player.x-HOUSE.door.x)<44;
 
 function enterHouse(){
   const P=G.player;
   G.indoors=true; G.swim=false; padVec={x:0,y:0};
-  P.x=HOUSE.door.x; P.y=HOUSE.door.y; P.dir=0; P.moving=false; P.walkT=0;
+  const z=zoneArrival('house','garden');
+  P.x=z?z.x:HOUSE.door.x; P.y=z?z.y:HOUSE.door.y; P.dir=0; P.moving=false; P.walkT=0;
   houseImg();
 }
 function leaveHouse(){
-  const P=G.player, p=doorstep();
+  const P=G.player, z=zoneArrival('garden','house'), p=z?{x:z.x,y:z.y-9}:doorstep();
   G.indoors=false; P.x=p.x; P.y=p.y; P.dir=4; P.moving=false; P.walkT=0;
 }
 const nearStand=()=>Math.hypot(G.player.x-HOUSE_STAND.x,G.player.y-HOUSE_STAND.y-14)<46;

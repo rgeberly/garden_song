@@ -172,7 +172,10 @@ const atNow=at=>!at||(at==='shop'?shopsOpen():at==='day'?G.clock<TOWN_HOURS.clos
 const placePeople=P=>(P.people||[]).filter(p=>atNow(p.at));
 /* a building's door is open: the bar after 6 PM, the shops during the day */
 const doorOpen=d=>d.to==='bar'?barOpen():shopsOpen();
-const nearTownDoor=(f=1)=>(curPlace().doors||[]).find(d=>Math.hypot(G.player.x-d.x,G.player.y-d.y)<24*f);
+function nearTownDoor(f=1){
+  if(AREA_ZONE[G.area]){ const d=areaZoneAt(G.area,G.player.x,G.player.y+9,Math.round(8*f));
+    return d&&!ZONE_PATHS.includes(d)?{to:d}:null; }
+  return (curPlace().doors||[]).find(d=>Math.hypot(G.player.x-d.x,G.player.y-d.y)<24*f); }
 /* how big Kaitlyn is drawn in each place, next to its painting (1 = as in the garden) */
 const PLACE_KAIT={town:0.8, mountain:0.7};
 const placeKait=()=>PLACE_KAIT[G.area]||1;
@@ -184,17 +187,83 @@ const areaSize=()=>{ const P=G.area!=='garden'&&PLACES[G.area]; return [placeW(P
    world px, true where it's blocked. A place without them uses its paths, trees, pond and
    houses. */
 const PLACE_GRID=4, PLACE_COL={};
+/* a place's walls now: this season's own (PLACE_COL['town_winter'], from SEASON_WALLS) or its
+   first ones */
+const placeCol=area=>PLACE_COL[area+'_'+season()]||PLACE_COL[area];
 (function loadPlaceWalls(){
   if(typeof PLACE_COLS==='undefined') return;
-  PLACE_COLS.forEach(area=>{ const im=new Image();
+  const load=(key,src,area)=>{ const im=new Image();
     im.onload=()=>{ const w=im.naturalWidth, h=im.naturalHeight, cv=document.createElement('canvas'); cv.width=w; cv.height=h;
       const g=cv.getContext('2d'); g.drawImage(im,0,0); const d=g.getImageData(0,0,w,h).data, M=new Uint8Array(w*h);
       for(let i=0;i<M.length;i++) M[i]=d[i*4]<128?1:0;
-      PLACE_COL[area]={w,h,M};
+      PLACE_COL[key]={w,h,M};
       /* a save from before the walls: don't leave her stuck in a tree */
       if(G.area===area&&placeSolid(G.player.x,G.player.y+9)){ const a=PLACES[area].arrive.garden; G.player.x=a.x; G.player.y=a.y; } };
-    im.src='assets/sprites/'+area+'_collision.png'; });
+    im.src=src; };
+  PLACE_COLS.forEach(area=>{ load(area,'assets/sprites/'+area+'_collision.png',area);
+    ((typeof SEASON_WALLS!=='undefined'&&SEASON_WALLS[area])||[]).forEach(s=>load(area+'_'+s,'assets/sprites/'+area+'_collision_'+s+'.png',area)); });
 })();
+/* ---------- doors and ways in and out ----------
+   Painted in the art folder as maps/<area>_transitions (the town, mountain and house; the
+   garden's is maps/transitions, ZONES in 02-world.js): one colour per place a patch leads to,
+   built to assets/sprites/<area>_zones.png on a 4-px grid, each cell the number of that place
+   in ZONE_DESTS (0: nothing). Paths (to the garden, town or mountain) take her there when she
+   walks onto them; doors (the house, the shops) wait for A. She arrives in the middle of the
+   patch for the place she came from, or the nearest open spot to it, facing into the area. */
+const AREA_ZONE={}, ZONE_PATHS=['garden','town','mountain'];
+(function loadAreaZones(){
+  if(typeof AREA_ZONES==='undefined') return;
+  for(const area in AREA_ZONES){ const im=new Image();
+    im.onload=()=>{ const w=im.naturalWidth, h=im.naturalHeight, cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      const g=cv.getContext('2d'); g.imageSmoothingEnabled=false; g.drawImage(im,0,0);
+      const d=g.getImageData(0,0,w,h).data, Z=new Uint8Array(w*h);
+      for(let i=0;i<Z.length;i++) Z[i]=d[i*4];
+      AREA_ZONE[area]={w,h,Z,cell:4}; };
+    im.src='assets/sprites/'+area+'_zones.png'; }
+})();
+/* where a patch leads at x,y (her feet), looking up to reach px around; null if nowhere */
+function areaZoneAt(area,x,y,reach){
+  const Z=AREA_ZONE[area]; if(!Z) return null;
+  const r=reach||0;
+  for(let dy=-r;dy<=r;dy+=4) for(let dx=-r;dx<=r;dx+=4){
+    const cx=Math.floor((x+dx)/Z.cell), cy=Math.floor((y+dy)/Z.cell);
+    if(cx>=0&&cy>=0&&cx<Z.w&&cy<Z.h&&Z.Z[cy*Z.w+cx]) return ZONE_DESTS[Z.Z[cy*Z.w+cx]-1]; }
+  return null;
+}
+/* where she arrives (her feet, and which way she faces) in a zone map Z, coming from the
+   place numbered k: the middle of its patch (moved inset px in toward cx0,cy0, the middle of
+   the area: a path's patch is at the edge, so she walks in a little), or the nearest spot
+   blocked() says is open */
+const PATH_INSET=44;
+function arriveAt(Z,k,blocked,cx0,cy0,inset){
+  let sx=0, sy=0, n=0;
+  for(let i=0;i<Z.Z.length;i++) if(Z.Z[i]===k){ sx+=i%Z.w; sy+=Math.floor(i/Z.w); n++; }
+  if(!n) return null;
+  let x0=(sx/n+0.5)*Z.cell, y0=(sy/n+0.5)*Z.cell;
+  if(inset){ const dx=cx0-x0, dy=cy0-y0, d=Math.hypot(dx,dy)||1; x0+=dx/d*inset; y0+=dy/d*inset; }
+  let at=null;
+  for(let r=0;r<=160&&!at;r+=3){ const steps=Math.max(1,Math.ceil(r*0.8));
+    for(let j=0;j<steps&&!at;j++){ const a=j/steps*Math.PI*2, x=x0+Math.cos(a)*r, y=y0+Math.sin(a)*r;
+      if(!blocked(x,y)) at={x,y}; } }
+  at=at||{x:x0,y:y0};
+  return {x:at.x,y:at.y,dir:dirFromVec(cx0-at.x,cy0-at.y)};
+}
+/* arriving in area from another place: from its zone map (feet), or null to use the old spots */
+function zoneArrival(area,from){
+  const k=ZONE_DESTS.indexOf(from)+1; if(!k) return null;
+  const inset=ZONE_PATHS.includes(from)?PATH_INSET:0;
+  if(area==='garden'){
+    if(!ZONES_RAW) return null;
+    const code={town:1,mountain:2,house:3}[from]; if(!code) return null;
+    const C=MAP_META.cells;
+    /* inside where she can stand (updateWorld keeps her feet 33..H-21 down, 21..W-21 across) */
+    return arriveAt({w:C,h:C,Z:ZONES_RAW,cell:WORLD_W/C},code,(x,y)=>x<23||x>WORLD_W-23||y<35||y>WORLD_H-23||solidAt(x,y),WORLD_W/2,WORLD_H/2,inset);
+  }
+  const Z=AREA_ZONE[area]; if(!Z) return null;
+  if(area==='house') return arriveAt(Z,k,(x,y)=>houseSolid(x,y),HOUSE.w/2,HOUSE.h/2,inset);
+  const P=PLACES[area], W=placeW(P), H=placeH(P);
+  return arriveAt(Z,k,(x,y)=>x<23||x>W-23||y<35||y>H-23||placeSolid(x,y),W/2,H/2,inset);
+}
 /* where each place's door back to the garden leaves you in the garden */
 const GARDEN_ARRIVE={town:{x:100,y:104,dir:2}, mountain:{x:306,y:44,dir:4}};
 /* A path out (a garden zone, a place's exit) takes her through once she has stepped off
@@ -210,20 +279,21 @@ function goTo(area){
   if(area==='mountain'&&typeof fishImg==='function') fishImg();      /* and the pond, for fishing */
   travel(()=>{
     const from=G.area; G.area=area; G.swim=false;
-    const a=area==='garden'?GARDEN_ARRIVE[from]:PLACES[area].arrive[from]||PLACES[area].arrive.garden;
+    const z=zoneArrival(area,from);         /* from the entry/exit maps, feet; else the old spots */
+    const a=z?{x:z.x,y:z.y-9,dir:z.dir}:area==='garden'?GARDEN_ARRIVE[from]:PLACES[area].arrive[from]||PLACES[area].arrive.garden;
     G.player.x=a.x; G.player.y=a.y; G.player.dir=a.dir; G.player.moving=false; exitArmed=false;
     if(area==='mountain') gatherToday();
   });
 }
 const nearGardenExit=(f=1)=>GARDEN_EXITS.find(e=>Math.hypot(G.player.x-e.x,G.player.y-e.y)<e.r*f);
 /* is x,y blocked by a place's painted walls? */
-function placeSolidIn(area,x,y){ const C=PLACE_COL[area]; if(!C) return false;
+function placeSolidIn(area,x,y){ const C=placeCol(area); if(!C) return false;
   const cx=Math.floor(x/PLACE_GRID), cy=Math.floor(y/PLACE_GRID);
   return cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1; }
 function placeSolid(x,y){
   const P=curPlace();
   if(x<16||y<20||x>placeW(P)-16||y>placeH(P)-14) return true;
-  const C=PLACE_COL[G.area];
+  const C=placeCol(G.area);
   if(C){ const cx=Math.floor(x/PLACE_GRID), cy=Math.floor(y/PLACE_GRID);
     if(cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1) return true;
     return placePeople(P).some(p=>Math.hypot(x-p.x,y-p.y)<10); }      /* and the townsfolk */
@@ -309,7 +379,12 @@ function nearPond(f=1){
   return d<1+0.15*(f-0.5);
 }
 const nearPerson=(f=1)=>placePeople(curPlace()).find(p=>Math.hypot(G.player.x-p.x,G.player.y-p.y)<(p.reach||30*f));   /* reach: across a counter */
-const nearPlaceExit=(f=1)=>curPlace().exits.find(e=>Math.hypot(G.player.x-e.x,G.player.y-e.y)<e.r*f);
+function nearPlaceExit(f=1){
+  if(AREA_ZONE[G.area]){ const P=G.player;
+    /* under her feet, or a little ahead while she walks (a path's patch can be right at the edge) */
+    const d=areaZoneAt(G.area,P.x,P.y+9)||(P.moving?areaZoneAt(G.area,P.x+(P.aimX||0)*14,P.y+9+(P.aimY||0)*14):null);
+    return d&&ZONE_PATHS.includes(d)?{to:d}:null; }
+  return curPlace().exits.find(e=>Math.hypot(G.player.x-e.x,G.player.y-e.y)<e.r*f); }
 
 function placeInteract(){
   const ex=nearPlaceExit(); if(ex){ goTo(ex.to); return; }

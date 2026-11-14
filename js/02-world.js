@@ -142,7 +142,7 @@ const inPool=(x,y)=> x>POOL.x+F(.02)&&x<POOL.x+POOL.w-F(.02)&&
 /* Walk-through zones (maps/transitions, as assets/sprites/garden_zones.png on the walls'
    grid): 1 the path to town, 2 the trail to the mountain, 3 the house door. Walking into
    a path takes her there; the door still waits for A. */
-let ZONES=null; const DOOR_REACH=7;     /* cells, 2 garden px each */
+let ZONES=null, ZONES_RAW=null; const DOOR_REACH=7;   /* ZONES_RAW: as painted (where she arrives) */     /* cells, 2 garden px each */
 (function loadZones(){
   if(typeof GARDEN_ZONES==='undefined'||!GARDEN_ZONES) return;
   const im=new Image();
@@ -157,7 +157,7 @@ let ZONES=null; const DOOR_REACH=7;     /* cells, 2 garden px each */
     for(let y=0;y<C;y++) for(let x=0;x<C;x++) if(Z0[y*C+x]===3)
       for(let d=1;d<=DOOR_REACH;d++) for(let e=0;e<=DOOR_REACH;e++){
         const xx=x+e, yy=y-d; if(xx<C&&yy>=0&&!Z[yy*C+xx]) Z[yy*C+xx]=3; }
-    ZONES=Z; };
+    ZONES=Z; ZONES_RAW=Z0; };
   im.src='assets/sprites/garden_zones.png';
 })();
 function zoneAt(x,y){
@@ -176,9 +176,10 @@ function solidAt(x,y){
   for(const id in DECOR_SOLID){ if(!G.yard[id]) continue;
     const [sx,sy]=DECOR_SPOT[id];
     for(const [dx,dy,r] of DECOR_SOLID[id]) if(Math.hypot(x-sx-dx,y-sy-dy)<r) return true; }
-  if(!COL) return false;
+  const M=GARDEN_COL[season()]||COL;           /* this season's walls (or the first ones) */
+  if(!M) return false;
   const C=MAP_META.cells;
   const cx=Math.floor(x/WORLD_W*C), cy=Math.floor(y/WORLD_H*C);
   if(cx<0||cy<0||cx>=C||cy>=C) return true;
-  return COL[cy*C+cx]===1;
+  return M[cy*C+cx]===1;
 }

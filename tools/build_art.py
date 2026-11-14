@@ -90,6 +90,9 @@ SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'see
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
 # Bling by her length.
 PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70), 'tiny': ('h', 66)}
+# party members the game has (PARTY_INFO in js/04-state.js); others in party/ (future
+# members like Tituba and Tex) are left out of party.webp until they join the game
+PARTY_IN_GAME = {'kaitlyn', 'bling', 'tiny'}
 # party folders named differently from the member's id in the game
 PARTY_IDS = {'tiny one': 'tiny', 'ivy': 'bling'}
 # a baby's still picture and begging loop, by their height in sheet px (drawn smaller in the nest)
@@ -106,6 +109,14 @@ ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200), 'goat': (0.0, 1500),
 ENEMY_CHECKERED = {'dung beetle', 'hoa president', 'raccoon'}
 PLACE_SIZE = {'mountain': (1080, 1446), 'town': (720, 720)}
 PLACE_GRID = 4
+SEASON_NAMES = ('spring', 'summer', 'fall', 'winter')
+# entry/exit maps (maps/<area>_transitions): the colour for each place a patch leads to
+# (Paint's palette; the garden's maps/transitions uses the same red, gold and blue)
+ZONE_DESTS = ('garden', 'town', 'mountain', 'house', 'cafe', 'music', 'fishshop', 'bar')
+ZONE_COLS = {'garden': (34, 177, 76), 'town': (237, 28, 36), 'mountain': (255, 201, 14), 'house': (0, 162, 232),
+             'cafe': (255, 127, 39), 'music': (163, 73, 164), 'fishshop': (63, 72, 204), 'bar': (185, 122, 87)}
+# the areas with entry/exit maps, and their size in the game (world px; the house in painting px)
+AREA_ZONE_SIZE = {'town': (720, 720), 'mountain': (1080, 1446), 'house': (512, 768)}
 MOUNTAIN_OPEN = [(0.34, 0.90, 0.21, 0.10)]
 # Enemies (enemies/<Name>.png|jpg): their key in the game and height in battle (device px).
 # Pixel art smaller than that is enlarged with hard edges.
@@ -478,6 +489,8 @@ def main():
     # ax,ay is where the feet (or belly) touch the ground, within each frame.
     pframes, pmeta, pfaces = [], {}, []
     for name, F in sorted(party_files().items()):
+        if name not in PARTY_IN_GAME:
+            print('  party/' + name + ': not in the game yet (add it to PARTY_IN_GAME once it is)'); continue
         if 'ready' not in F: continue
         box = grid_frames(F['ready'])
         x0, y0, x1, y1 = bbox(box[0])
@@ -601,12 +614,19 @@ def main():
         gsheet, gpos = pack([('gem %d' % i, c) for i, c in enumerate(cells)], width=512)
         cv2.imwrite(os.path.join(OUT, 'notes.png'), gsheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
         nmeta = [gpos['gem %d' % i] for i in range(len(cells))]
-    # walls: maps/garden_collision and maps/house_collision (black = blocked, white = open;
-    # any size, scaled to the game's masks)
-    gcol = find_pic(os.path.join(SRC, 'maps', 'garden_collision'))
-    if gcol:
-        m = cv2.imread(gcol, cv2.IMREAD_GRAYSCALE)
-        cv2.imwrite(os.path.join(OUT, 'map_collision.png'), np.where(cv2.resize(m, (360, 360), interpolation=cv2.INTER_AREA) > 128, 255, 0).astype(np.uint8))
+    # walls: maps/garden_<season>_collision (one per season; an older single
+    # maps/garden_collision works too) and maps/house_collision (black = blocked, white =
+    # open; any size, scaled to the game's masks). The spring one (or the single one) is also
+    # map_collision.png, which the game loads first; each season's is map_collision_<season>.png.
+    season_walls = {}
+    def garden_wall(f, out):
+        m = cv2.imread(f, cv2.IMREAD_GRAYSCALE)
+        cv2.imwrite(os.path.join(OUT, out), np.where(cv2.resize(m, (360, 360), interpolation=cv2.INTER_AREA) > 128, 255, 0).astype(np.uint8))
+    gcol = find_pic(os.path.join(SRC, 'maps', 'garden_collision')) or find_pic(os.path.join(SRC, 'maps', 'garden_spring_collision'))
+    if gcol: garden_wall(gcol, 'map_collision.png')
+    for when in SEASON_NAMES:
+        f = find_pic(os.path.join(SRC, 'maps', 'garden_' + when + '_collision'))
+        if f: garden_wall(f, 'map_collision_' + when + '.png'); season_walls.setdefault('garden', []).append(when)
     # walk-through zones: maps/transitions, painted over the walls (red: the path to town,
     # yellow: the trail to the mountain, blue: the house door), saved on the walls' grid in
     # pure colours for the game to read
@@ -617,6 +637,23 @@ def main():
         for col, out in (((237, 28, 36), (0, 0, 255)), ((255, 201, 14), (0, 255, 255)), ((0, 162, 232), (255, 0, 0))):
             z[np.abs(t - np.array(col)).sum(2) < 90] = out          # BGR
         cv2.imwrite(os.path.join(OUT, 'garden_zones.png'), cv2.resize(z, (360, 360), interpolation=cv2.INTER_NEAREST))
+    # doors and ways in and out of the town, mountain and house: maps/<area>_transitions,
+    # painted over a faded copy of the area (ZONE_COLS: one colour per place it leads to).
+    # Saved on a 4-px grid as assets/sprites/<area>_zones.png, each cell the number of the place
+    # in ZONE_DESTS (0: nothing). She also arrives in the middle of the patch for where she came
+    # from. (The garden's own is maps/transitions, above.)
+    azones = {}
+    for area, (W, H) in AREA_ZONE_SIZE.items():
+        f = find_pic(os.path.join(SRC, 'maps', area + '_transitions'))
+        if not f: continue
+        t = cv2.imread(f)[..., ::-1].astype(int)
+        idx = np.zeros(t.shape[:2], np.uint8)
+        for i, dest in enumerate(ZONE_DESTS):
+            idx[np.abs(t - np.array(ZONE_COLS[dest])).sum(2) < 90] = i + 1
+        gw, gh = W // 4, H // 4
+        cv2.imwrite(os.path.join(OUT, area + '_zones.png'), cv2.resize(idx, (gw, gh), interpolation=cv2.INTER_NEAREST))
+        azones[area] = [gw, gh]
+        print(area + '_zones.png', gw, 'x', gh, '-', ', '.join(d for i, d in enumerate(ZONE_DESTS) if (idx == i + 1).any()))
     # walls for the places with painted maps: maps/<place>_collision if there is one
     # (black = blocked, white = open), or for the mountain worked out from its spring
     # painting: the light grass and the tan trail are open (all of it that joins the
@@ -624,7 +661,14 @@ def main():
     # size (PLACE_GRID world px per cell) as assets/sprites/<place>_collision.png.
     pcols = []
     for place, size in PLACE_SIZE.items():
-        cf = find_pic(os.path.join(SRC, 'maps', place + '_collision'))
+        gw, gh = size[0] // PLACE_GRID, size[1] // PLACE_GRID
+        def place_wall(m, out):
+            cv2.imwrite(os.path.join(OUT, out), np.where(cv2.resize(m.astype(np.uint8) * 255, (gw, gh), interpolation=cv2.INTER_AREA) > 128, 255, 0).astype(np.uint8))
+        # each season's own (maps/<place>_<season>_collision), as <place>_collision_<season>.png
+        for when in SEASON_NAMES:
+            f = find_pic(os.path.join(SRC, 'maps', place + '_' + when + '_collision'))
+            if f: place_wall(cv2.imread(f, cv2.IMREAD_GRAYSCALE) > 128, place + '_collision_' + when + '.png'); season_walls.setdefault(place, []).append(when)
+        cf = find_pic(os.path.join(SRC, 'maps', place + '_collision')) or find_pic(os.path.join(SRC, 'maps', place + '_spring_collision'))
         if cf:
             m = cv2.imread(cf, cv2.IMREAD_GRAYSCALE) > 128
         elif place == 'mountain' and find_pic(os.path.join(SRC, 'maps', 'mountain_spring')):
@@ -643,9 +687,7 @@ def main():
             m = lab == lab[int(0.5 * h0), int(0.46 * w0)]   # what joins the trail mid-way up
         else:
             continue
-        gw, gh = size[0] // PLACE_GRID, size[1] // PLACE_GRID
-        out = np.where(cv2.resize(m.astype(np.uint8) * 255, (gw, gh), interpolation=cv2.INTER_AREA) > 128, 255, 0).astype(np.uint8)
-        cv2.imwrite(os.path.join(OUT, place + '_collision.png'), out)
+        place_wall(m, place + '_collision.png')
         pcols.append(place); print(place + '_collision.png', gw, 'x', gh, '(' + ('painted' if cf else 'from the map') + ')')
     hcol = find_pic(os.path.join(SRC, 'maps', 'house_collision'))
     if hcol:
@@ -675,7 +717,7 @@ def main():
     for f in pics('maps'):
         base = os.path.splitext(os.path.basename(f))[0].lower()
         # only <place>_<season>: not walls, front layers, drafts or working copies
-        if '_' not in base or any(w in base for w in ('collision', 'front', 'draft', 'copy')): continue
+        if '_' not in base or any(w in base for w in ('collision', 'front', 'draft', 'copy', 'transitions')): continue
         where, when = base.split('_', 1)
         save_jpg(f, os.path.join(ROOT, 'assets', 'places', base + '.jpg'), 2160)
         pmaps.setdefault(where, []).append(when)
@@ -738,6 +780,9 @@ def main():
         fh.write('const GARDEN_ZONES=' + ('true' if tr else 'false') + ';\n')
         fh.write('const FISH_ART=' + json.dumps(fmeta, separators=(',', ':')) + ';\n')
         fh.write('const PLACE_COLS=' + json.dumps(pcols) + ';\n')
+        fh.write('const SEASON_WALLS=' + json.dumps(season_walls) + ';\n')
+        fh.write('const ZONE_DESTS=' + json.dumps(list(ZONE_DESTS)) + ';\n')
+        fh.write('const AREA_ZONES=' + json.dumps(azones) + ';\n')
         fh.write('const SCENES=' + json.dumps(sorted(scene_names)) + ';\n')
         fh.write('const TITLE_LOGO=' + json.dumps(logo_kind) + ';\n')
         fh.write('const BACKDROPS=' + json.dumps(sorted(backs)) + ';\n')
