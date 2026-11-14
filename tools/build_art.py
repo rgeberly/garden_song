@@ -400,8 +400,13 @@ def party_files():
         if os.path.splitext(f)[1].lower() not in PIC_EXT: continue
         stem = os.path.splitext(os.path.basename(f))[0].strip()
         name = folder or stem.split('-')[0].strip().lower()
-        # in a member's folder, a picture not named after them is its own kind ("Tiny Egg hatching")
-        kind = kind_of(stem, name) if not folder or stem.lower().startswith(folder) else kind_of(stem, '')
+        # in a member's folder, pictures may be named after the folder or after any other name
+        # of the same member ("party/Ivy/Bling-ready-spritesheet.png"); a picture named after
+        # neither is its own kind ("Tiny Egg hatching")
+        mid = PARTY_IDS.get(name, name)
+        names = sorted({n for n, i in PARTY_IDS.items() if i == mid} | {mid, name}, key=len, reverse=True)
+        own = next((n for n in names if stem.lower().startswith(n)), None)
+        kind = kind_of(stem, name) if not folder else kind_of(stem, own) if own else kind_of(stem, '')
         out.setdefault(PARTY_IDS.get(name, name), {})[kind] = f
     return out
 

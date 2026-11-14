@@ -195,6 +195,7 @@ const FLUTE_INFO={
   recorder:{name:"Wooden Recorder", stats:{},           body:'#c98a4a',hi:'#f2c68e',dark:'#8a5a28'},
   silver  :{name:"Silver Flute",    stats:{int:3,mp:4},  body:'#c6ced6',hi:'#ffffff',dark:'#79848c'},
   dizi    :{name:"Mystic Dizi",     stats:{int:7,mp:10}, body:'#dfe4ea',hi:'#fff6cf',dark:'#8a7a3a'},
+  fife    :{name:"Bamboo Fife",     stats:{int:2,agi:2}, body:'#d6c27a',hi:'#f6e8b0',dark:'#86703a'},
 };
 const fluteOwned=id=>id==='recorder'||!!G.gear[id];
 function drawFluteIcon(c,cx,cy,zoom){

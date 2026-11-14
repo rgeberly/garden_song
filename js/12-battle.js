@@ -721,24 +721,31 @@ function drawMemberAt(c,id,x,y,k){
    A sprite drawn (feet at 0,0) into a spare canvas and filled with one colour: laid
    flat on the ground for its shadow (the light is up and to the left, so it falls
    down and to the right), or over the sprite for a white flash. */
-const SHAPE=document.createElement('canvas'), shapeC=SHAPE.getContext('2d'), SHAPE_W=200, SHAPE_H=200, SHAPE_FX=100, SHAPE_FY=190;
+const SHAPE_W=200, SHAPE_H=200, SHAPE_FX=100, SHAPE_FY=190;
+/* Two spare canvases: full size for flashes (over the sprite, so they stay sharp), and
+   SHADE_RES px per game px for shadows (soft dark shapes anyway). Drawing every shadow at
+   full size each frame was what made big fights crawl on phones. */
+const SHADE_RES=1;
+const mkShape=()=>{ const cv=document.createElement('canvas'), c=cv.getContext('2d'); return {cv,c,res:0}; };
+const FLASH_CV=mkShape(), SHADE_CV=mkShape();
 /* what's drawn into the spare canvas (each picture, its part and how it's placed), so a
    shadow's ground line is worked out once per animation frame */
 let shapeRec=null;
 const shapeDraw=CanvasRenderingContext2D.prototype.drawImage;
-shapeC.drawImage=function(img,...a){
+for(const S of [FLASH_CV,SHADE_CV]) S.c.drawImage=function(img,...a){
   if(shapeRec){ const t=this.getTransform(); shapeRec.push((img.src||img.width)+':'+a.slice(0,4).join(',')+':'+[t.a,t.b,t.e,t.f].map(v=>v.toFixed(1)).join(',')); }
   return shapeDraw.call(this,img,...a); };
-function silhouette(draw,col,rec){
-  if(SHAPE.width!==SHAPE_W*SC){ SHAPE.width=SHAPE_W*SC; SHAPE.height=SHAPE_H*SC; }
-  shapeC.setTransform(1,0,0,1,0,0); shapeC.globalCompositeOperation='source-over'; shapeC.globalAlpha=1;
-  shapeC.clearRect(0,0,SHAPE.width,SHAPE.height);
+function silhouette(draw,col,rec,shade){
+  const S=shade?SHADE_CV:FLASH_CV, r=shade?SHADE_RES:SC, c=S.c;
+  if(S.res!==r){ S.res=r; S.cv.width=SHAPE_W*r; S.cv.height=SHAPE_H*r; }
+  c.setTransform(1,0,0,1,0,0); c.globalCompositeOperation='source-over'; c.globalAlpha=1;
+  c.clearRect(0,0,S.cv.width,S.cv.height);
   shapeRec=rec||null;
-  shapeC.setTransform(SC,0,0,SC,SHAPE_FX*SC,SHAPE_FY*SC); draw(shapeC);
+  c.setTransform(r,0,0,r,SHAPE_FX*r,SHAPE_FY*r); draw(c);
   shapeRec=null;
-  shapeC.setTransform(1,0,0,1,0,0); shapeC.globalAlpha=1; shapeC.globalCompositeOperation='source-in';
-  shapeC.fillStyle=col; shapeC.fillRect(0,0,SHAPE.width,SHAPE.height); shapeC.globalCompositeOperation='source-over';
-  return SHAPE;
+  c.setTransform(1,0,0,1,0,0); c.globalAlpha=1; c.globalCompositeOperation='source-in';
+  c.fillStyle=col; c.fillRect(0,0,S.cv.width,S.cv.height); c.globalCompositeOperation='source-over';
+  return S.cv;
 }
 /* Where a sprite stands on the ground, as a line through its two feet: y=a+b*x in sprite
    px (feet at 0,0, y down). In a three-quarter view the back foot stands a little higher
@@ -746,15 +753,20 @@ function silhouette(draw,col,rec){
    gap under the back foot; folding it along this line keeps both feet on their shadow.
    Flat (0,0) when it can't find two feet close enough in height. */
 const GROUND_LINE=new Map();
+/* (read from a copy kept for reading, so the shadow canvas itself never gets read back:
+   reading a canvas can make the browser draw it the slow way from then on) */
+const PROBE=document.createElement('canvas'), probeC=PROBE.getContext('2d',{willReadFrequently:true});
 function groundLine(){
-  const top=Math.round((SHAPE_FY-48)*SC), H=Math.round(58*SC), W=SHAPE.width;
-  const d=shapeC.getImageData(0,top,W,H).data, bot=new Int32Array(W).fill(-1);
+  const R=SHADE_CV.res, top=Math.round((SHAPE_FY-48)*R), H=Math.round(58*R), W=SHADE_CV.cv.width;
+  if(PROBE.width!==W||PROBE.height!==H){ PROBE.width=W; PROBE.height=H; }
+  probeC.clearRect(0,0,W,H); probeC.drawImage(SHADE_CV.cv,0,top,W,H,0,0,W,H);
+  const d=probeC.getImageData(0,0,W,H).data, bot=new Int32Array(W).fill(-1);
   for(let x=0;x<W;x++) for(let y=H-1;y>=0;y--) if(d[(y*W+x)*4+3]>100){ bot[x]=y; break; }
   let x1=-1; for(let x=0;x<W;x++) if(bot[x]>=0&&(x1<0||bot[x]>bot[x1])) x1=x;
   if(x1<0) return [0,0];
-  let x2=-1; for(let x=0;x<W;x++) if(bot[x]>=0&&Math.abs(x-x1)>=12*SC&&(x2<0||bot[x]>bot[x2])) x2=x;
-  if(x2<0||bot[x1]-bot[x2]>14*SC) return [0,0];          /* one foot only, or the other is in the air */
-  const L=(x,y)=>[x/SC-SHAPE_FX,(top+y)/SC-SHAPE_FY], [ax,ay]=L(x1,bot[x1]), [bx,by]=L(x2,bot[x2]);
+  let x2=-1; for(let x=0;x<W;x++) if(bot[x]>=0&&Math.abs(x-x1)>=12*R&&(x2<0||bot[x]>bot[x2])) x2=x;
+  if(x2<0||bot[x1]-bot[x2]>14*R) return [0,0];          /* one foot only, or the other is in the air */
+  const L=(x,y)=>[x/R-SHAPE_FX,(top+y)/R-SHAPE_FY], [ax,ay]=L(x1,bot[x1]), [bx,by]=L(x2,bot[x2]);
   const sl=clamp((by-ay)/(bx-ax),-0.6,0.6);
   return [ay-sl*ax,sl];
 }
@@ -762,7 +774,7 @@ function groundLine(){
    away and fainter). Folded along the ground line through its feet (see groundLine). */
 const SHADOW_K=0.55, SHADOW_T=0.26;
 function castShadow(draw,x,y,lift,a){
-  const rec=lift?null:[], S=silhouette(draw,'#14200c',rec), l=lift||0;
+  const rec=lift?null:[], S=silhouette(draw,'#14200c',rec,true), l=lift||0;
   b.save(); b.globalAlpha=a*(l?0.75:1);
   if(l){ b.translate(x+l*0.45,y+l*0.12); b.transform(1,0,-SHADOW_K,-SHADOW_T*0.8,0,0); }
   else {

@@ -103,6 +103,50 @@ arrive they show without a picture.
 | `shop items/Silver Bell.png` | realistic studio product photo of a single small shiny silver bell on a thin red ribbon, isolated on a pure white background, centered |
 | `shop items/Downy Scarf.png` | realistic studio product photo of a tiny soft cream-colored knitted scarf, folded, fluffy like down feathers, isolated on a pure white background, centered |
 
+## Mountain battle backdrops: "Painted Anime", Shape **Portrait**
+
+Fights on Bramble Peak get their own backdrop for each season, like the garden's (`backdrops/<season>`):
+a clearing seen from the side, the ground filling the lower half (the fighters stand on it), and
+the scenery behind in the upper half. Save as `backdrops/mountain_<season>`.
+
+| Save as | Description |
+|---|---|
+| `backdrops/mountain_spring.png` | painted anime style game battle background, a grassy mountain clearing on a trail in spring, the flat open meadow ground filling the lower half with small wildflowers, behind it pine trees, mossy boulders and tall grey rocky peaks with snow on top under a bright blue sky with soft clouds, no people, no animals, no text |
+| `backdrops/mountain_summer.png` | the same mountain clearing in summer, lush deep green grass on the lower half, tall pines, sunlit rocky peaks without snow, a hazy warm sky, a few butterflies, no people, no animals, no text |
+| `backdrops/mountain_fall.png` | the same mountain clearing in autumn, golden and orange grass and fallen leaves on the lower half, orange red and gold trees among dark pines, grey peaks, a clear crisp sky, no people, no animals, no text |
+| `backdrops/mountain_winter.png` | the same mountain clearing in winter, deep smooth snow on the lower half, snow-covered pines, white peaks, a pale cold sky with light falling snow, no people, no animals, no text |
+
+## The rhythm game's flute: Style **No style**, white background, Shape **Landscape**
+
+The hit line across the rhythm game. Flutes are equipment now, so one handsome flute for all of them.
+
+| Save as | Description |
+|---|---|
+| `rhythm/flute.png` | realistic studio product photo of a single long polished wooden transverse flute lying perfectly horizontal, warm honey-colored wood with brass rings and a row of finger holes, the whole flute visible from end to end, isolated on a pure white background, centered |
+
+## New equipment: Style **No style**, white background, Shape **Square**
+
+Weapons, clothes and accessories for Kaitlyn, Ivy and Tiny One (in the game once their pictures are in).
+
+| Save as | Description |
+|---|---|
+| `shop items/Bamboo Fife.png` | realistic studio product photo of a single short bamboo fife flute with a red tassel, isolated on a pure white background, centered |
+| `shop items/Garden Overalls.png` | realistic studio product photo of a single pair of folded faded blue denim garden overalls with brass buttons and a patched knee, isolated on a pure white background, centered |
+| `shop items/Silver Fang Caps.png` | realistic studio product photo of two tiny curved silver fang caps side by side, like little jewelry for a snake, isolated on a pure white background, centered |
+| `shop items/Mossy Wrap.png` | realistic studio product photo of a small soft wrap of green moss and woven ivy leaves rolled into a ring, isolated on a pure white background, centered |
+| `shop items/Reed Whistle.png` | realistic studio product photo of a single small hand-carved reed whistle tied with twine, isolated on a pure white background, centered |
+| `shop items/Acorn Cap.png` | realistic studio product photo of a single tiny acorn cap worn as a little hat, with a short stem on top, isolated on a pure white background, centered |
+| `shop items/Four-Leaf Clover.png` | realistic studio product photo of a single four-leaf clover pressed in a small round glass charm, isolated on a pure white background, centered |
+
+## Ideas for Tituba and Tex (not made yet)
+
+- **Tituba** (Siamese cat, claw attacks): weapon *Silver Claw Tips* (+Strength, more critical hits);
+  clothes *Velvet Ribbon* (+Agility); accessories *Catnip Sachet* (Focus charges her up faster) and
+  *Moonstone Collar* (+Luck, a chance to dodge).
+- **Tex** (old tortoise, the tank): weapon *Old Oak Cane* (+Strength, covering allies costs less);
+  clothes *Mossy Shell Cover* (+Defense, +HP); accessories *Sun-Warmed Stone* (mends a little HP
+  each turn) and *Shell Polish* (+Defense, takes less from hits while covering).
+
 ## Optional: more
 
 - A Karate Kick row for `battle.png` (named `karate`); until then it uses the regular kick.

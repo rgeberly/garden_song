@@ -571,7 +571,7 @@ const TOWN_SHOPS={
     {name:"Honey Bun",cost:28,desc:"Restores 20 HP to everyone in the party. Goes in your bag.",buy:()=>addGood('bun')}]},
   /* Rosa's music shop: sheet music for new songs to practice at the music stand */
   music:{title:"Rosa's Music Shop", empty:"Nothing new in yet. Check back soon!", items:()=>
-    gearRows(['silver','dizi','polish','cloth']).concat(
+    gearRows(['fife','silver','dizi','reedwhistle','polish','cloth']).concat(
     PRACTICE_SONGS.filter(s=>!songKnown(s)).map(s=>({name:"Sheet music: "+s.name,cost:s.cost,
       desc:"A new song to practice at home: up to "+practiceXp(1,s)+" EXP a day.",buy:()=>{ G.sheets.push(s.id); }})))},
   /* Mr. Hollis: the next rod and reel up, one set at a time */
@@ -586,7 +586,8 @@ const TOWN_SHOPS={
     if(L.length){ const tot=sellGoods().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
       L.push({sell:true,name:"Sell everything",cost:tot,desc:"Sell all your forage, fish and pest finds for "+tot+"c.",
         buy:()=>{ G.coins+=tot; sellGoods().forEach(k=>{ pawn(k,G.goods[k]); delete G.goods[k]; }); }}); }
-    return L.concat(gearRows(['charm','boots','can','basket','apron','kickers','scalecharm','scarf','fangpolish','bell']),
+    return L.concat(gearRows(['charm','boots','can','basket','apron','overalls','mosswrap','acorncap','fangcaps',
+      'kickers','scalecharm','scarf','clover','fangpolish','bell']),
       Object.keys(G.pawn).filter(k=>G.pawn[k]>0&&GOODS[k]).map(k=>({name:"Buy back: "+GOODS[k].name+"  x"+G.pawn[k],cost:buyBackPrice(k),
       desc:GOODS[k].flavor+" Buy one back for "+buyBackPrice(k)+"c.",buy:()=>{ G.pawn[k]--; if(G.pawn[k]<=0) delete G.pawn[k]; addGood(k); }}))); }},
   /* the Tipsy Toad, from 6 PM */
@@ -599,7 +600,7 @@ const buyBackPrice=k=>Math.ceil(goodsPrice(k)*1.5);
 function gearRows(keys){
   return keys.filter(k=>!G.gear[k]).map(k=>{ const E=EQUIP[k], g=GEAR.find(x=>x.id===k), it=E||g;
     const who=E&&E.who?" For "+E.who.map(id=>PARTY_INFO[id].name).join(" and ")+".":"";
-    return {name:it.name,cost:it.cost,desc:cap(it.desc)+(E?(E.slot==='weapon'?" A weapon":" An accessory")+" (Equip tab)."+who:" Garden gear."),
+    return {name:it.name,cost:it.cost,desc:cap(it.desc)+(E?({weapon:" A weapon",clothes:" Clothes"}[E.slot]||" An accessory")+" (Equip tab)."+who:" Garden gear."),
       buy:()=>{ G.gear[k]=1;
         /* a better flute goes straight into her hands */
         if(k==='dizi'||(k==='silver'&&equipOf('kaitlyn').weapon!=='dizi')){ equipOf('kaitlyn').weapon=k; refitMember('kaitlyn'); } }}; });
