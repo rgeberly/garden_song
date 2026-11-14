@@ -3,13 +3,12 @@
    ================================================================ */
 function bonusLines(){
   const L=[];
-  const g=Math.round(((gearOn('can')?1.25:1)*(G.yard.bath?1.1:1)*fluteMul()-1)*100);
+  const g=Math.round(((gearOn('can')?1.25:1)*(G.yard.bath?1.1:1)-1)*100);
   L.push(["Song growth", (g>=0?"+":"")+g+"%"]);
-  const d=Math.round((( gearOn('polish')?1.3:1)*fluteMul()-1)*100);
-  L.push(["Song damage", (d>=0?"+":"")+d+"%"]);
-  L.push(["Kick power", gearOn('kickers')?"+60%":"—"]);
+  L.push(["Song damage", wears('kaitlyn','polish')?"+30%":"—"]);
+  L.push(["Kick power", wears('kaitlyn','kickers')?"+60%":"—"]);
   L.push(["Run speed", gearOn('boots')?"×2 (B)":"—"]);
-  L.push(["Max MP", maxMp()+(gearOn('cloth')?"  (+8)":"")]);
+  L.push(["Max MP", String(maxMp())]);
   L.push(["Harmony cap", (gearOn('trellis')?"x2.6":"x1.8")+(G.yard.fountain?" +0.2":"")]);
   return L;
 }
@@ -222,7 +221,7 @@ function loreFoot(R){
                                                             :["???","Not caught yet. Bites in: "+fishWhen(g)+"."]; }
   return null;
 }
-function ownedGearList(){ return GEAR.filter(g=>G.gear[g.id]&&g.id!=='silver'&&g.id!=='dizi'); }
+function ownedGearList(){ return GEAR.filter(g=>G.gear[g.id]); }
 /* the rows of the open page: [{label,...}] plus how tall each is */
 function sysRows(){
   const t=SYSTABS[sys.tab];
@@ -232,9 +231,10 @@ function sysRows(){
   if(t==='Skills') return {h:34,rows:skillBook(whoId()).map(s=>({skill:s}))};
   if(t==='Items') return {h:34,rows:cropList().map(sp=>({crop:sp})).concat(goodsList().map(k=>({good:k}))).concat(
     bySeason(Object.keys(G.seeds).filter(k=>G.seeds[k]>0)).map(sp=>({seed:sp})))};
-  /* Equip: each member's four slots; for Kaitlyn also her flutes and garden gear (as before) */
+  /* Equip: each member's four slots (her flutes are Kaitlyn's weapons); for Kaitlyn also the
+     garden gear, which can be switched off */
   if(t==='Equip') return {h:34,rows:EQUIP_SLOTS.map(([slot])=>({slot})).concat(whoId()!=='kaitlyn'?[]:
-    [{head:"Flute"}].concat(FLUTE_META.order.map(id=>({flute:id})),ownedGearList().length?[{head:"Garden gear"}]:[],ownedGearList().map(g=>({gear:g}))))};
+    (ownedGearList().length?[{head:"Garden gear"}]:[]).concat(ownedGearList().map(g=>({gear:g}))))};
   if(t==='Settings') return {h:44,rows:SETTINGS.map(S=>({set:S}))};
   if(t==='Lore') return loreRows();
   return {h:44,rows:SAVE_ACTIONS.map((a,i)=>({save:i}))};
@@ -270,10 +270,7 @@ function sysActivate(i){
   else if(t==='Equip'){
     if(R.slot){ cycleEquip(whoId(),R.slot); return; }
     if(R.head) return;
-    if(R.flute){ const id=R.flute;
-      if(fluteOwned(id)){ G.flute=id; say(FLUTE_INFO[id].name+" equipped."); if(AC) flute(11,AC.currentTime,.3,.5); }
-      else { say("Not owned — buy it at the stall."); blip(150,.08,.2); } }
-    else if(R.gear){ const id=R.gear.id; G.gearOff[id]=!G.gearOff[id];
+    if(R.gear){ const id=R.gear.id; G.gearOff[id]=!G.gearOff[id];
       say(R.gear.name+(G.gearOff[id]?" switched off.":" switched on.")); blip(G.gearOff[id]?400:620,.05,.1,'triangle'); autoSave(); }
   } else if(t==='Save'){
     if(i===0){ try{navigator.clipboard.writeText(G.code);}catch(e){}
@@ -370,8 +367,7 @@ function sysFoot(){
   if(t==='Equip'&&R.slot){ const id=whoId(), k=equipOf(id)[R.slot], name=EQUIP_SLOTS.find(s=>s[0]===R.slot)[1];
     return k?[name+": "+EQUIP[k].name,EQUIP[k].desc+(IS_TOUCH?"  Tap again to change.":"  J to change.")]
             :[name+": nothing",equipChoices(id,R.slot).length>1?(IS_TOUCH?"Tap again to put something on.":"J to put something on."):"Nothing to wear here yet."]; }
-  if(t==='Equip') return R.flute?[FLUTE_INFO[R.flute].name,"Songs x"+FLUTE_INFO[R.flute].mul.toFixed(2)+(fluteOwned(R.flute)?(G.flute===R.flute?" · equipped":" · A to equip"):" · not owned yet")]
-                               :[R.gear.name+(gearOn(R.gear.id)?"  ·  on":"  ·  off"),cap(R.gear.desc)+". A to switch "+(gearOn(R.gear.id)?"off.":"on.")];
+  if(t==='Equip') return [R.gear.name+(gearOn(R.gear.id)?"  ·  on":"  ·  off"),cap(R.gear.desc)+". A to switch "+(gearOn(R.gear.id)?"off.":"on.")];
   if(t==='Lore') return loreFoot(R);
   if(t==='Settings'){ const S=R.set; return [S.name+":  "+S.label(S.get()),S.about(S.get())+(IS_TOUCH?"  Tap again to change.":"  ◀ ▶ or J to change.")]; }
   if(t==='Party'&&R.id) return null;
@@ -405,7 +401,6 @@ function drawSys(){
     if(t==='Equip'&&r.head){ b.fillStyle='rgba(255,224,138,.25)'; b.fillRect(P.x+12,y+R.h/2+6,P.w-24,1); }
     if(t==='Equip'&&r.slot){ const k=equipOf(whoId())[r.slot]; if(k) drawShopPic(EQUIP[k].name.toLowerCase(),P.x+46,y+R.h/2-1,26,26); }
     if(t==='Equip'&&r.gear) drawShopPic(r.gear.name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
-    if(t==='Equip'&&r.flute) drawShopPic(FLUTE_INFO[r.flute].name.toLowerCase(),P.x+46,y+R.h/2-1,26,26);
     if(t==='Lore') loreRowPic(r,P,y,R.h);
   });
   if(t==='Status'){ const id=whoId(), M=member(id);
@@ -453,9 +448,10 @@ function drawSys(){
         :G.party.includes(r.id)?"In the party":"Waiting at home";
       TS(where,P.x+86,y+62,15,G.party.includes(r.id)?'#b8f0a0':isHurt(r.id)?'#ffb0a8':'#aab6e8'); }
     else if(t==='Status'&&r.rename) TS("✎  Rename "+PARTY_INFO[whoId()].name,P.x+38,y+17,18,'#ffe08a',null,sel);
-    else if(t==='Status'){ const id=whoId(), v=statOf(id,r.stat)+(r.stat==='mp'&&id==='kaitlyn'&&gearOn('cloth')?8:0);
+    else if(t==='Status'){ const id=whoId(), v=statOf(id,r.stat), eb=equipBonus(id,r.stat);
       TS(STAT_NAME[r.stat],P.x+38,y+17,19,'#e4e8ff',null,sel);
-      TS(r.stat==='hp'?member(id).hp+"/"+v:r.stat==='mp'?member(id).mp+"/"+v:String(v),P.x+142,y+17,19,'#ffffff','right',true); }
+      TS(r.stat==='hp'?member(id).hp+"/"+v:r.stat==='mp'?member(id).mp+"/"+v:String(v),P.x+142,y+17,19,'#ffffff','right',true);
+      if(eb) TS("+"+eb,P.x+P.w-12,y+17,15,'#b8f0a0','right'); }
     else if(t==='Skills'){ const s=r.skill, known=member(whoId()).lv>=s.lv;
       TS(known?s.name:"????",P.x+38,y+15,19,known?(s.field?'#b8f0a0':'#f4f6ff'):'#7c84b0',null,sel);
       TS(known?(s.field?"field song":"battle"):"Lv."+s.lv,P.x+38,y+29,13,'#8a94c4');
@@ -469,10 +465,7 @@ function drawSys(){
       TS(EQUIP_SLOTS.find(s=>s[0]===r.slot)[1],P.x+66,y+14,14,'#8a94c4');
       TS(k?EQUIP[k].name:"—",P.x+66,y+29,18,k?'#f4f6ff':'#7c84b0',null,sel); }
     else if(t==='Equip'){
-      if(r.flute){ const own=fluteOwned(r.flute), eq=G.flute===r.flute;
-        TS(FLUTE_INFO[r.flute].name,P.x+66,y+21,19,own?'#f4f6ff':'#7c84b0',null,sel||eq);
-        TS(eq?"equipped":own?"":"locked",P.x+P.w-12,y+21,15,eq?'#b8f0a0':'#7c84b0','right'); }
-      else { const on=gearOn(r.gear.id); TS(r.gear.name,P.x+66,y+21,19,on?'#f4f6ff':'#7c84b0',null,sel);
+      { const on=gearOn(r.gear.id); TS(r.gear.name,P.x+66,y+21,19,on?'#f4f6ff':'#7c84b0',null,sel);
         TS(on?"on":"off",P.x+P.w-12,y+21,15,on?'#b8f0a0':'#ff9a8a','right',true); } }
     else if(t==='Lore') loreRowText(r,P,y,R.h,sel);
     else if(t==='Settings'){ const S=r.set;

@@ -175,24 +175,51 @@ const DROP_P=0.45, RARE_P=0.06;
 const STATUS={poison:{name:"Poison",tag:"PSN",col:'#a05ad8',turns:3}, blind:{name:"Blind",tag:"BLD",col:'#5a5a6a',turns:3},
   sleep:{name:"Asleep",tag:"SLP",col:'#5a8ad8',turns:2}, weak:{name:"Weak",tag:"WK",col:'#d88a3a',turns:3},
   scared:{name:"Scared",tag:"SCR",col:'#6a4aa8',turns:2}, bound:{name:"Bound",tag:"BND",col:'#8a6a3a',turns:1}};
+/* Garden gear: always working once bought (each can be switched off in the Equip tab).
+   Sold at Juniper's, but the Trellis Kit at the stall's Yard tab. */
 const GEAR=[
   {id:'boots',  name:"Sturdy Boots",   cost:240, desc:"run twice as fast with B (see Settings)"},
   {id:'can',    name:"Watering Can",   cost:300, desc:"+25% song growth"},
   {id:'charm',  name:"Frog Charm",     cost:340, desc:"frogs heal 2x as often"},
-  {id:'polish', name:"Flute Polish",   cost:420, desc:"+30% song damage"},
   {id:'trellis',name:"Trellis Kit",    cost:560, desc:"double harmony bonus"},
-  {id:'cloth',  name:"Cleaning Cloth", cost:480, desc:"+8 max Music Points"},
-  {id:'kickers',name:"Garden Boots",   cost:380, desc:"kick hits 60% harder"},
   {id:'basket', name:"Harvest Basket", cost:680, desc:"harvest every ripe plant in that part of the garden at once"},
   {id:'apron',  name:"Seed Apron",     cost:600, desc:"planting fills every empty spot in that part of the garden"},
-  {id:'silver', name:"Silver Flute",   cost:800, desc:"+15% song growth & damage"},
-  {id:'dizi',   name:"Mystic Dizi",    cost:1800, desc:"+35% song growth & damage"},
 ];
 /* Equipment: what each party member wears, in four slots. EQUIP lists what can be worn:
    key: {name, slot 'weapon'|'clothes'|'acc' (either accessory slot), who: ids who can wear it
    (anyone if left out), desc, own(): whether she has it}. Empty until the items are chosen. */
 const EQUIP_SLOTS=[['weapon',"Weapon"],['clothes',"Clothes"],['acc1',"Accessory 1"],['acc2',"Accessory 2"]];
-const EQUIP={};
+const EQUIP={
+  /* Kaitlyn's weapons: her flutes (stats from FLUTE_INFO). Sold at Rosa's. */
+  recorder:{name:"Wooden Recorder",slot:'weapon',who:['kaitlyn'],desc:"Her trusty first flute. No bonus.",own:()=>true,stats:{}},
+  silver:  {name:"Silver Flute",   slot:'weapon',who:['kaitlyn'],cost:800, desc:"+3 Intelligence, +4 max MP.",own:()=>!!G.gear.silver,stats:FLUTE_INFO.silver.stats},
+  dizi:    {name:"Mystic Dizi",    slot:'weapon',who:['kaitlyn'],cost:1800,desc:"+7 Intelligence, +10 max MP.",own:()=>!!G.gear.dizi,stats:FLUTE_INFO.dizi.stats},
+  /* clothes */
+  flannel: {name:"Evergreen Flannel",slot:'clothes',who:['kaitlyn'],desc:"Her favorite green plaid shirt. +2 Defense.",own:()=>true,stats:{def:2}},
+  /* accessories (owned once bought: G.gear[key]) */
+  polish:  {name:"Flute Polish",   slot:'acc',who:['kaitlyn'],cost:420,desc:"Songs do 30% more damage.",own:()=>!!G.gear.polish},
+  cloth:   {name:"Cleaning Cloth", slot:'acc',cost:480,desc:"+8 max MP.",own:()=>!!G.gear.cloth,stats:{mp:8}},
+  kickers: {name:"Garden Boots",   slot:'acc',who:['kaitlyn'],cost:380,desc:"Kicks hit 60% harder.",own:()=>!!G.gear.kickers},
+  fangpolish:{name:"Fang Polish",  slot:'acc',who:['bling'],cost:450,desc:"Ivy's Venom Bite hits 50% harder.",own:()=>!!G.gear.fangpolish},
+  scalecharm:{name:"Scale Charm",  slot:'acc',cost:380,desc:"+3 Defense.",own:()=>!!G.gear.scalecharm,stats:{def:3}},
+  bell:    {name:"Silver Bell",    slot:'acc',who:['tiny'],cost:520,desc:"Tiny One's Tweet and healing songs heal 20% more.",own:()=>!!G.gear.bell},
+  scarf:   {name:"Downy Scarf",    slot:'acc',cost:400,desc:"+10 max HP.",own:()=>!!G.gear.scarf,stats:{hp:10}},
+};
+/* is member id wearing key? what does their equipment add to stat k? */
+const wears=(id,key)=>EQUIP_SLOTS.some(([s])=>(G.equip[id]||{})[s]===key);
+function equipBonus(id,k){ const E=G.equip[id]; if(!E) return 0; let n=0;
+  for(const [s] of EQUIP_SLOTS){ const it=EQUIP[E[s]]; if(it&&it.stats&&it.stats[k]) n+=it.stats[k]; } return n; }
+/* after equipment changes: max HP follows, and HP and MP stay inside their new limits */
+function refitMember(id){ const M=member(id); if(!M) return;
+  M.maxhp=statOf(id,'hp'); M.hp=Math.min(M.hp,M.maxhp); M.mp=Math.min(M.mp,memberMaxMp(id));
+  if(id==='kaitlyn') G.flute=equipOf('kaitlyn').weapon||'recorder'; }
+/* a save from before equipment: Kaitlyn holds her flute and wears her flannel, with up to
+   two of the accessories she'd bought (they used to just work) */
+function fitOutKaitlyn(){
+  const E=equipOf('kaitlyn'); if('clothes' in E||'weapon' in E) return;
+  E.weapon=G.flute||'recorder'; E.clothes='flannel';
+  const acc=['polish','kickers','cloth'].filter(k=>G.gear[k]); E.acc1=acc[0]||null; E.acc2=acc[1]||null;
+}
 const equipOf=id=>G.equip[id]||(G.equip[id]={});
 const slotKind=slot=>slot.startsWith('acc')?'acc':slot;
 /* what could go in a member's slot: nothing, or anything of that kind they can wear that
@@ -206,7 +233,7 @@ function equipChoices(id,slot){
 function cycleEquip(id,slot){
   const L=equipChoices(id,slot), cur=equipOf(id)[slot]||null;
   if(L.length<2){ say("Nothing to wear here yet."); blip(150,.08,.2); return; }
-  const nx=L[(L.indexOf(cur)+1)%L.length]; equipOf(id)[slot]=nx;
+  const nx=L[(L.indexOf(cur)+1)%L.length]; equipOf(id)[slot]=nx; refitMember(id);
   say(nx?PARTY_INFO[id].name+" puts on the "+EQUIP[nx].name+".":PARTY_INFO[id].name+" takes it off."); blip(620,.05,.1,'triangle'); autoSave();
 }
 const YARD=[
@@ -215,6 +242,7 @@ const YARD=[
   {id:'fountain',name:"Frog Fountain",    cost:520, desc:"+0.2 harmony"},
   {id:'lantern', name:"Stone Lantern",    cost:360, desc:"pests arrive 40% slower"},
   {id:'arch',    name:"Flower Arch",      cost:440, desc:"+15% harvest coins"},
+  {id:'trellis', name:"Trellis Kit",      cost:560, desc:"double harmony bonus", gear:true},   /* garden gear (G.gear), sold here*/
   {id:'bath',    name:"Bird Bath",        cost:400, desc:"+10% song growth"},
 ];
 const KICK_SHOUTS=["Hiya!","Take that!","May my boot aim true!","Not in MY garden!",

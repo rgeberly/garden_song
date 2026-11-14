@@ -3,14 +3,15 @@
    picture and details pop up beside it; opaque confirm). The Sell
    tab buys back harvested crops.
    ================================================================ */
-const TABS=['Seeds','Gear','Yard','Sell'];
-const TAB_W=78, TAB_STEP=80;
+const TABS=['Seeds','Yard','Sell'];
+const TAB_W=104, TAB_STEP=106;
+const TAB_YARD=1, TAB_SELL=2;     /* (gear is sold in town now: Rosa's and Juniper's) */
 const PER_PAGE=8;
 let shop={tab:0,idx:0,page:0,confirm:null};
 /* opens on Sell when she is carrying a harvest */
 function openShop(){
   shopArtImg();
-  shop={tab:cropList().length?3:0,idx:0,page:0,confirm:null}; G.scene='shop';
+  shop={tab:cropList().length?TAB_SELL:0,idx:0,page:0,confirm:null}; G.scene='shop';
 }
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
@@ -20,10 +21,7 @@ function shopItems(){
         "Needs "+S.grow+" growth (about "+Math.ceil(S.grow/SONG_GROWTH)+" songs), "+growNeed(s,S.best)+
         " in "+SEASON_NAME[S.best]+". Sells for "+sellPrice(s)+"c.",
       note:"you have x"+(G.seeds[s]||0)}; });
-  if(shop.tab===1) return [{type:'coffee',id:'coffee',name:"Coffee",cost:30,
-      desc:"Walk 50% faster for 2 minutes."}]
-    .concat(GEAR.filter(g=>!G.gear[g.id]).map(g=>({type:'gear',...g,desc:cap(g.desc)+"."})));
-  if(shop.tab===2) return YARD.filter(g=>!G.yard[g.id]).map(g=>({type:'yard',...g,desc:cap(g.desc)+"."}));
+  if(shop.tab===TAB_YARD) return YARD.filter(g=>!(g.gear?G.gear:G.yard)[g.id]).map(g=>({type:'yard',...g,desc:cap(g.desc)+"."}));
   /* Sell: one row per crop carried, then Sell all */
   const l=cropList().map(sp=>{ const S=SPECIES[sp], n=G.crops[sp];
     return {type:'crop',id:sp,sell:true,name:S.name,cost:sellPrice(sp),art:{crop:sp},
@@ -74,6 +72,7 @@ function doBuy(){
     if(it.id==='cloth') G.player.mp=maxMp();
     if(it.id==='silver'&&G.flute==='recorder') G.flute='silver';
     if(it.id==='dizi') G.flute='dizi'; }
+  else if(it.type==='yard'&&it.gear){ G.gear[it.id]=true; say(it.name+" — "+it.desc+"."); }
   else if(it.type==='yard'){ G.yard[it.id]=true; buildWorld(); say(it.name+" installed!"); }
   if(AC) flute(11,AC.currentTime,.3,.5);
   shopClampIdx(); autoSave();
@@ -188,8 +187,8 @@ function drawShop(){
   items.forEach((it,i)=>{ const y=L.y+i*L.step, afford=can(it);
     T(it.name+(it.type==='crop'?" x"+G.crops[it.id]:it.type==='good'?" x"+G.goods[it.id]:""),L.x+ROW_PAD+1,y+17,22,afford?'#3a2a1a':'#8a7a68',null,i===shop.idx||it.type==='sellall');
     T((it.sell?"+":"")+it.cost+"c",L.x+L.w-6,y+17,21,it.sell?'#5a7a3a':afford?'#a06a1a':'#b09a86','right',true); });
-  if(!items.length) T(shop.tab===3?"Nothing to sell yet.":"Sold out — you have it all!",104,230,20,'#7a6a4a','center');
-  if(!items.length&&shop.tab===3) T("Harvest crops to sell them here.",104,248,17,'#8a7a5a','center');
+  if(!items.length) T(shop.tab===TAB_SELL?"Nothing to sell yet.":"Sold out — you have it all!",104,230,20,'#7a6a4a','center');
+  if(!items.length&&shop.tab===TAB_SELL) T("Harvest crops to sell them here.",104,248,17,'#8a7a5a','center');
   if(sel){
     const cx=C.x+C.w/2;
     wrapLines(sel.name,22,C.w-14).slice(0,2).forEach((ln,i)=>T(ln,cx,C.y+114+i*15,22,'#3a2a1a','center',true));
@@ -204,6 +203,6 @@ function drawShop(){
     T(IS_TOUCH?"next >":"E  next >",304,432,22,'#3a2a1a','center',true);
     T("page "+(shop.page+1)+" / "+pageCount(),180,432,22,'#7a6a4a','center');
   }
-  keyHint("W/S choose  ·  A/D tabs  ·  J "+(shop.tab===3?"sell":"buy")+"  ·  H leave  (or tap here)",180,456,
+  keyHint("W/S choose  ·  A/D tabs  ·  J "+(shop.tab===TAB_SELL?"sell":"buy")+"  ·  H leave  (or tap here)",180,456,
     "tap an item, then tap it again or the button  ·  tap here to leave");
 }

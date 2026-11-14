@@ -345,7 +345,7 @@ function hitFoe(f,dmg,label){
 /* Blind members miss half their attacks */
 function missed(id){ if(has(id,'blind')&&Math.random()<0.5){ B.log=PARTY_INFO[id].name+" can't see and misses!"; return true; } return false; }
 const weakMul=id=>has(id,'weak')?0.6:1;
-const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(gearOn('kickers')?1.6:1);
+const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(wears('kaitlyn','kickers')?1.6:1);
 /* Kaitlyn's kicks: the battle row (battle.png) plays, the hit lands partway through */
 /* Focus: a member's next hit (every hit of that one move) is twice as hard; this uses it up */
 function useCharge(id){ const m=B.charged[id]?2:1; B.charged[id]=false; return m; }
@@ -367,7 +367,7 @@ function doAttack(f){
   /* Bling: a weak bite, but the venom always takes, and now and then it's too much */
   anim('lunge',900,()=>{
     if(missed(id)) return;
-    focus(f); const cm=useCharge(id), power=statOf(id,'str')*1.5*I.pow*weakMul(id)*cm;
+    focus(f); const cm=useCharge(id), power=statOf(id,'str')*1.5*I.pow*weakMul(id)*cm*(wears(id,'fangpolish')?1.5:1);
     const dmg=soften(power*rnd(0.85,1.15),foeDef(f));
     burst(EX-20,EY+20,'#ffe6a0',14,0.17);
     hitFoe(f,dmg,I.name+"'s "+I.attack+" hits for "+dmg+"!"+(cm>1?"  A focused blow!":""));
@@ -386,7 +386,9 @@ function useKarate(mv,f){
   B.turn='busy'; B.menu='cmd';
   kick(f,mv.pow,mv.name,BROW.karate!==undefined?'karate':'kick',KARATE_SHOUTS,KICK_SHOUT);
 }
-const songPower=()=>statOf('kaitlyn','int')*1.3*(gearOn('polish')?1.3:1)*fluteMul()*weakMul('kaitlyn');
+const songPower=()=>statOf('kaitlyn','int')*1.3*(wears('kaitlyn','polish')?1.3:1)*weakMul('kaitlyn');
+/* Tiny One's healing, with the Silver Bell on */
+const healMul=id=>wears(id,'bell')?1.2:1;
 function useSong(mv,f){
   G.player.mp-=mv.mp; B.turn='busy';
   startRhythm(null,{notes:mv.notes,name:mv.name,mp:mv.mp,song:BATTLE_SONG[mv.id],cb:(acc)=>{
@@ -420,7 +422,7 @@ function doTweet(){
   const id=actor(), I=PARTY_INFO[id];
   B.turn='busy';
   anim('sing',1100,()=>{
-    B.party.filter(standing).forEach(m=>mendMember(m,member(m).maxhp*I.tweet));
+    B.party.filter(standing).forEach(m=>mendMember(m,member(m).maxhp*I.tweet*healMul(id)));
     B.log=I.name+" tweets! Everyone feels a little better.";
     if(AC){ flute(19,AC.currentTime,.12,.3); flute(23,AC.currentTime+.1,.14,.3); }
   },{heal:true});
@@ -434,16 +436,16 @@ function useSkill(sk,f,to){
   const kind_heal=!!(sk.heal||sk.mend||sk.mendAll||sk.cureAll||sk.guardAll||sk.clear||sk.revive);
   anim(kind,spell?1400:sk.song?1300:1000,()=>{
     /* Tiny One's songs */
-    if(sk.mend){ const h=mendMember(to,member(to).maxhp*sk.mend);
+    if(sk.mend){ const h=mendMember(to,member(to).maxhp*sk.mend*healMul(id));
       B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+" +"+h+" HP."; return; }
-    if(sk.mendAll){ B.party.filter(standing).forEach(m=>{ mendMember(m,member(m).maxhp*sk.mendAll);
-        if(sk.regen) B.regen[m]={n:sk.regen.n,share:sk.regen.share}; });
+    if(sk.mendAll){ B.party.filter(standing).forEach(m=>{ mendMember(m,member(m).maxhp*sk.mendAll*healMul(id));
+        if(sk.regen) B.regen[m]={n:sk.regen.n,share:sk.regen.share*healMul(id)}; });
       B.log=name+" sings "+sk.name+": everyone heals"+(sk.regen?", and will keep mending for "+sk.regen.n+" turns!":"!"); return; }
     if(sk.clear){ const S=B.st[to]||(B.st[to]={}); Object.keys(STATUS).forEach(k=>S[k]=0);
       const s=slotOf(to); burst(s.x,headOf(to)+14*s.s,'#fff6c8',8,0.08);
       B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+"'s troubles are shaken off!"; return; }
     if(sk.revive){ const T=member(to); if(standing(to)){ B.log=PARTY_INFO[to].name+" is already up!"; return; }
-      B.st[to]={}; B.regen[to]=null; mendMember(to,T.maxhp*sk.revive);
+      B.st[to]={}; B.regen[to]=null; mendMember(to,T.maxhp*sk.revive*healMul(id));
       B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+" is back in the fight!"; return; }
     if(sk.pecks){
       /* quick pecks at whoever's still there, a moment apart */

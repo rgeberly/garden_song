@@ -41,8 +41,6 @@ const runWanted=()=>{ const held=btnBHeld||keys['h']||keys['escape']||keys['shif
   return G.runMode==='walk'?!held:G.runMode==='toggle'?G.runOn:held; };
 const running=()=>gearOn('boots')&&!G.swim&&runWanted();
 const diff=()=>DIFFICULTY[G.diff]||DIFFICULTY.normal;
-/* the equipped flute's power (FLUTE_INFO) */
-const fluteMul=()=>(FLUTE_INFO[G.flute||'recorder']||{mul:1}).mul;
 /* an accessory works when it's owned and not switched off in the Gear tab */
 const gearOn=id=>!!G.gear[id]&&!G.gearOff[id];
 const moveList=()=>MOVES.filter(mv=>mv.lv<=G.player.lv);
@@ -85,10 +83,12 @@ function renameMember(id){
   G.names[id]=n; applyNames(); say("From now on, "+n+"!"); autoSave();
 }
 const member=id=>id==='kaitlyn'?G.player:G.allies[id];
-function statOf(id,k,lv){ const I=PARTY_INFO[id]; lv=lv||member(id).lv;
-  return Math.floor(I.base[k]+I.grow[k]*(lv-1)+1e-9); }
-const maxMp=()=>statOf('kaitlyn','mp')+(gearOn('cloth')?8:0);
-const memberMaxMp=id=>id==='kaitlyn'?maxMp():statOf(id,'mp');
+/* a member's stat: from their level, plus what they have equipped (not when asking about a
+   given level: that's for level-up gains) */
+function statOf(id,k,lv){ const I=PARTY_INFO[id], at=lv||member(id).lv;
+  return Math.floor(I.base[k]+I.grow[k]*(at-1)+1e-9)+(lv?0:equipBonus(id,k)); }
+const maxMp=()=>statOf('kaitlyn','mp');
+const memberMaxMp=id=>statOf(id,'mp');
 /* hurt in battle: home recovering, can't go out until HURT_DAYS later */
 const isHurt=id=>id!=='kaitlyn'&&!!G.allies[id]&&G.allies[id].hurtUntil>G.day;
 /* lv: the level they join at; by default two under Kaitlyn's, so a new friend can keep up */
@@ -164,12 +164,13 @@ function applySave(o){
   G.flute=o.fl||'recorder';
   G.allies=o.al||{}; G.party=(o.pa||['kaitlyn']).filter(id=>id==='kaitlyn'||G.allies[id]);
   for(const id in G.allies){ const A=G.allies[id];          /* older saves had no EXP for friends */
-    if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; A.maxhp=statOf(id,'hp'); }
-  P.maxhp=statOf('kaitlyn','hp');
+    if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; }
   G.runMode=o.jm||'hold';
   G.names=o.nm||{}; applyNames();
   G.sheets=o.sh||[];
-  G.pawn=o.pw||{}; G.equip=o.eq||{};
+  G.pawn=o.pw||{}; G.equip=o.eq||{}; fitOutKaitlyn(); G.flute=G.equip.kaitlyn.weapon||'recorder';
+  for(const id in G.allies) G.allies[id].maxhp=statOf(id,'hp');      /* with their equipment */
+  P.maxhp=statOf('kaitlyn','hp');
   G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};

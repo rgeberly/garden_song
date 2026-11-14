@@ -90,6 +90,19 @@ He runs the Tipsy Toad in town, open from 6 PM. Same framing and style as the ot
 |---|---|
 | `people/Gus.png` | portrait of a friendly middle-aged bartender with a bushy brown beard and rolled-up sleeves, a dark green vest over a white shirt, a towel over one shoulder, a warm grin, head and shoulders, same style as the other townsfolk portraits, plain white background |
 
+## New equipment: Style **No style**, white background, Shape **Square**
+
+Kaitlyn's starting shirt, and the first accessories for Ivy and Tiny One (sold at Juniper's). Until these
+arrive they show without a picture.
+
+| Save as | Description |
+|---|---|
+| `shop items/Evergreen Flannel.png` | realistic studio product photo of a single folded green and dark green plaid flannel shirt, soft and cozy, isolated on a pure white background, centered |
+| `shop items/Fang Polish.png` | realistic studio product photo of a tiny glass bottle of shiny violet polish with a small brush cap, isolated on a pure white background, centered |
+| `shop items/Scale Charm.png` | realistic studio product photo of a small charm made of a single iridescent green snake scale on a thin gold ring, isolated on a pure white background, centered |
+| `shop items/Silver Bell.png` | realistic studio product photo of a single small shiny silver bell on a thin red ribbon, isolated on a pure white background, centered |
+| `shop items/Downy Scarf.png` | realistic studio product photo of a tiny soft cream-colored knitted scarf, folded, fluffy like down feathers, isolated on a pure white background, centered |
+
 ## Optional: more
 
 - A Karate Kick row for `battle.png` (named `karate`); until then it uses the regular kick.

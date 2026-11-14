@@ -183,10 +183,12 @@ function dirFromVec(dx,dy){
   const a=Math.atan2(dy,dx);
   return ((Math.round(a/(Math.PI/4))+2)%8+8)%8;
 }
+/* Kaitlyn's flutes (her weapons, see EQUIP): what they add to her stats when equipped, and
+   their colours for the rhythm game's hit line */
 const FLUTE_INFO={
-  recorder:{name:"Wooden Recorder", mul:1.00, body:'#c98a4a',hi:'#f2c68e',dark:'#8a5a28'},
-  silver  :{name:"Silver Flute",    mul:1.15, body:'#c6ced6',hi:'#ffffff',dark:'#79848c'},
-  dizi    :{name:"Mystic Dizi",     mul:1.35, body:'#dfe4ea',hi:'#fff6cf',dark:'#8a7a3a'},
+  recorder:{name:"Wooden Recorder", stats:{},           body:'#c98a4a',hi:'#f2c68e',dark:'#8a5a28'},
+  silver  :{name:"Silver Flute",    stats:{int:3,mp:4},  body:'#c6ced6',hi:'#ffffff',dark:'#79848c'},
+  dizi    :{name:"Mystic Dizi",     stats:{int:7,mp:10}, body:'#dfe4ea',hi:'#fff6cf',dark:'#8a7a3a'},
 };
 const fluteOwned=id=>id==='recorder'||!!G.gear[id];
 function drawFluteIcon(c,cx,cy,zoom){

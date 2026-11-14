@@ -341,7 +341,7 @@ function finishRhythm(){
   if(R_.battle){ const cb=R_.battle.cb; R_=null; cb(acc); return; }
   const plot=R_.plot,S=SPECIES[plot.sp];
   plot.sungDay=G.day;
-  const h=harmony(), mul=(gearOn('can')?1.25:1)*(G.yard.bath?1.1:1)*(plot.raised?1.3:1)*fluteMul();
+  const h=harmony(), mul=(gearOn('can')?1.25:1)*(G.yard.bath?1.1:1)*(plot.raised?1.3:1);
   const gain=Math.round((38+acc*72+R_.maxcombo*1.6)*h*mul);
   const before=plot.stage;
   setGrowth(plot,plot.growth+gain);
