@@ -47,7 +47,7 @@ const DEPTH_Y=262, DEPTH_K=0.0013;
 const depthScale=y=>clamp(1+(y-DEPTH_Y)*DEPTH_K,0.8,1.1);
 const CMDS=['attack','skills','meditate','focus','items','flee'];
 const CMD_VIS=5;                     /* rows the commands window shows; it scrolls to the rest (Flee) */
-const KILL_CHANCE=0.10;              /* Bling's venom can finish a (non-boss) foe outright */
+const KILL_CHANCE=0.10;              /* Ivy's venom can finish a (non-boss) foe outright */
 const EXTRA_FOE=0.7;                 /* the chance of one more pest for each friend along */
 const KARATE_SHOUTS=["Hi-YAH!","KIAI!","Hwaa-CHA!","Tatsumaki senpukyaku!","Aboykiblooken!"];
 let B=null;
@@ -364,7 +364,7 @@ function doAttack(f){
   const id=actor(), I=PARTY_INFO[id];
   B.turn='busy';
   if(id==='kaitlyn'){ kick(f,I.pow,"Quick Kick",Math.random()<0.5?'kick':'kick2',KICK_SHOUTS,KICK_SHOUT); return; }
-  /* Bling: a weak bite, but the venom always takes, and now and then it's too much */
+  /* Ivy: a weak bite, but the venom always takes, and now and then it's too much */
   anim('lunge',900,()=>{
     if(missed(id)) return;
     focus(f); const cm=useCharge(id), power=statOf(id,'str')*1.5*I.pow*weakMul(id)*cm*(wears(id,'fangpolish')?1.5:1);
@@ -374,7 +374,7 @@ function doAttack(f){
     if(f.hp<=0) return;
     f.st.poison={n:STATUS.poison.turns,dmg:Math.round(2+statOf(id,'int')*0.5)};
     burst(EX,EY+10,'#b06ae0',12,0.12);
-    if(!f.boss&&Math.random()<KILL_CHANCE){ f.hp=0; B.log=PARTY_INFO.bling.name+"'s venom overwhelms the "+f.name+"!"; }
+    if(!f.boss&&Math.random()<KILL_CHANCE){ f.hp=0; B.log=PARTY_INFO.ivy.name+"'s venom overwhelms the "+f.name+"!"; }
     else B.log+="  It's poisoned!";
   },{tgt:f});
 }
@@ -664,7 +664,7 @@ function partyImg(){
   if(!IMG_PARTY){ IMG_PARTY=new Image(); IMG_PARTY.src=ASSET_PARTY; }
   return IMG_PARTY.complete&&IMG_PARTY.naturalWidth?IMG_PARTY:null;
 }
-const READY_MS={kaitlyn:70,bling:50}, READY_FADE=220;
+const READY_MS={kaitlyn:70,ivy:50}, READY_FADE=220;
 /* a party.webp frame at 2 device px per sheet px, its ax,ay on the given feet */
 function partyFrame(c,r,ax,ay,x,y){
   const img=partyImg(); if(!img||!r) return false;
@@ -1428,10 +1428,10 @@ function drawLevelUp(dt){
 const PARTY_TEST=NO_SAVE, TEST_PESTS=['raccoon','beetle','crow','rat','crab'];   /* none of them fly */
 function partyTestSetup(){
   if(G.scene==='title'){ newGameState(); startGame(); }
-  const lv=6, ivys=['bling','bling2','bling3','bling4'];
+  const lv=6, ivys=['ivy','ivy2','ivy3','ivy4'];
   ivys.forEach((id,i)=>{
-    if(!PARTY_INFO[id]){ PARTY_INFO[id]={...PARTY_INFO.bling,name:"Ivy "+(i+1)}; BORN_NAMES[id]=PARTY_INFO[id].name;
-      ALLY_SKILLS[id]=ALLY_SKILLS.bling; if(PARTY_ART.bling) PARTY_ART[id]=PARTY_ART.bling; READY_MS[id]=READY_MS.bling; }
+    if(!PARTY_INFO[id]){ PARTY_INFO[id]={...PARTY_INFO.ivy,name:"Ivy "+(i+1)}; BORN_NAMES[id]=PARTY_INFO[id].name;
+      ALLY_SKILLS[id]=ALLY_SKILLS.ivy; if(PARTY_ART.ivy) PARTY_ART[id]=PARTY_ART.ivy; READY_MS[id]=READY_MS.ivy; }
     const hp=statOf(id,'hp',lv);
     G.allies[id]={lv,xp:0,next:xpNeed(lv),hp,maxhp:hp,mp:statOf(id,'mp',lv),hurtUntil:0}; });
   const P=G.player; P.lv=lv; P.maxhp=statOf('kaitlyn','hp',lv); P.hp=P.maxhp; P.mp=maxMp();
@@ -1440,7 +1440,7 @@ function partyTestSetup(){
 function partyTestFight(n,layout){
   if(!PARTY_TEST) return "Open the game with ?partytest first.";
   partyTestSetup(); if(layout) BATTLE_LAYOUT=layout;
-  n=clamp(n||5,1,5); G.party=['kaitlyn','bling','bling2','bling3','bling4'].slice(0,Math.max(n,4));
+  n=clamp(n||5,1,5); G.party=['kaitlyn','ivy','ivy2','ivy3','ivy4'].slice(0,Math.max(n,4));
   startBattle({species:TEST_PESTS[0],lv:5,x:0,y:0},TEST_PESTS.slice(0,n));
   return n+" pests, "+G.party.length+" in the party, layout "+BATTLE_LAYOUT;
 }

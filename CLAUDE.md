@@ -17,6 +17,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - `python serve.py` serves the game at http://localhost:8000. It's also the "game" preview in `.claude/launch.json`. Its POST API (localhost only) saves song edits.
 - Add `?songtest` to the URL to list every recorded song at the music stand, with autoplay, no EXP and no time passing.
 - Add `?partytest` to try big fights: nothing is saved, Kaitlyn (Lv.6) has four Ivys, and it's spring. In the console, `partyTestFight(5,'rows')` starts a fight with that many pests in that layout (`BATTLE_LAYOUTS` in `js/12-battle.js`).
+- In `?partytest`, `ivyTest('hurt'|'recover'|'better'|'released'|'home')` jumps to a step of Ivy's story (she first appears on day 5).
 - In `?partytest`, `tinyTest('egg'|'nest'|'hatch'|'worms'|'grown'|'fight')` in the console jumps to a step of Tiny One's quest.
 - Song editor: http://localhost:8000/tools/song-editor.html?song=NAME. It can only save while `serve.py` is running.
 - There's no test suite. Verify in the Browser pane with `javascript_tool` and screenshots. `node` isn't installed; Python 3 is, with cv2, numpy, librosa and imageio_ffmpeg.
@@ -25,7 +26,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 ## Layout
 - `index.html` loads `js/assets.js`, then `js/data/*.js` (generated data), then `js/00-core.js` … `js/19-tiny.js` in order. These are shared globals, not modules.
 - `G` is the game state (`js/04-state.js`). Save keys are short (`jm`, `nm`, `sh`, …), so keep them stable.
-- Party member ids stay as they are (`bling` is shown as "Ivy" through `PARTY_INFO.bling.name`). Saves and art file names depend on the ids.
+- Party member ids are `kaitlyn`, `ivy` and `tiny` (Tituba and Tex later). Saves and art file names depend on them, so keep them stable. (Ivy's id was `bling` until Nov 14, 2026; saves from before then don't carry over.)
 - New `SPECIES` go at the end, because saves store plots by their index in that list.
 
 ## Art pipeline (art folder: `C:\kaitlyns-garden-song-art`)

@@ -1,13 +1,13 @@
 /* ================================================================
-   STORY: conversations, cutscenes, and how Bling joins
+   STORY: conversations, cutscenes, and how Ivy joins
    A story scene ('story') plays a list of steps over the garden or the house
    (or over a full picture): lines of talk with the speaker's portrait, fades
    to and from black, a picture, a "joins the party" window, and plain
    functions that move people around between them. A tap or A moves on.
    ================================================================ */
-/* her id stays 'bling' (saves and art files use it); the name players see is in PARTY_INFO */
+/* the name players see is PARTY_INFO.ivy.name (which can be changed in the game) */
 /* speakers' names in the talk box, in a colour each (on the blue window) */
-const SPEAKER={kaitlyn:{name:"Kaitlyn",col:'#ffd08a'}, bling:{get name(){ return PARTY_INFO.bling.name; },col:'#e8e070'}};
+const SPEAKER={kaitlyn:{name:"Kaitlyn",col:'#ffd08a'}, ivy:{get name(){ return PARTY_INFO.ivy.name; },col:'#e8e070'}};
 const TALK_MS=28;                 /* typing speed: ms per letter */
 let story=null;
 function playStory(steps){
@@ -88,7 +88,7 @@ function drawPopup(text,who){
   b.globalAlpha=.35; px(b,0,0,LW,VIEW_H,'#0d1410'); b.globalAlpha=1;
   panel(x,y,w,h);
   b.fillStyle='rgba(255,224,138,.7)'; b.fillRect(x+10,y+8,w-20,1.5);
-  if(who==='bling') drawBlingMap(b,LW/2,y+62,64,null,false,false);
+  if(who==='ivy') drawIvyMap(b,LW/2,y+62,64,null,false,false);
   if(who==='tiny') drawTinyBird(b,LW/2,y+70,52,false);
   blit();
   wrapLines(text,24,w-28).forEach((ln,i)=>TS(ln,LW/2,ty+i*18,24,WIN_TXT.title,'center',true));
@@ -102,107 +102,126 @@ function travel(arrive){
 }
 function place(x,y,dir){ const P=G.player; P.x=x; P.y=y; P.dir=dir; P.moving=false; P.walkT=0; G.swim=false; }
 
-/* ---------------- Bling ----------------
+/* ---------------- Ivy ----------------
    From day 5 she lies hurt in the shade of the house. Kaitlyn takes her in, and she
    recovers on the rug over three days (sad, unsure, happy), is let go in the
    north-west corner of the garden, comes back, and joins the party. After that she
-   sleeps at the foot of the bed from 8 PM. G.story.bling: 'recover' | 'released' |
-   'joined' (unset before), G.story.blingDay: the day she was taken in. */
-const BLING_DAY=5, BLING_SLEEPS=20*60, BLING_W=20;
-const BLING_HURT={x:622,y:198}, BLING_FREE={x:185,y:190};      /* garden px */
-const BLING_RUG={x:250,y:398}, BLING_BED={x:196,y:322};         /* house painting px */
-/* where she wanders after being let go (not saved: she starts at BLING_FREE) */
-const BL={x:BLING_FREE.x,y:BLING_FREE.y,tx:0,ty:0,wait:1200,flip:false,moving:false};
-function blingStage(){ return G.story.bling||(G.day>=BLING_DAY?'hurt':null); }
-const recoverDay=()=>G.day-G.story.blingDay+1;          /* 1 on the day she is taken in */
+   sleeps at the foot of the bed from 8 PM. G.story.ivy: 'recover' | 'released' |
+   'joined' (unset before), G.story.ivyDay: the day she was taken in. */
+const IVY_DAY=5, IVY_SLEEPS=20*60, IVY_W=20;
+const IVY_HURT={x:622,y:198}, IVY_FREE={x:185,y:190};      /* garden px */
+const IVY_RUG={x:250,y:398}, IVY_BED={x:196,y:322};         /* house painting px */
+/* where she wanders after being let go (not saved: she starts at IVY_FREE) */
+const BL={x:IVY_FREE.x,y:IVY_FREE.y,tx:0,ty:0,wait:1200,flip:false,moving:false};
+function ivyStage(){ return G.story.ivy||(G.day>=IVY_DAY?'hurt':null); }
+const recoverDay=()=>G.day-G.story.ivyDay+1;          /* 1 on the day she is taken in */
 /* where she is now and how she feels: {x,y,inside,mood,flip,moving}, or null */
-function blingHere(){
-  const s=blingStage();
-  if(s==='hurt') return {x:BLING_HURT.x,y:BLING_HURT.y,inside:false,mood:'sad'};
+function ivyHere(){
+  const s=ivyStage();
+  if(s==='hurt') return {x:IVY_HURT.x,y:IVY_HURT.y,inside:false,mood:'sad'};
   if(s==='recover'){ const d=recoverDay();
-    return {x:BLING_RUG.x,y:BLING_RUG.y,inside:true,mood:d<=1?'sad':d===2?'unsure':'happy'}; }
+    return {x:IVY_RUG.x,y:IVY_RUG.y,inside:true,mood:d<=1?'sad':d===2?'unsure':'happy'}; }
   if(s==='released') return {x:BL.x,y:BL.y,inside:false,mood:'happy',flip:BL.flip,moving:BL.moving};
   if(s==='joined'){
     /* hurt in battle she rests on the rug; left at home she waits there; at night she sleeps */
-    if(isHurt('bling')) return {x:BLING_RUG.x,y:BLING_RUG.y,inside:true,mood:'sad'};
-    if(G.clock>=BLING_SLEEPS) return {x:BLING_BED.x,y:BLING_BED.y,inside:true,mood:'sleep'};
-    if(!G.party.includes('bling')) return {x:BLING_RUG.x,y:BLING_RUG.y,inside:true,mood:'happy'};
+    if(isHurt('ivy')) return {x:IVY_RUG.x,y:IVY_RUG.y,inside:true,mood:'sad'};
+    if(G.clock>=IVY_SLEEPS) return {x:IVY_BED.x,y:IVY_BED.y,inside:true,mood:'sleep'};
+    if(!G.party.includes('ivy')) return {x:IVY_RUG.x,y:IVY_RUG.y,inside:true,mood:'happy'};
   }
   return null;
 }
-function nearBling(f=1){
-  const bl=blingHere(), P=G.player;
+function nearIvy(f=1){
+  const bl=ivyHere(), P=G.player;
   if(!bl||bl.mood==='sleep'||bl.inside!==G.indoors) return false;
   return G.indoors?Math.hypot(P.x-bl.x,P.y-bl.y)<52*f:Math.hypot(P.x-bl.x,P.y+10-bl.y)<34*f;
 }
-const blingLabel=()=>blingStage()==='hurt'?"Check":"Talk";
-function talkBling(){
-  const s=blingStage();
-  if(s==='hurt') playStory(blingMeets());
+const ivyLabel=()=>ivyStage()==='hurt'?"Check":"Talk";
+function talkIvy(){
+  const s=ivyStage();
+  if(s==='hurt') playStory(ivyMeets());
   else if(s==='recover'){ const d=recoverDay();
-    if(d<=1) playStory([{say:'bling',text:"Ssss..."}]);
-    else if(d===2) playStory([{say:'bling',text:"Ssss...?"}]);
-    else playStory(blingLetGo()); }
-  else if(s==='released') playStory(blingJoins());
-  else if(s==='joined') playStory([{say:'bling',text:isHurt('bling')?"Ssss... (She's still sore. Back in "+(G.allies.bling.hurtUntil-G.day)+" day"+(G.allies.bling.hurtUntil-G.day===1?"":"s")+".)"
-                                                                    :"Ssss! (Add "+PARTY_INFO.bling.name+" to your party from the menu.)"}]);
+    if(d<=1) playStory([{say:'ivy',text:"Ssss..."}]);
+    else if(d===2) playStory([{say:'ivy',text:"Ssss...?"}]);
+    else playStory(ivyLetGo()); }
+  else if(s==='released') playStory(ivyJoins());
+  else if(s==='joined') playStory([{say:'ivy',text:isHurt('ivy')?"Ssss... (She's still sore. Back in "+(G.allies.ivy.hurtUntil-G.day)+" day"+(G.allies.ivy.hurtUntil-G.day===1?"":"s")+".)"
+                                                                    :"Ssss! (Add "+PARTY_INFO.ivy.name+" to your party from the menu.)"}]);
 }
-const blingMeets=()=>[
+const ivyMeets=()=>[
   {say:'kaitlyn',text:"Oh no! This poor snake looks hurt..."},
   {say:'kaitlyn',text:"...but maybe I can rehabilitate her. Let's get you inside, poor baby."},
   {fade:'out'},
-  {run:()=>{ G.story.bling='recover'; G.story.blingDay=G.day; G.indoors=true; houseImg(); place(318,412,6); }},
+  {run:()=>{ G.story.ivy='recover'; G.story.ivyDay=G.day; G.indoors=true; houseImg(); place(318,412,6); }},
   {fade:'in'},
   {say:'kaitlyn',text:"You're so pretty, with your little ring around your neck...like a little golden necklace."},
-  {say:'kaitlyn',text:"...you're so fancy, I think I'll call you Bling!"},
-  {say:'bling',label:"Snake",text:"HISSS!"},
+  {say:'kaitlyn',text:"...you're so fancy, I think I'll call you Bling!"},   /* (she hates it) */
+  {say:'ivy',label:"Snake",text:"HISSS!"},
   {say:'kaitlyn',text:"...uhhh, then how about Ivy? Since you're a poisonous little creeper."},
-  {say:'bling',text:"...sss."},
+  {say:'ivy',text:"...sss."},
 ];
-const blingLetGo=()=>[
-  {say:'bling',text:"Ssss!"},
+const ivyLetGo=()=>[
+  {say:'ivy',text:"Ssss!"},
   {say:'kaitlyn',text:"Wow Ivy, you're looking much better! I'll miss you, but I think it's time to let you go."},
   {fade:'out'},
-  {run:()=>{ G.story.bling='released'; G.indoors=false; place(BLING_FREE.x+30,BLING_FREE.y-8,6);
-    Object.assign(BL,{x:BLING_FREE.x,y:BLING_FREE.y,tx:0,ty:0,wait:1400}); }},
+  {run:()=>{ G.story.ivy='released'; G.indoors=false; place(IVY_FREE.x+30,IVY_FREE.y-8,6);
+    Object.assign(BL,{x:IVY_FREE.x,y:IVY_FREE.y,tx:0,ty:0,wait:1400}); }},
   {fade:'in'},
   {say:'kaitlyn',text:"Go on, Ivy! You're free now."},
 ];
-const blingJoins=()=>[
-  {say:'bling',text:"Ssss! Sssss! ...sssss?"},
+const ivyJoins=()=>[
+  {say:'ivy',text:"Ssss! Sssss! ...sssss?"},
   {say:'kaitlyn',text:"Huh? Are you saying...you want to stay with me?"},
   {fade:'out',ms:900},
-  {pic:'join_bling'},
+  {pic:'join_ivy'},
   {fade:'in',ms:2400},
   {say:'kaitlyn',text:"Well, I could certainly use a helper! Let's look after each other from here on out, okay?"},
-  {say:'bling',text:"Yesssss!"},
+  {say:'ivy',text:"Yesssss!"},
   {say:'kaitlyn',text:"What?! You can...talk?"},
-  {say:'bling',text:"Ssss...?"},
+  {say:'ivy',text:"Ssss...?"},
   {fade:'out',ms:900},
   {pic:null},
-  {run:()=>{ G.story.bling='joined'; joinParty('bling'); }},
+  {run:()=>{ G.story.ivy='joined'; joinParty('ivy'); }},
   {fade:'in',ms:700},
-  {popup:"Ivy the ring-necked snake joins the party!",who:'bling'},
+  {popup:"Ivy the ring-necked snake joins the party!",who:'ivy'},
 ];
 /* let go, she ambles around near where she was set down */
-function updateBling(dt){
-  if(blingStage()!=='released') return;
+function updateIvy(dt){
+  if(ivyStage()!=='released') return;
   if(BL.wait>0){ BL.wait-=dt; BL.moving=false; return; }
   const dx=BL.tx-BL.x, dy=BL.ty-BL.y, d=Math.hypot(dx,dy);
   if(!BL.tx||d<1.5){
     let guard=0;
-    do{ const a=rnd(0,6.28), r=rnd(10,36); BL.tx=BLING_FREE.x+Math.cos(a)*r; BL.ty=BLING_FREE.y+Math.sin(a)*r*0.6; }
+    do{ const a=rnd(0,6.28), r=rnd(10,36); BL.tx=IVY_FREE.x+Math.cos(a)*r; BL.ty=IVY_FREE.y+Math.sin(a)*r*0.6; }
     while(solidAt(BL.tx,BL.ty)&&guard++<12);
-    if(solidAt(BL.tx,BL.ty)){ BL.tx=BLING_FREE.x; BL.ty=BLING_FREE.y; }
+    if(solidAt(BL.tx,BL.ty)){ BL.tx=IVY_FREE.x; BL.ty=IVY_FREE.y; }
     BL.wait=rnd(700,2400); BL.moving=false; return;
   }
   const step=Math.min(0.02*dt,d);
   BL.x+=dx/d*step; BL.y+=dy/d*step; BL.flip=dx<0; BL.moving=true;
 }
+/* ?partytest: jump to a step of Ivy's story (in the console), standing next to her:
+   'hurt' (day 5, by the house), 'recover' (her first day on the rug), 'better' (her third
+   day: talk to let her go), 'released' (wandering in the north-west corner: talk to have
+   her join) or 'home' (joined, waiting on the rug while out of the party). */
+function ivyTest(step){
+  if(!PARTY_TEST) return "Open the game with ?partytest first.";
+  if(G.scene==='title'){ newGameState(); startGame(); }
+  const S=G.story; G.scene='world'; story=null; G.clock=9*60; G.day=Math.max(G.day,IVY_DAY);
+  delete S.ivy; delete S.ivyDay; G.party=G.party.filter(id=>id!=='ivy');
+  const garden=(x,y,dir)=>{ G.area='garden'; G.indoors=false; seasonMap(season()); place(x,y,dir); };
+  const inside=()=>{ G.area='garden'; G.indoors=true; houseImg(); place(IVY_RUG.x+60,IVY_RUG.y+10,6); };
+  if(step==='hurt') garden(IVY_HURT.x-30,IVY_HURT.y-6,2);
+  else if(step==='recover'){ S.ivy='recover'; S.ivyDay=G.day; inside(); }
+  else if(step==='better'){ S.ivy='recover'; S.ivyDay=G.day-2; inside(); }
+  else if(step==='released'){ S.ivy='released'; Object.assign(BL,{x:IVY_FREE.x,y:IVY_FREE.y,tx:0,ty:0,wait:1400}); garden(IVY_FREE.x+30,IVY_FREE.y-8,6); }
+  else if(step==='home'){ S.ivy='joined'; S.ivyDay=G.day-4; joinParty('ivy'); G.party=G.party.filter(id=>id!=='ivy'); inside(); }
+  else return "Steps: hurt, recover, better, released, home";
+  return "Ivy's story: "+step+" (day "+G.day+", "+season()+")";
+}
 /* Her battle stance, small, with a shadow and how she feels floating over her head.
    x,y is where she lies, w her length (logical px); flip faces her left. */
-function drawBlingMap(c,x,y,w,mood,flip,moving){
-  const A=PARTY_ART.bling, s=A&&A.stance, img=partyImg();
+function drawIvyMap(c,x,y,w,mood,flip,moving){
+  const A=PARTY_ART.ivy, s=A&&A.stance, img=partyImg();
   c.globalAlpha=.28; c.fillStyle='#1a2810';
   c.beginPath(); c.ellipse(x,y,w*0.46,w*0.1,0,0,7); c.fill(); c.globalAlpha=1;
   let top=y-w*0.6;

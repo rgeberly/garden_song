@@ -23,7 +23,7 @@ function interact(){
   if(G.cast) return;                       /* mid-song */
   if(G.area!=='garden'){ placeInteract(); return; }
   if(G.indoors){ houseInteract(); return; }
-  if(nearBling()){ talkBling(); return; }
+  if(nearIvy()){ talkIvy(); return; }
   if(nearStall()){ openShop(); return; }
   if(nearDoor()){ travel(enterHouse); return; }
   const way=!ZONES&&nearGardenExit(); if(way){ goTo(way.to); return; }
@@ -250,11 +250,11 @@ function drawWorld(){
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k)}));
   G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3))}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
-  /* Bling, at her own size like Kaitlyn (the zoom undone around her) */
-  const bl=blingHere();
+  /* Ivy, at her own size like Kaitlyn (the zoom undone around her) */
+  const bl=ivyHere();
   if(bl&&!bl.inside) ents.push({y:bl.y,f:()=>{ const sx=bl.x-cam.x, sy=bl.y-cam.y;
     b.save(); b.translate(sx,sy); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); b.translate(-sx,-sy);
-    drawBlingMap(b,sx,sy,BLING_W,bl.mood,bl.flip,bl.moving); b.restore(); }});
+    drawIvyMap(b,sx,sy,IVY_W,bl.mood,bl.flip,bl.moving); b.restore(); }});
   /* the market stand stands over the painted table; drawn goods until its picture loads */
   ents.push({y:STAND_AT.y,f:()=>{
     if(cropsReady()&&CROP_ART.stand) groundShadow(b,c=>drawCropArt(c,'stand',0,0),STAND_AT.x-cam.x,STAND_AT.y-cam.y,40);
@@ -313,7 +313,7 @@ function drawWorld(){
   drawClockText(); drawBuffsText();
   const R=PROMPT_REACH, p=nearestPlot(R), f=nearestFrog(R);
   let label=null;
-  if(nearBling(R)) label=blingLabel();
+  if(nearIvy(R)) label=ivyLabel();
   else if(nearStall(R)) label="Shop";
   else if(nearDoor(R)) label="Go inside";
   else if(!ZONES&&nearGardenExit(R)) label=nearGardenExit(R).label;

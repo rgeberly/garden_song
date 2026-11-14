@@ -88,13 +88,13 @@ SHOP_FLOOR = {'music stand': 0.65}
 SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'seed apron': 2000}
 # Party members in battle, sized on their first ready frame, in sheet px (the game draws
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
-# Bling by her length.
-PARTY_FIT = {'kaitlyn': ('h', 189), 'bling': ('w', 70), 'tiny': ('h', 66)}
+# Ivy by her length.
+PARTY_FIT = {'kaitlyn': ('h', 189), 'ivy': ('w', 70), 'tiny': ('h', 66)}
 # party members the game has (PARTY_INFO in js/04-state.js); others in party/ (future
 # members like Tituba and Tex) are left out of party.webp until they join the game
-PARTY_IN_GAME = {'kaitlyn', 'bling', 'tiny'}
+PARTY_IN_GAME = {'kaitlyn', 'ivy', 'tiny'}
 # party folders named differently from the member's id in the game
-PARTY_IDS = {'tiny one': 'tiny', 'ivy': 'bling'}
+PARTY_IDS = {'tiny one': 'tiny'}
 # a baby's still picture and begging loop, by their height in sheet px (drawn smaller in the nest)
 BABY_H = 90
 HATCH_H = 90            # an egg hatching: the egg's height in sheet px
@@ -401,8 +401,8 @@ def party_files():
         stem = os.path.splitext(os.path.basename(f))[0].strip()
         name = folder or stem.split('-')[0].strip().lower()
         # in a member's folder, pictures may be named after the folder or after any other name
-        # of the same member ("party/Ivy/Bling-ready-spritesheet.png"); a picture named after
-        # neither is its own kind ("Tiny Egg hatching")
+        # of the same member ("party/Tiny One/Tiny-ready-spritesheet.png"); a picture named after
+        # neither is its own kind
         mid = PARTY_IDS.get(name, name)
         names = sorted({n for n, i in PARTY_IDS.items() if i == mid} | {mid, name}, key=len, reverse=True)
         own = next((n for n in names if stem.lower().startswith(n)), None)

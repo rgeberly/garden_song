@@ -1,4 +1,4 @@
-const CACHE='kgs-v56';
+const CACHE='kgs-v57';
 const FILES=[
  "./",
  "assets/audio/music_battle.m4a",
@@ -29,7 +29,7 @@ const FILES=[
  "assets/sprites/map_collision.png",
  "assets/sprites/map_house.jpg",
  "assets/sprites/party.webp",
- "assets/sprites/portrait_bling.png",
+ "assets/sprites/portrait_ivy.png",
  "assets/sprites/portrait_tiny.png",
  "assets/sprites/portrait_tiny-baby.png",
  "assets/sprites/portrait_juniper.png",
@@ -38,7 +38,7 @@ const FILES=[
  "assets/sprites/portrait_mr-hollis.png",
  "assets/sprites/portrait_old-pete.png",
  "assets/sprites/portrait_rosa.png",
- "assets/scenes/join_bling.jpg",
+ "assets/scenes/join_ivy.jpg",
  "assets/scenes/hatch_tiny_one.jpg",
  "assets/sprites/map_fall.jpg",
  "assets/sprites/map_spring.jpg",

@@ -196,18 +196,18 @@ const EQUIP={
   dizi:    {name:"Mystic Dizi",    slot:'weapon',who:['kaitlyn'],cost:1800,desc:"+7 Intelligence, +10 max MP.",own:()=>!!G.gear.dizi,stats:FLUTE_INFO.dizi.stats},
   fife:    {name:"Bamboo Fife",    slot:'weapon',who:['kaitlyn'],cost:450, desc:"A light little fife. +2 Intelligence, +2 Agility.",own:()=>!!G.gear.fife,stats:FLUTE_INFO.fife.stats},
   /* the others' weapons */
-  fangcaps:{name:"Silver Fang Caps",slot:'weapon',who:['bling'],cost:480,desc:"Shiny caps for her fangs. +3 Strength.",own:()=>!!G.gear.fangcaps,stats:{str:3}},
+  fangcaps:{name:"Silver Fang Caps",slot:'weapon',who:['ivy'],cost:480,desc:"Shiny caps for her fangs. +3 Strength.",own:()=>!!G.gear.fangcaps,stats:{str:3}},
   reedwhistle:{name:"Reed Whistle", slot:'weapon',who:['tiny'],cost:480,desc:"A tiny carved whistle to sing along with. +3 Intelligence, +3 max MP.",own:()=>!!G.gear.reedwhistle,stats:{int:3,mp:3}},
   /* clothes */
   flannel: {name:"Evergreen Flannel",slot:'clothes',who:['kaitlyn'],desc:"Her favorite green plaid shirt. +2 Defense.",own:()=>true,stats:{def:2}},
   overalls:{name:"Garden Overalls",slot:'clothes',who:['kaitlyn'],cost:520,desc:"Sturdy denim with deep pockets. +2 Defense, +2 Strength.",own:()=>!!G.gear.overalls,stats:{def:2,str:2}},
-  mosswrap:{name:"Mossy Wrap",     slot:'clothes',who:['bling'],cost:400,desc:"Soft moss and ivy leaves. +2 Defense, +2 Agility.",own:()=>!!G.gear.mosswrap,stats:{def:2,agi:2}},
+  mosswrap:{name:"Mossy Wrap",     slot:'clothes',who:['ivy'],cost:400,desc:"Soft moss and ivy leaves. +2 Defense, +2 Agility.",own:()=>!!G.gear.mosswrap,stats:{def:2,agi:2}},
   acorncap:{name:"Acorn Cap",      slot:'clothes',who:['tiny'],cost:360,desc:"A little hat just her size. +2 Defense, +5 max HP.",own:()=>!!G.gear.acorncap,stats:{def:2,hp:5}},
   /* accessories (owned once bought: G.gear[key]) */
   polish:  {name:"Flute Polish",   slot:'acc',who:['kaitlyn'],cost:420,desc:"Songs do 30% more damage.",own:()=>!!G.gear.polish},
   cloth:   {name:"Cleaning Cloth", slot:'acc',cost:480,desc:"+8 max MP.",own:()=>!!G.gear.cloth,stats:{mp:8}},
   kickers: {name:"Garden Boots",   slot:'acc',who:['kaitlyn'],cost:380,desc:"Kicks hit 60% harder.",own:()=>!!G.gear.kickers},
-  fangpolish:{name:"Fang Polish",  slot:'acc',who:['bling'],cost:450,desc:"Ivy's Venom Bite hits 50% harder.",own:()=>!!G.gear.fangpolish},
+  fangpolish:{name:"Fang Polish",  slot:'acc',who:['ivy'],cost:450,desc:"Ivy's Venom Bite hits 50% harder.",own:()=>!!G.gear.fangpolish},
   scalecharm:{name:"Scale Charm",  slot:'acc',cost:380,desc:"+3 Defense.",own:()=>!!G.gear.scalecharm,stats:{def:3}},
   bell:    {name:"Silver Bell",    slot:'acc',who:['tiny'],cost:520,desc:"Tiny One's Tweet and healing songs heal 20% more.",own:()=>!!G.gear.bell},
   scarf:   {name:"Downy Scarf",    slot:'acc',cost:400,desc:"+10 max HP.",own:()=>!!G.gear.scarf,stats:{hp:10}},
@@ -290,7 +290,7 @@ function moveDesc(mv){
 /* friends' skills (MP): pow scales with Intelligence; bind: chance the foe loses a turn;
    heal: share of max HP; cure: clears poison, blindness and weakness; burst: x3 if poisoned */
 const ALLY_SKILLS={
-  bling:[
+  ivy:[
     {id:'constrict',name:"Constrict",  lv:3, mp:3, pow:0.9, bind:0.6,
      desc:"A big, crushing hug. Not the friendly kind. One foe, power x0.9, may hold it still for a turn."},
     {id:'shed',     name:"Shed Skin",  lv:6, mp:4, heal:0.4, cure:true,

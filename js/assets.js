@@ -51,8 +51,8 @@ const ASSET_MAPS={"spring":"assets/sprites/map_spring.jpg","summer":"assets/spri
                   "fall":"assets/sprites/map_fall.jpg","winter":"assets/sprites/map_winter.jpg"};
 const ASSET_MAP=ASSET_MAPS.spring;
 const ASSET_PARTY="assets/sprites/party.webp";
-const ASSET_PORTRAITS={bling:"assets/sprites/portrait_bling.png"};
-const ASSET_SCENES={join_bling:"assets/scenes/join_bling.jpg"};
+const ASSET_PORTRAITS={ivy:"assets/sprites/portrait_ivy.png"};
+const ASSET_SCENES={join_ivy:"assets/scenes/join_ivy.jpg"};
 const ASSET_HOUSE="assets/sprites/map_house.jpg";
 const ASSET_MAPCOL="assets/sprites/map_collision.png";
 const MAP_META={"world":720,"cells":360};

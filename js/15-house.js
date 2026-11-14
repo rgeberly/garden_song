@@ -133,7 +133,7 @@ function drawStand(x,y,k){
   b.beginPath(); b.arc(x-4*s,y-27*s,0.9*s,0,7); b.arc(x+2*s,y-25*s,0.9*s,0,7); b.arc(x+5*s,y-28*s,0.9*s,0,7); b.fill();
 }
 function houseInteract(){
-  if(nearBling()){ talkBling(); return; }
+  if(nearIvy()){ talkIvy(); return; }
   if(nearTinyNest()){ tinyInteract(); return; }
   if(nearStand()){ askStand(); return; }
   if(nearBed()){ askSleep(); return; }
@@ -164,11 +164,11 @@ function drawHouse(){
     drawKaitlynShadow(b,sx,sy,P.dir,P.animT||0,P.moving,true);
     drawKaitlyn(b,sx,sy,P.dir,P.animT||0,false,P.moving);
     b.restore(); };
-  /* Bling, when she's in (recovering on the rug, or asleep by the bed), in front or behind */
-  /* the music stand, Bling when she's in, and Kaitlyn, back to front */
+  /* Ivy, when she's in (recovering on the rug, or asleep by the bed), in front or behind */
+  /* the music stand, Ivy when she's in, and Kaitlyn, back to front */
   const ents=[{y:P.y,f:kait},{y:HOUSE_STAND.y,f:()=>drawStand(HOUSE_STAND.x*k,cam.top+(HOUSE_STAND.y-cam.y)*k,k)}];
-  const bl=blingHere();
-  if(bl&&bl.inside) ents.push({y:bl.y,f:()=>drawBlingMap(b,bl.x*k,cam.top+(bl.y-cam.y)*k,BLING_W*HOUSE_KAIT,bl.mood,false,false)});
+  const bl=ivyHere();
+  if(bl&&bl.inside) ents.push({y:bl.y,f:()=>drawIvyMap(b,bl.x*k,cam.top+(bl.y-cam.y)*k,IVY_W*HOUSE_KAIT,bl.mood,false,false)});
   const tn=tinyHouseEnt(k,cam); if(tn) ents.push(tn);
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   const fr=frontImg('house'); if(fr) b.drawImage(fr,0,cam.top-cam.y*k,LW,HOUSE.h*k);   /* what she walks behind */
@@ -176,7 +176,7 @@ function drawHouse(){
   drawClockBack(); drawBuffsBack();
   blit();
   drawClockText(); drawBuffsText();
-  const label=nearBling(PROMPT_REACH)?blingLabel():nearTinyNest(PROMPT_REACH*1.4)?tinyLabel():nearStand()?(G.daily.practice===G.day?"Practiced today":"Practice flute")
+  const label=nearIvy(PROMPT_REACH)?ivyLabel():nearTinyNest(PROMPT_REACH*1.4)?tinyLabel():nearStand()?(G.daily.practice===G.day?"Practiced today":"Practice flute")
     :nearBed()?"Sleep":nearHouseDoor()?"Go outside":null;
   if(label&&G.scene==='world') drawPrompt(label,sx,sy-74*HOUSE_KAIT);
   drawHUD();

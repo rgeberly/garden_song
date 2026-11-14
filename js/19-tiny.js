@@ -185,7 +185,7 @@ function tinyHouseEnt(k,cam){
     if(st==='baby') drawTinyBird(b,x,y-TINY_BABY_UP-hop,22,true,!tinyHungry()?'asleep':near?'beg':null);
     else drawTinyBird(b,x,y-6-hop,22,false,st==='grown'&&near?'tweet':null);
     /* asleep in the nest at night, like Ivy at the foot of the bed */
-    if(st==='joined'&&G.clock>=BLING_SLEEPS) drawMood(b,x+8,y-34,'sleep');
+    if(st==='joined'&&G.clock>=IVY_SLEEPS) drawMood(b,x+8,y-34,'sleep');
   }};
 }
 function updateTiny(dt){ if(TINY_GULP.t>0) TINY_GULP.t-=dt; }

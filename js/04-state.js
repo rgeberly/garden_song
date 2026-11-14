@@ -66,7 +66,7 @@ const STAT_NAME={hp:"HP",mp:"MP",str:"Strength",agi:"Agility",def:"Defense",int:
 const PARTY_INFO={
   kaitlyn:{name:"Kaitlyn", skills:"Skills", attack:"Quick Kick", pow:0.55, role:"Gardener · plays the flute · talks to her tomatoes, and they listen",
            base:{hp:30,mp:16,str:6,agi:6,def:4,int:7,luk:5}, grow:{hp:6,mp:2,str:2,agi:1.4,def:1.3,int:2,luk:1}},
-  bling:  {name:"Ivy",     skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite · small, shy, and secretly very brave",
+  ivy:  {name:"Ivy",     skills:"Skills", attack:"Venom Bite", pow:0.55, role:"Ring-necked snake · venomous bite · small, shy, and secretly very brave",
            base:{hp:24,mp:8,str:3,agi:9,def:3,int:5,luk:7}, grow:{hp:4,mp:1.5,str:1,agi:2,def:1,int:1.5,luk:1.5}},
   /* the healer: his free move is a Tweet that heals everyone (tweet: share of their max HP) */
   tiny:   {name:"Tiny One",skills:"Songs",  attack:"Tweet", pow:0, tweet:0.05, role:"Little brown bird · sings to heal · hatched by the fireplace, raised on worms",
@@ -162,7 +162,8 @@ function applySave(o){
   G.coins=o.c; [G.gardenLv,G.gardenXp,G.gardenNext,G.harvests]=o.g;
   G.seeds=o.s||{}; G.unlocked=[...new Set([...(o.u||[]),...unlockedFor(o.g?o.g[0]:1)])]; G.gear=o.ge||{}; G.yard=o.y||{}; G.crops=o.cr||{};
   G.flute=o.fl||'recorder';
-  G.allies=o.al||{}; G.party=(o.pa||['kaitlyn']).filter(id=>id==='kaitlyn'||G.allies[id]);
+  /* (members the game doesn't know, like an old id, are left behind) */
+  G.allies=Object.fromEntries(Object.entries(o.al||{}).filter(([id])=>PARTY_INFO[id])); G.party=(o.pa||['kaitlyn']).filter(id=>id==='kaitlyn'||G.allies[id]);
   for(const id in G.allies){ const A=G.allies[id];          /* older saves had no EXP for friends */
     if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; }
   G.runMode=o.jm||'hold';
