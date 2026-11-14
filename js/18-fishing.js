@@ -29,8 +29,9 @@ let FS=null;
 /* Where the line can meet the water: 'near' 0 (far away) to 1 (close by), 'side' -1..1
    across it. In each pond picture's own pixels (FISH_WATER, from the far end of the water
    to the near water), or in screen px for the drawn pond. */
+const RIVER_WATER={far:{x:470,y:850,half:120},near:{x:830,y:1340,half:210}};   /* the river pictures */
 const FISH_WATER={fishing:{far:{x:565,y:845,half:85},near:{x:760,y:1340,half:250}},
-                  fishing_spring:{far:{x:620,y:830,half:110},near:{x:800,y:1350,half:260}}};
+                  fishing_spring:RIVER_WATER, fishing_summer:RIVER_WATER, fishing_fall:RIVER_WATER};
 const DRAWN_WATER={far:{x:200,y:170,half:110},near:{x:210,y:340,half:150}};
 /* where the pond picture sits on the screen: covering it, its bottom on the band's */
 function fishPic(){ const im=fishImg(), T0=BAND_TOP(), T1=BAND_BOT(), r=im.naturalWidth/im.naturalHeight;
@@ -42,6 +43,9 @@ function waterPt(near,side){
   return {x,y,s:0.55+0.75*k};             /* s: how big things look there */
 }
 /* how close the line's end is (dist 1 is where the cast lands) */
+/* the fish whose pictures (shop items/<name>) face right; the rest face left. Update this
+   when a fish's picture changes (Croaker, Crab, Octopus, Tarpon and Dolphin don't have one yet). */
+const FISH_FACES_RIGHT=['bass','catfish','flounder','salmon'];
 const lineNear=()=>clamp(1-FS.dist,0,1)*0.95+0.05;
 /* the reel sits near the bottom right of the screen, where a thumb can reach it */
 const reelY=()=>Math.max(392,BAND_BOT()-98);
@@ -61,7 +65,7 @@ function startFishing(){
   blip(300,0.05,0.12,'triangle');
 }
 function endFishing(msg){ FS=null; G.scene='world'; if(msg) say(msg); autoSave(); }
-/* the cast: power 0..1 decides how far out the bobber lands */
+/* the cast: power 0..1 decides how far out the line lands */
 function fishCast(power){
   FS.phase='cast'; FS.t=0; FS.dist=0.55+0.45*clamp(power,0,1); FS.charge=0;
   blip(240,0.08,0.1,'triangle');
@@ -132,7 +136,7 @@ function updateFishing(dt){
     else if(FS.held){ FS.held=0; fishCast(0.3+FS.charge*0.7); } }
   if(FS.phase==='cast'&&FS.t>THROW_MS){ FS.phase='wait'; FS.t=0; fishSplash(0.3); }
   else if(FS.phase==='wait'&&FS.t>FS.wait){ FS.phase='bite'; FS.t=0; FS.fish=pickFish();
-    for(let i=0;i<8;i++) FS.splash.push({a:i*0.8,t:500}); blip(880,0.05,0.15,'sine'); }
+    for(let i=0;i<8;i++) FS.splash.push({a:i*0.8,t:500}); blip(880,0.05,0.15,'sine'); fishBuzz(); }
   else if(FS.phase==='bite'&&FS.t>HOOK_MS){ FS.phase='lost'; FS.t=0; FS.msg="It nibbled the bait and swam off."; }
   else if(FS.phase==='reel'){
     const g=GOODS[FS.fish], s=dt/1000;
@@ -174,24 +178,114 @@ function updateFishing(dt){
       if(AC){ flute(9,AC.currentTime,.3,.6); flute(13,AC.currentTime+.12,.3,.6); flute(16,AC.currentTime+.24,.6,.6); } }
   }
 }
-/* The rod, reel and bobber pictures (fishing/Rod, Reel, Bobber in the art folder, packed
-   into assets/sprites/fishing.png): drawn along a line (the rod, its handle at x0,y0 and
-   tip at x1,y1) or centred and size tall. False until there's a picture. */
+/* The rod and reel pictures (fishing/Spinning Rod, Spinning Reel in the art folder, packed
+   into assets/sprites/fishing.png), each with frames (rod_spin, reel_spin) played while the
+   reel is wound: the rod laid along a line (its handle end at x0,y0, its tip at x1,y1; each
+   rod picture carries where those are on it), the reel held at x0,y0 by FISH_ANCHOR and
+   size across its longer side. False until there's a picture. */
 let IMG_FISHING=null;
-const ROD_WIDEN=2.2;           /* the rod drawn this much wider than true, so its slim blank shows */
-function drawFishingArt(k,x0,y0,x1,y1,size){
-  const a=typeof FISH_ART!=='undefined'&&FISH_ART[k]; if(!a) return false;
+/* where on its picture each piece is held at x0,y0 (fractions across and down): the reel by
+   the round cap on its side, where the crank turns (the still and its frames share one box) */
+const FISH_ANCHOR={reel:[0.614,0.718]};
+/* where the line leaves the rod: the bottom of the tip ring (fractions across and down the
+   rod's picture; the same on the still and its frames) */
+const ROD_EYE=[0.985,0.026];
+/* winding: the frame for how far round the crank is, so many frames a turn (the reel's bail
+   spins round twice for each turn of the handle); the still otherwise */
+const FISH_SPIN_FRAMES_PER_TURN={rod:8,reel:16};
+function fishArtNow(k){
+  const F=FISH_ART[k+'_spin'];
+  if(!F||!FS||FS.phase!=='reel'||FS.reel<0.08) return FISH_ART[k];
+  const n=Math.floor(FS.ang/(Math.PI*2)*(FISH_SPIN_FRAMES_PER_TURN[k]||8));
+  return F[((n%F.length)+F.length)%F.length];
+}
+const fishArtReady=()=>{
+  if(typeof FISH_ART==='undefined') return false;
   if(!IMG_FISHING){ IMG_FISHING=new Image(); IMG_FISHING.src='assets/sprites/fishing.png'; }
-  if(!IMG_FISHING.complete||!IMG_FISHING.naturalWidth) return false;
-  const [sx,sy,w,h]=a;
+  return IMG_FISHING.complete&&IMG_FISHING.naturalWidth>0;
+};
+/* laying a rod picture a along the line x0,y0 (handle end) to x1,y1 (tip): a point on the
+   picture (px) to the screen */
+function rodToScreen(a,x0,y0,x1,y1,px,py){
+  const [,,w,h]=a, [bx,by,tx,ty]=a.length>=8?a.slice(4):[w/2,h,w/2,0];      /* its handle end and tip */
+  const s=Math.hypot(x1-x0,y1-y0)/Math.hypot(tx-bx,ty-by), r=Math.atan2(y1-y0,x1-x0)-Math.atan2(ty-by,tx-bx);
+  const dx=(px-bx)*s, dy=(py-by)*s;
+  return {x:x0+dx*Math.cos(r)-dy*Math.sin(r), y:y0+dx*Math.sin(r)+dy*Math.cos(r), s, r, bx, by};
+}
+function drawFishingArt(k,x0,y0,x1,y1,size){
+  if(!fishArtReady()||!FISH_ART[k]) return false;
+  const a=fishArtNow(k), [sx,sy,w,h]=a, [ax,ay]=FISH_ANCHOR[k]||[0.5,0.5];
   b.save(); b.imageSmoothingEnabled=true; b.translate(x0,y0);
-  if(size){ const s=size/Math.max(w,h); b.drawImage(IMG_FISHING,sx,sy,w,h,-w*s/2,-h*s/2,w*s,h*s); }
-  else { const len=Math.hypot(x1-x0,y1-y0), s=len/h, ww=w*s*ROD_WIDEN; b.rotate(Math.atan2(y1-y0,x1-x0)+Math.PI/2);
-    b.drawImage(IMG_FISHING,sx,sy,w,h,-ww/2,-len,ww,len); }
+  if(size){ const s=size/Math.max(w,h); b.drawImage(IMG_FISHING,sx,sy,w,h,-w*s*ax,-h*s*ay,w*s,h*s); }
+  else { const T=rodToScreen(a,x0,y0,x1,y1,0,0);
+    b.rotate(T.r); b.scale(T.s,T.s); b.drawImage(IMG_FISHING,sx,sy,w,h,-T.bx,-T.by,w,h); }
   b.restore(); return true;
 }
-/* the pond picture for the season (scenes/fishing_<season>, or scenes/fishing), once it
-   has loaded; a drawn pond until then */
+/* The lure on the end of the line: a little firetiger crankbait, nose along angle a, k as big
+   as things look there, alpha see-through and deep (0..1) sinking into the water */
+const LURE_SINK_MS=450;
+function drawLure(x,y,a,k,alpha,deep){
+  b.save(); b.translate(x,y); b.rotate(a); b.scale(k*1.15,k*1.15); b.globalAlpha=Math.max(0,alpha);
+  b.lineCap='round';
+  b.strokeStyle='#5a5e66'; b.lineWidth=0.5;                       /* the treble hooks, belly and tail */
+  [[0.4,2.2],[-4.6,0.6]].forEach(([hx,hy])=>{ b.beginPath(); b.moveTo(hx,hy-0.6); b.lineTo(hx,hy+0.9);
+    b.moveTo(hx-1.1,hy+0.4); b.quadraticCurveTo(hx-1.2,hy+1.8,hx,hy+1.8); b.quadraticCurveTo(hx+1.2,hy+1.8,hx+1.1,hy+0.4); b.stroke(); });
+  b.fillStyle='rgba(220,236,250,.75)'; b.beginPath();             /* the clear diving lip */
+  b.moveTo(4.6,0.4); b.lineTo(7.4,2.2); b.lineTo(6.6,3.0); b.lineTo(4.0,1.4); b.closePath(); b.fill();
+  const g=b.createLinearGradient(0,-2.4,0,2.4);                   /* the body: dark back, bright sides, orange belly */
+  g.addColorStop(0,'#2d5a24'); g.addColorStop(0.35,'#a8c832'); g.addColorStop(0.62,'#e4e04a'); g.addColorStop(1,'#f07a28');
+  b.fillStyle=g; b.beginPath(); b.ellipse(0,0,5.4,2.4,0,0,7); b.fill();
+  b.save(); b.clip(); b.fillStyle='rgba(20,30,16,.75)';            /* tiger stripes */
+  [-2.6,-0.8,1.0].forEach(sx=>{ b.beginPath(); b.moveTo(sx,-2.6); b.lineTo(sx+0.9,-2.6); b.lineTo(sx+0.3,0.6); b.lineTo(sx-0.4,0.6); b.fill(); });
+  b.restore();
+  b.strokeStyle='rgba(16,24,12,.8)'; b.lineWidth=0.35; b.beginPath(); b.ellipse(0,0,5.4,2.4,0,0,7); b.stroke();
+  b.fillStyle='rgba(255,255,255,.55)'; b.beginPath(); b.ellipse(0.4,-1.3,3.4,0.45,0,0,7); b.fill();   /* shine */
+  b.fillStyle='#fff6d0'; b.beginPath(); b.arc(3.3,-0.5,0.85,0,7); b.fill();                            /* eye */
+  b.fillStyle='#141414'; b.beginPath(); b.arc(3.5,-0.5,0.45,0,7); b.fill();
+  if(deep>0){ b.fillStyle='rgba(30,90,120,'+Math.min(0.9,deep)+')';                                   /* under the water */
+    b.beginPath(); b.ellipse(0,0,5.6,2.6,0,0,7); b.fill(); }
+  b.restore();
+}
+/* The line's tension meter at the left while reeling: a brushed-metal frame like the reel's,
+   coloured bands (top to bottom: snapping, the drag slipping, just right, slack) behind
+   glass, and a pointer at the tension; it glows red when the line is about to snap. */
+const LINE_METER={x:14,y:178,h:176,w:14};
+function drawLineMeter(x,y,h){
+  const w=LINE_METER.w, at=t=>y+clamp(1-t/T_MAX,0,1)*h, DRAG=dragAt(), ty=at(FS.tension);
+  b.save();
+  if(FS.tension>1){ b.shadowColor='rgba(255,60,40,'+(0.6+0.4*Math.sin(G.t/90))+')'; b.shadowBlur=14; }
+  const m=b.createLinearGradient(x-6,0,x+w+6,0);                       /* the frame */
+  m.addColorStop(0,'#3e4148'); m.addColorStop(0.25,'#c4c7cd'); m.addColorStop(0.5,'#8e9299'); m.addColorStop(0.8,'#d6d9de'); m.addColorStop(1,'#4a4d54');
+  b.fillStyle=m; b.beginPath(); b.roundRect(x-6,y-12,w+12,h+24,9); b.fill(); b.restore();
+  b.strokeStyle='#15171b'; b.lineWidth=1; b.beginPath(); b.roundRect(x-6,y-12,w+12,h+24,9); b.stroke();
+  [y-6,y+h+6].forEach(sy=>{ b.fillStyle='#2a2c32'; b.beginPath(); b.arc(x+w/2,sy,2.6,0,7); b.fill();   /* screws */
+    b.fillStyle='#b8bcc3'; b.beginPath(); b.arc(x+w/2-0.6,sy-0.6,1.4,0,7); b.fill(); });
+  b.fillStyle='#0b0e14'; b.beginPath(); b.roundRect(x-1.5,y-1.5,w+3,h+3,6); b.fill();
+  b.save(); b.beginPath(); b.roundRect(x,y,w,h,5); b.clip();
+  [['#c8322a','#ff7a62',y,at(1)],['#d8a420','#ffe27a',at(1),at(DRAG)],['#2f9e44','#8ff08a',at(DRAG),at(0.15)],['#d8a420','#ffe27a',at(0.15),y+h]]
+    .forEach(([c,hi,y0,y1])=>{ const g=b.createLinearGradient(x,0,x+w,0); g.addColorStop(0,c); g.addColorStop(0.45,hi); g.addColorStop(1,c);
+      b.fillStyle=g; b.fillRect(x,y0,w,y1-y0); b.fillStyle='rgba(0,0,0,.45)'; b.fillRect(x,y1-0.5,w,1); });
+  const sh=b.createLinearGradient(0,y,0,y+h); sh.addColorStop(0,'rgba(0,0,0,.25)'); sh.addColorStop(0.1,'rgba(0,0,0,0)');
+  sh.addColorStop(0.9,'rgba(0,0,0,0)'); sh.addColorStop(1,'rgba(0,0,0,.3)'); b.fillStyle=sh; b.fillRect(x,y,w,h);
+  b.fillStyle='rgba(255,255,255,.28)'; b.fillRect(x+2,y+3,2.5,h-6);   /* the glass's shine */
+  b.restore();
+  /* the pointer: a bar across the glass and an arrow on the frame */
+  b.fillStyle='#15171b'; b.beginPath(); b.roundRect(x-3,ty-2.5,w+6,5,2.5); b.fill();
+  b.fillStyle='#ffffff'; b.beginPath(); b.roundRect(x-2,ty-1.5,w+4,3,1.5); b.fill();
+  b.beginPath(); b.moveTo(x+w+5,ty); b.lineTo(x+w+12,ty-5.5); b.lineTo(x+w+12,ty+5.5); b.closePath();
+  b.fillStyle='#15171b'; b.fill(); b.beginPath(); b.moveTo(x+w+6.5,ty); b.lineTo(x+w+11,ty-3.6); b.lineTo(x+w+11,ty+3.6); b.closePath();
+  b.fillStyle=FS.tension>1?'#ff7a62':FS.tension>DRAG?'#ffe27a':'#f4f6ff'; b.fill();
+}
+/* a bite: a buzz on a phone that can (not iPhones, whose browsers don't allow it) */
+function fishBuzz(){ try{ if(navigator.vibrate) navigator.vibrate([90,60,140]); }catch(e){} }
+/* where the line leaves the rod laid from x0,y0 to x1,y1 (the tip itself without a picture) */
+function rodEye(x0,y0,x1,y1){
+  if(!fishArtReady()||!FISH_ART.rod) return {x:x1,y:y1};
+  const a=fishArtNow('rod'); return rodToScreen(a,x0,y0,x1,y1,a[2]*ROD_EYE[0],a[3]*ROD_EYE[1]);
+}
+/* the pond picture for the season (scenes/fishing_<season>, or scenes/fishing; none for
+   winter, when the pond is frozen and there's no fishing), once it has loaded; a drawn pond
+   until then */
 const FISH_IMG={};
 const pondKey=()=>{ const k='fishing_'+season(); return typeof SCENES!=='undefined'&&SCENES.includes(k)?k:'fishing'; };
 function fishImg(){
@@ -222,17 +316,23 @@ function drawFishing(dt){
   const art=typeof FISH_ART!=='undefined'&&FISH_ART.rod;     /* the rod's picture is long and slim */
   const wind=FS.phase==='ready'?FS.charge:0;               /* winding up a cast tips the rod back */
   const baseX=26, baseY=T1-36, tipX=(art?74:52)+FS.lift*8-wind*40, tipY=T1-(art?290:170)-FS.lift*(art?50:42)+wind*30;
-  /* in the air: the bobber arcs from the rod tip out to where it lands */
-  if(FS.phase==='ready'){ fx=tipX+6; fy=tipY+40; }
+  const eye=rodEye(baseX,baseY,tipX,tipY);                 /* where the line leaves the rod */
+  /* in the air: the line's end (the lure) arcs from the rod tip out to where it lands */
+  let lureA=0;
+  if(FS.phase==='ready'){ fx=eye.x+6; fy=eye.y+40; }
   else if(FS.phase==='cast'){ const q=clamp(FS.t/THROW_MS,0,1);
-    fx=tipX+(W.x-tipX)*q; fy=tipY+(W.y-tipY)*q-Math.sin(q*Math.PI)*90; ws=0.9+(W.s-0.9)*q; }
+    fx=eye.x+(W.x-eye.x)*q; fy=eye.y+(W.y-eye.y)*q-Math.sin(q*Math.PI)*90; ws=0.9+(W.s-0.9)*q;
+    lureA=Math.atan2((W.y-eye.y)-Math.cos(q*Math.PI)*Math.PI*90,W.x-eye.x); }   /* nose along its flight */
   if(!drawFishingArt('rod',baseX,baseY,tipX,tipY)){
     b.strokeStyle='#5a3a1e'; b.lineWidth=3; b.beginPath(); b.moveTo(baseX,baseY); b.lineTo(tipX,tipY); b.stroke(); }
-  b.strokeStyle='rgba(255,255,255,.75)'; b.lineWidth=1;
-  b.beginPath(); b.moveTo(tipX,tipY); b.quadraticCurveTo((tipX+fx)/2,(tipY+fy)/2+(1-FS.tension)*40,fx,fy); b.stroke();
-  if(FS.phase==='cast'||FS.phase==='ready'){     /* the bobber dangling or flying */
-    if(!drawFishingArt('bobber',fx,fy,0,0,14*ws)){ const r=4*ws; b.fillStyle='#e83a3a'; b.beginPath(); b.arc(fx,fy,r,Math.PI,0); b.fill();
-      b.fillStyle='#ffffff'; b.beginPath(); b.arc(fx,fy,r,0,Math.PI); b.fill(); } }
+  /* the line, half see-through; in the water its end bobs (hard when something bites) */
+  const inWater=FS.phase!=='cast'&&FS.phase!=='ready';
+  const bob=!inWater?0:(FS.phase==='bite'?Math.sin(G.t/40)*4:Math.sin(G.t/400)*1.5)*ws;
+  b.strokeStyle='rgba(255,255,255,.5)'; b.lineWidth=1;
+  b.beginPath(); b.moveTo(eye.x,eye.y); b.quadraticCurveTo((eye.x+fx)/2,(eye.y+fy)/2+(1-FS.tension)*40,fx,fy+bob); b.stroke();
+  /* the lure: seen only while it flies out, then it sinks out of sight */
+  if(FS.phase==='cast') drawLure(fx,fy,lureA,ws,1,0);
+  else if(FS.phase==='wait'&&FS.t<LURE_SINK_MS){ const q=FS.t/LURE_SINK_MS; drawLure(fx,fy+q*5*ws,0.5*q,ws,1-q,q); }
   /* winding up a cast (keys): how far it'll go */
   if(FS.phase==='ready'&&FS.charge>0){ gauge(110,T1-150,140,8,FS.charge,1,'#f0c84a','#fff0b0'); }
   if(FS.phase!=='cast'&&FS.phase!=='ready'){
@@ -249,45 +349,50 @@ function drawFishing(dt){
     /* a leap: the fish arcs out of the water and back in */
     if(FS.leap){ const q=FS.leap.t/FS.leap.dur, g=GOODS[FS.fish], hgt=Math.sin(q*Math.PI)*(30+g.power*10)*ws;
       const lx=fx+FS.leap.dir*(q-0.5)*28*ws, ly=fy-hgt;
-      b.save(); b.translate(lx,ly); b.rotate(FS.leap.dir*(q-0.5)*2.2); b.scale(FS.leap.dir*ws*1.5,ws*1.5);
+      b.save(); b.translate(lx,ly); b.rotate(FS.leap.dir*(q-0.5)*2.2);
+      /* its own picture (shop items/<name>), nose first; a drawn fish when there's none */
+      const pk=g.name.toLowerCase(), r=typeof SHOP_ART!=='undefined'&&SHOP_ART[pk], img=r&&shopArtImg();
+      if(img){ const [sx,sy,w,h]=r, L=(20+g.power*7)*ws*1.5, s=L/Math.max(w,h);
+        b.scale(FS.leap.dir*(FISH_FACES_RIGHT.includes(FS.fish)?1:-1),1); b.imageSmoothingEnabled=true;
+        b.globalAlpha=clamp(Math.min(q,1-q)*8,0,1);             /* coming out of and back into the water */
+        b.drawImage(img,sx,sy,w,h,-w*s/2,-h*s/2,w*s,h*s); b.restore(); }
+      else { b.scale(FS.leap.dir*ws*1.5,ws*1.5);
       b.fillStyle=g.col; b.beginPath(); b.ellipse(0,0,9+g.power*2,4,0,0,7); b.fill();
       b.beginPath(); b.moveTo(-8-g.power*2,0); b.lineTo(-14-g.power*2,-5); b.lineTo(-14-g.power*2,5); b.fill();
       b.fillStyle='rgba(255,255,255,.45)'; b.beginPath(); b.ellipse(1,-1.5,6,1.4,0,0,7); b.fill();
-      b.fillStyle='#1a1a2a'; b.beginPath(); b.arc(6,-1,1,0,7); b.fill(); b.restore(); }
-    /* the bobber (under the water while the fish runs with it) */
-    const bob=FS.phase==='bite'?Math.sin(G.t/40)*4:Math.sin(G.t/400)*1.5, under=FS.phase==='reel'&&FS.burst>0;
-    b.globalAlpha=under?0.45:1;
-    if(!drawFishingArt('bobber',fx,fy+bob*ws,0,0,14*ws)){
-      const r=4*ws; b.fillStyle='#e83a3a'; b.beginPath(); b.arc(fx,fy+bob*ws,r,Math.PI,0); b.fill();
-      b.fillStyle='#ffffff'; b.beginPath(); b.arc(fx,fy+bob*ws,r,0,Math.PI); b.fill(); }
-    b.globalAlpha=1;
+      b.fillStyle='#1a1a2a'; b.beginPath(); b.arc(6,-1,1,0,7); b.fill(); b.restore(); } }
     FS.drops.forEach(d=>{ b.globalAlpha=Math.max(0,1-d.t/900); b.fillStyle='#ffffff';
       b.beginPath(); b.arc(d.x,d.y,1.3*ws+0.4,0,7); b.fill(); });
     b.globalAlpha=1;
   }
   /* tension (left) and distance (top) gauges */
   if(FS.phase==='reel'){
-    const gx=16, gy=170, gh=180;
-    b.fillStyle='#0a0f2a'; b.beginPath(); b.roundRect(gx-2,gy-2,18,gh+4,6); b.fill();
-    const at=t=>1-t/T_MAX;          /* a tension's place on the gauge, top = tight */
-    const DRAG=dragAt();
-    [['#d84a3a',0,at(1)],['#e8c84a',at(1),at(DRAG)],['#5ac85a',at(DRAG),at(0.15)],['#e8c84a',at(0.15),1]].forEach(([c,a,z])=>{ b.fillStyle=c; b.fillRect(gx,gy+a*gh,14,(z-a)*gh); });
-    const ty=gy+clamp(at(FS.tension),0,1)*gh; b.fillStyle='#ffffff'; b.fillRect(gx-4,ty-2,22,4);
+    drawLineMeter(LINE_METER.x,LINE_METER.y,LINE_METER.h);
     gauge(70,T0+60,220,8,1.3-FS.dist,1.3,'#8fe07a','#e0ffd0');
   }
   /* the reel to wind */
   if(IS_TOUCH||FS.phase==='reel'){
-    const R=REEL, ry=reelY(); b.fillStyle='rgba(0,0,0,.35)'; b.beginPath(); b.arc(R.x,ry+3,R.r+4,0,7); b.fill();
-    if(!drawFishingArt('reel',R.x,ry,0,0,R.r*2.1)){            /* the reel's picture, or a drawn one */
+    const R=REEL, ry=reelY();
+    b.save(); b.shadowColor='rgba(0,0,0,.5)'; b.shadowBlur=8; b.shadowOffsetY=3;
+    const pic=drawFishingArt('reel',R.x,ry,0,0,R.r*2.1); b.restore();
+    if(!pic){                                                   /* the reel's picture, or a drawn one */
+      b.fillStyle='rgba(0,0,0,.35)'; b.beginPath(); b.arc(R.x,ry+3,R.r+4,0,7); b.fill();
       const rg=b.createRadialGradient(R.x-12,ry-14,4,R.x,ry,R.r); rg.addColorStop(0,'#d8dce4'); rg.addColorStop(1,'#6a707c');
       b.fillStyle='#2a2e38'; b.beginPath(); b.arc(R.x,ry,R.r+2,0,7); b.fill();
       b.fillStyle=rg; b.beginPath(); b.arc(R.x,ry,R.r,0,7); b.fill();
       b.strokeStyle='rgba(40,44,56,.5)'; b.lineWidth=2; b.beginPath(); b.arc(R.x,ry,R.r*0.6,0,7); b.stroke(); }
     /* the crank, sized to the reel */
+    /* the crank, sized to the reel, in the art's colours: a silver arm, a black knob */
     const hx=R.x+Math.cos(FS.ang)*R.r*0.66, hy=ry+Math.sin(FS.ang)*R.r*0.66, kr=R.r*0.17;
-    b.strokeStyle='#3a3e48'; b.lineWidth=R.r*0.11; b.lineCap='round'; b.beginPath(); b.moveTo(R.x,ry); b.lineTo(hx,hy); b.stroke(); b.lineCap='butt';
-    b.fillStyle='#3a3e48'; b.beginPath(); b.arc(R.x,ry,R.r*0.12,0,7); b.fill();
-    b.fillStyle='#a8784a'; b.beginPath(); b.arc(hx,hy,kr,0,7); b.fill(); b.fillStyle='#d8a870'; b.beginPath(); b.arc(hx-kr*0.25,hy-kr*0.25,kr*0.45,0,7); b.fill();
+    b.lineCap='round'; b.beginPath(); b.moveTo(R.x,ry); b.lineTo(hx,hy);
+    b.strokeStyle='#1c1e23'; b.lineWidth=R.r*0.14; b.stroke();
+    b.strokeStyle='#a4a8b0'; b.lineWidth=R.r*0.08; b.stroke();
+    b.strokeStyle='rgba(255,255,255,.45)'; b.lineWidth=R.r*0.025; b.stroke(); b.lineCap='butt';
+    b.fillStyle='#1c1e23'; b.beginPath(); b.arc(R.x,ry,R.r*0.14,0,7); b.fill();
+    b.fillStyle='#8a8e96'; b.beginPath(); b.arc(R.x,ry,R.r*0.09,0,7); b.fill();
+    b.fillStyle='#0c0d10'; b.beginPath(); b.arc(hx,hy,kr,0,7); b.fill();
+    const kg=b.createRadialGradient(hx-kr*0.35,hy-kr*0.35,kr*0.1,hx,hy,kr*0.9); kg.addColorStop(0,'#5a5d66'); kg.addColorStop(1,'#141519');
+    b.fillStyle=kg; b.beginPath(); b.arc(hx,hy,kr*0.82,0,7); b.fill();
   }
   /* the rod lever (touch): a slot with a grip that rides up as it's pulled */
   if(IS_TOUCH&&FS.phase==='reel'){
@@ -312,7 +417,7 @@ function drawFishing(dt){
   else if(FS.phase==='wait') say2("Waiting for a bite...",T0+40,22);
   else if(FS.phase==='bite'){ TO("!",fx,fy-18,64,'#ffe04a','center',true,2); say2(IS_TOUCH?"Swipe up — pull the rod!":"W / ↑ — pull the rod!",T0+40,24,'#ffe08a'); }
   else if(FS.phase==='reel'){
-    TS("Line",24,165,15,'#f4f6ff','center',true); TS("Reel it in!",180,T0+48,20,'#f4f6ff','center',true);
+    TS("Line",LINE_METER.x+LINE_METER.w/2,LINE_METER.y-18,15,'#f4f6ff','center',true); TS("Reel it in!",180,T0+48,20,'#f4f6ff','center',true);
     TS(IS_TOUCH?"wind the reel":"hold J / Space to reel",REEL.x,reelY()+REEL.r+22,15,'#e8eef8','center');
     TS(IS_TOUCH?"pull the rod ▲":"W / ↑ to pull the rod",IS_TOUCH?ROD.x:ROD.x+40,reelY()+REEL.r+22,15,'#e8eef8','center');
     if(FS.tension>1) say2("Too tight — ease off!",T0+90,20,'#ff8a7a');

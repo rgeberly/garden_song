@@ -21,7 +21,8 @@ where the full-size originals live) holds
     party/<Name>/<Name> - baby.png, <Name> (baby)-beg.png, <Name> - baby portrait.png
                                          a member who starts out as a baby (Tiny One)
     scenes/<name>.png                    full pictures shown in story scenes
-    fishing/Rod.png, Reel.png, Bobber.png   the fishing game's tackle (white background)
+    fishing/Spinning Rod.png, Spinning Reel.png   the fishing game's rod and reel (or Rod.png,
+                                         Reel.png), each with a -spritesheet.png played as it winds
     logo.png  or  logo frame.png          the title screen's logo (white background):
                                           with the words, or a frame the game writes them on
 Pictures can be PNG or JPEG (animation sheets must be PNG, for their transparency) and
@@ -411,6 +412,110 @@ def party_files():
     return out
 
 
+def rod_ends(a):
+    """A rod picture's handle end and tip (x, y): the middle of its lowest and highest rows."""
+    m = a[..., 3] > 8; ys = np.nonzero(m.any(1))[0]; n = max(2, len(ys) // 100)
+    top = np.nonzero(m[ys[0]:ys[0] + n].any(0))[0]; bot = np.nonzero(m[ys[-1] - n:ys[-1] + 1].any(0))[0]
+    return [round(float(bot.mean()), 1), int(ys[-1]), round(float(top.mean()), 1), int(ys[0])]
+
+
+def solid_inside(a, t=30):
+    """Pale parts a background remover left half see-through (light metal on white), and
+    pinholes, made solid again, as they looked on white; the outer edge keeps its soft fade."""
+    m = (a[..., 3] >= t).astype(np.uint8)
+    inner = cv2.erode(m, np.ones((3, 3), np.uint8)).astype(bool) & (a[..., 3] < 255)
+    pin = np.zeros(m.shape, bool)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(1 - m, connectivity=4)      # and pinholes
+    for i in range(1, n):
+        x, y, w, h, area = st[i]
+        if area <= 40 and x > 0 and y > 0 and x + w < a.shape[1] and y + h < a.shape[0]: pin |= lab == i
+    al = a[..., 3:4].astype(np.float32) / 255; out = a.copy()
+    flat = np.clip(a[..., :3] * al + 255 * (1 - al) + 0.5, 0, 255).astype(np.uint8)
+    out[..., :3][inner] = flat[inner]; out[..., 3][inner] = 255
+    if pin.any():                                 # pinholes take the colour around them
+        rgb = np.ascontiguousarray(out[..., :3])
+        out[..., :3] = cv2.inpaint(rgb, pin.astype(np.uint8), 2, cv2.INPAINT_TELEA); out[..., 3][pin] = 255
+    return out
+
+
+def sheet_frames(path):
+    """The frames of a one-row animation sheet (cells about as wide as it is tall), all cut
+    to one shared box so the animation doesn't wobble."""
+    a = load(path); n = max(1, round(a.shape[1] / a.shape[0])); cw = a.shape[1] // n
+    fr = [a[:, i * cw:(i + 1) * cw] for i in range(n)]
+    fr = [solid_inside(f) for f in fr if (f[..., 3] > 8).any()]
+    al = np.max([f[..., 3] for f in fr], axis=0); ys, xs = np.nonzero(al > 8)
+    return [f[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for f in fr]
+
+
+def fit_to(still, frame, pad=40):
+    """The still picture scaled and moved to sit exactly where the same thing is in an
+    animation frame (found by matching their shapes); returns it on the frame's canvas,
+    grown by pad on every side, and that canvas's offset (pad)."""
+    def grey(a): return (cv2.cvtColor(a[..., :3], cv2.COLOR_BGR2GRAY).astype(np.float32) * (a[..., 3] / 255.)).astype(np.float32)
+    big = cv2.copyMakeBorder(frame, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=(0, 0, 0, 0))
+    G = grey(big); best = None
+    s0 = frame.shape[0] / still.shape[0]
+    for s in np.linspace(s0 * 0.85, s0 * 1.15, 31):
+        t = shrink(still, s)
+        if t.shape[0] > G.shape[0] or t.shape[1] > G.shape[1]: continue
+        r = cv2.matchTemplate(G, grey(t), cv2.TM_CCOEFF_NORMED); _, v, _, at = cv2.minMaxLoc(r)
+        if best is None or v > best[0]: best = (v, t, at)
+    v, t, (x, y) = best
+    out = np.zeros_like(big); out[y:y + t.shape[0], x:x + t.shape[1]] = t
+    print('  still fitted to the animation: match %.2f' % v)
+    return out
+
+
+def build_tackle():
+    """The fishing game's rod and reel (fishing/ in the art folder) packed into
+    assets/sprites/fishing.png; returns where each is in it. Each is the first of its names
+    found (fishing/Spinning Rod.png, or Rod.png), with an animation played while the reel
+    winds when there's a sheet beside it (Spinning Rod-spritesheet.png). A rod also has its
+    handle end and tip [bx, by, tx, ty] after its place, for the game to lay it along a line;
+    the reel's still picture is fitted onto its frames, so all share one box."""
+    FISH_PICS = {'rod': ['spinning rod', 'rod'], 'reel': ['spinning reel', 'reel']}
+    FISH_BOX = {'rod': 900, 'reel': 360}         # at most this tall/wide (device px)
+    FISH_HOLES = {'reel': 300}                   # white seen through gaps (px at least) cleared too
+    have = {os.path.splitext(os.path.basename(f))[0].strip().lower(): f for f in pics('fishing')}
+    sheets = {os.path.splitext(os.path.basename(f))[0].lower().replace('-spritesheet', '').strip(): f
+              for f in glob.glob(os.path.join(SRC, 'fishing', '*-spritesheet.png'))}
+    tackle, ends = [], {}
+    for key, names in FISH_PICS.items():
+        name = next((n for n in names if n in have), None)
+        if not name: continue
+        still = trim(remove_white(load(have[name]), FISH_HOLES.get(key, 0)))
+        frames = sheet_frames(sheets[name]) if name in sheets else []
+        if key == 'reel' and frames:             # one shared box for the still and every frame
+            pad = 40; frames = [cv2.copyMakeBorder(f, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=(0, 0, 0, 0)) for f in frames]
+            still = fit_to(still, frames[0][pad:-pad, pad:-pad], pad)
+            al = np.max([f[..., 3] for f in frames + [still]], axis=0); ys, xs = np.nonzero(al > 8)
+            still, frames = [f[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for f in [still] + frames][0],                 [f[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for f in frames]
+        box = FISH_BOX[key]
+        s = min(1, box / max(still.shape[:2])); still = shrink(still, s)
+        if frames:
+            fs = min(1, box / max(frames[0].shape[:2])) if key == 'rod' else s
+            frames = [shrink(f, fs) for f in frames]
+        tackle.append((key, still)); tackle += [(key + '_spin%d' % i, f) for i, f in enumerate(frames)]
+        if key == 'rod':
+            ends['rod'] = rod_ends(still)
+            if frames:
+                al = np.max([f[..., 3] for f in frames], axis=0)
+                ends.update({key + '_spin%d' % i: rod_ends(np.dstack([al] * 4)) for i in range(len(frames))})
+        print('  fishing', key, '-', name, still.shape[1], 'x', still.shape[0], '+', len(frames), 'frames')
+    fmeta = {}
+    if tackle:
+        fsheet, pos = pack(tackle, 2048)
+        cv2.imwrite(os.path.join(OUT, 'fishing.png'), fsheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        for key in FISH_PICS:
+            if key not in pos: continue
+            fmeta[key] = pos[key] + ends.get(key, [])
+            spin = sorted((k for k in pos if k.startswith(key + '_spin')), key=lambda k: int(k[len(key) + 5:]))
+            if spin: fmeta[key + '_spin'] = [pos[k] + ends.get(k, []) for k in spin]
+        print('fishing.png -', fsheet.shape[1], 'x', fsheet.shape[0], '-', ', '.join(sorted(fmeta)))
+    return fmeta
+
+
 def main():
     crops, meta = [], {}
     def add(key, path, group, keep=1.0):
@@ -738,19 +843,7 @@ def main():
         cv2.imwrite(os.path.join(ROOT, 'assets', 'scenes', name + '.jpg'), flat, [cv2.IMWRITE_JPEG_QUALITY, 88])
         print('scene', name, flat.shape[1], 'x', flat.shape[0]); scene_names.append(name)
 
-    # the fishing game's rod, reel and bobber: each at most this tall/wide (device px)
-    FISH_BOX = {'rod': 900, 'reel': 360, 'bobber': 120}
-    FISH_CUTOUT = {'bobber'}                     # half white: cut out by its outline instead
-    tackle = []
-    for f in pics('fishing'):
-        name = os.path.splitext(os.path.basename(f))[0].strip().lower()
-        im = trim(cutout(load(f)) if name in FISH_CUTOUT else remove_white(load(f)))
-        tackle.append((name, shrink(im, FISH_BOX.get(name, 360) / max(im.shape[:2]))))
-    fmeta = {}
-    if tackle:
-        fsheet, fmeta = pack(tackle)
-        cv2.imwrite(os.path.join(OUT, 'fishing.png'), fsheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-        print('fishing.png -', ', '.join(sorted(fmeta)))
+    fmeta = build_tackle()
     # the title logo: logo (with the words) or logo frame (the game writes the words on it)
     logo_kind = None
     for lk, name in (('words', 'logo'), ('frame', 'logo frame')):
