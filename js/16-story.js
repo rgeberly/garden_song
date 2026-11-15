@@ -159,11 +159,12 @@ const ivyMeets=()=>[
   {fade:'out'},
   {run:()=>{ G.story.ivy='recover'; G.story.ivyDay=G.day; G.indoors=true; houseImg(); place(318,412,6); }},
   {fade:'in'},
-  {say:'kaitlyn',text:"You're so pretty, with your little ring around your neck...like a little golden necklace."},
+  {say:'kaitlyn',text:"You're so pretty, with your little ring around your neck. It's like a little golden necklace."},
   {say:'kaitlyn',text:"...you're so fancy, I think I'll call you Bling!"},   /* (she hates it) */
   {say:'ivy',label:"Snake",text:"HISSS!"},
-  {say:'kaitlyn',text:"...uhhh, then how about Ivy? Since you're a poisonous little creeper."},
-  {say:'ivy',text:"...sss."},
+  {say:'kaitlyn',text:"Umm, then how about Ivy? Since you're a poisonous little creeper."},
+  {say:'ivy',text:"...venomousss."},
+  {say:'kaitlyn',text:"(...huh? Am I hearing things?)"},
 ];
 const ivyLetGo=()=>[
   {say:'ivy',text:"Ssss!"},

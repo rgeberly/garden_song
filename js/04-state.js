@@ -60,7 +60,7 @@ function say(t){ G.msg=t; G.msgT=2900; }
    Strength powers plain attacks, Agility decides turn order, Defense softens hits,
    Intelligence powers songs and skills, Luck brings seeds and bonus coins.
    skills: what the second battle command is called for them; attack/pow: their free hit;
-   venom: it always poisons (and may finish the foe); crit: added chance of a critical hit. */
+   venom: it always gives Venom (and may finish the foe); crit: added chance of a critical hit. */
 const PARTY_MAX=5, HURT_DAYS=2;
 const STATS=['hp','mp','str','agi','def','int','luk'];
 const STAT_NAME={hp:"HP",mp:"MP",str:"Strength",agi:"Agility",def:"Defense",int:"Intelligence",luk:"Luck"};
@@ -70,7 +70,7 @@ const PARTY_INFO={
   ivy:  {name:"Ivy",     skills:"Skills", attack:"Venom Bite", pow:0.55, venom:true, role:"Ring-necked snake · venomous bite · small, shy, and secretly very brave",
            base:{hp:24,mp:8,str:3,agi:9,def:3,int:5,luk:7}, grow:{hp:4,mp:1.5,str:1,agi:2,def:1,int:1.5,luk:1.5}},
   /* the healer: his free move is a Tweet that heals everyone (tweet: share of their max HP) */
-  tiny:   {name:"Tiny One",skills:"Songs",  attack:"Tweet", pow:0, tweet:0.05, role:"Little brown bird · sings to heal · hatched by the fireplace, raised on worms",
+  tiny:   {name:"Tiny One",skills:"Songs",  attack:"Tweet", pow:0, tweet:0.03, role:"Little brown bird · sings to heal · hatched by the fireplace, raised on worms",
            base:{hp:20,mp:14,str:2,agi:10,def:2,int:8,luk:6}, grow:{hp:3.5,mp:2.4,str:0.6,agi:1.8,def:0.8,int:2.2,luk:1.2}},
   /* the striker: quick, hits hard, and her claws find the soft spots (crit) */
   tituba: {name:"Tituba", skills:"Skills", attack:"Claw Swipe", pow:0.7, crit:0.12, role:"Siamese cat · sharp claws · goes where she pleases, and lately that's with Kaitlyn",

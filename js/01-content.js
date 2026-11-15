@@ -174,7 +174,9 @@ const DROP_P=0.45, RARE_P=0.06;
 /* the troubles anyone can be in, with how long they last (turns) and a tag colour */
 const STATUS={poison:{name:"Poison",tag:"PSN",col:'#a05ad8',turns:3}, blind:{name:"Blind",tag:"BLD",col:'#5a5a6a',turns:3},
   sleep:{name:"Asleep",tag:"SLP",col:'#5a8ad8',turns:2}, weak:{name:"Weak",tag:"WK",col:'#d88a3a',turns:3},
-  scared:{name:"Scared",tag:"SCR",col:'#6a4aa8',turns:2}, bound:{name:"Bound",tag:"BND",col:'#8a6a3a',turns:1}};
+  scared:{name:"Scared",tag:"SCR",col:'#6a4aa8',turns:2}, bound:{name:"Bound",tag:"BND",col:'#8a6a3a',turns:1},
+  /* Ivy's venom: only pests get it (a fixed amount each turn, from her Intelligence) */
+  venom:{name:"Venom",tag:"VNM",col:'#2f7a3a',turns:3}};
 /* Garden gear: always working once bought (each can be switched off in the Equip tab).
    Sold at Juniper's, but the Trellis Kit at the stall's Yard tab. */
 const GEAR=[
@@ -264,82 +266,99 @@ const KICK_SHOUTS=["Hiya!","Take that!","May my boot aim true!","Not in MY garde
 const MOVES=[
   {id:'kick',  name:"Quick Kick",      lv:1, mp:0,  notes:0,  pow:0.55, heal:0, fx:'kick',
    flavor:"A quick, no-nonsense boot to the pest."},
-  {id:'sprout',name:"Sprout Strike",   lv:1, mp:3,  notes:4,  pow:1.0,  heal:0, fx:'sprout', song:true,
+  {id:'sprout',name:"Sprout Strike",   lv:1, mp:3,  notes:4,  pow:0.9,  heal:0, fx:'sprout', song:true, weak:0.75,
    flavor:"A peppy tune that makes roots burst up underfoot."},
   {id:'karate',name:"Karate Kick",     lv:10,mp:0,  hpCost:0.1, pow:1.1, heal:0, fx:'kick',
    flavor:"Hi-YAH! She puts her whole heart (and a little of her health) into it."},
-  {id:'lull',  name:"Frog Lullaby",    lv:3, mp:4,  notes:4,  pow:0,    heal:16,fx:'lull', song:true,
+  {id:'lull',  name:"Frog Lullaby",    lv:3, mp:4,  notes:4,  pow:0,    heal:0.25,fx:'lull', song:true,
    flavor:"A croaky little bedtime song. The frogs harmonize, mostly in tune."},
-  {id:'waltz', name:"Bramble Waltz",   lv:5, mp:6,  notes:6,  pow:1.3,  heal:0, fx:'waltz', song:true, all:true,
+  {id:'waltz', name:"Bramble Waltz",   lv:5, mp:6,  notes:6,  pow:1.5,  heal:0, fx:'waltz', song:true, bind:0.25,
    flavor:"One-two-three, thorns-thorns-thorns! Brambles whirl into the foe."},
-  {id:'req',   name:"Wasp Requiem",    lv:7, mp:7,  notes:6,  pow:1.3,  heal:0, fx:'req', weaken:true, song:true,
+  {id:'req',   name:"Wasp Requiem",    lv:7, mp:7,  notes:6,  pow:1.2,  heal:0, fx:'req', song:true, all:true, poison:0.75,
    flavor:"Summons an angry swarm."},
-  {id:'thorn', name:"Thorn Nocturne",  lv:9, mp:9,  notes:8,  pow:2.0,  heal:0, fx:'thorn', song:true, all:true,
+  {id:'thorn', name:"Thorn Nocturne",  lv:9, mp:9,  notes:8,  pow:0.5,  heal:0, fx:'thorn', song:true, hits:5,
    flavor:"A moody midnight melody that grows a forest of thorns."},
-  {id:'hymn',  name:"Harvest Hymn",    lv:11,mp:12, notes:10, pow:2.6,  heal:12,fx:'hymn', song:true, all:true,
+  {id:'hymn',  name:"Harvest Hymn",    lv:11,mp:12, notes:10, pow:2.0,  heal:0.25,fx:'hymn', song:true, all:true,
    flavor:"A golden anthem of plenty: smites the foe and feeds the soul."},
 ];
-/* a move or skill in words: its flavor, then what it does (MP is shown beside it) */
+/* a move or skill in words: its flavor, then what it does (MP is shown beside it).
+   Songs: heal is a share of everyone's max HP; hits: that many hits at random foes;
+   weak, bind, poison: the chance of each on every foe it hits */
 function moveDesc(mv){
-  const L=[];
-  if(mv.pow>0) L.push((mv.all?"every foe":"one foe")+", power x"+mv.pow);
-  if(mv.weaken) L.push("weakens the foe");
-  if(mv.heal) L.push("heals the whole party ~"+mv.heal+" HP");
+  const L=[], pct=p=>Math.round(p*100)+"%";
+  if(mv.pow>0) L.push((mv.hits?mv.hits+" hits at random foes":mv.all?"every foe":"one foe")+", power x"+mv.pow+(mv.hits?" each":""));
+  if(mv.weak) L.push(pct(mv.weak)+" chance to weaken");
+  if(mv.bind) L.push(pct(mv.bind)+" chance to bind");
+  if(mv.poison) L.push(pct(mv.poison)+" chance to poison each one");
+  if(mv.heal) L.push("heals the whole party "+pct(mv.heal)+" of their max HP");
   if(mv.hpCost) L.push("costs "+Math.round(mv.hpCost*100)+"% of max HP");
   const what=L.join(", ");
   return (mv.flavor?mv.flavor+" ":"")+what.charAt(0).toUpperCase()+what.slice(1)+".";
 }
 /* friends' skills (MP): pow scales with Intelligence; bind: chance the foe loses a turn;
-   heal: share of max HP; cure: clears poison, blindness and weakness; burst: x3 if poisoned */
+   heal: share of max HP; cure: clears poison, blindness and weakness; burst: x3 if the
+   foe has Venom, x2 if Poison (x6 with both), and uses them up; scare: chance one foe is
+   scared; spit: the chance of each of poison, venom and blindness on every foe hit */
 const ALLY_SKILLS={
   ivy:[
     {id:'constrict',name:"Constrict",  lv:3, mp:3, pow:0.9, bind:0.6,
      desc:"A big, crushing hug. Not the friendly kind. One foe, power x0.9, may hold it still for a turn."},
+    {id:'sss',      name:"Ssssss",     lv:5, mp:3, scare:1,
+     desc:"She rears up and hisses her very scariest hiss. One foe is scared."},
     {id:'shed',     name:"Shed Skin",  lv:6, mp:4, heal:0.4, cure:true,
      desc:"Out with the old scales! Heals 40% of HP and cures poison, blindness and weakness."},
-    {id:'burst',    name:"Venom Burst",lv:9, mp:6, pow:1.1, burst:true,
-     desc:"Wakes up all that venom at once. Ouch. One foe, power x1.1, triple if it's poisoned."},
+    {id:'spit',     name:"Snakespit",  lv:9, mp:8, pow:0.55, all:true, stat:'str', spit:0.5,
+     desc:"Ptoo! A spray of venom over every foe, about as hard as her bite. Each one may be poisoned, envenomed or blinded (50% each)."},
     {id:'hypno',    name:"Hypnosis",   lv:11,mp:5, sleep:0.75,
      desc:"Look into my eyesss... Puts one foe to sleep for 2-3 turns."},
+    {id:'burst',    name:"Venom Burst",lv:12,mp:10, pow:1.1, burst:true,
+     desc:"Wakes up all that venom at once. Ouch. One foe, power x1.1: triple if it has Venom, double if Poison, six times with both. Uses them up."},
   ],
   /* Tiny One. mend (one friend) and mendAll (everyone standing) heal that share of their
      own max HP; regen: {n,share}, everyone also gets that share back at the start of each
      of their next n turns; clear: cures one friend's troubles; revive: wakes a friend who's
-     down with that share of HP; pecks: that many hits at random foes, power pow from
+     down with that share of HP (or fills a friend who's up to full HP); pecks: that many hits at random foes, power pow from
      Agility; all: hits every foe (power from Intelligence), weak: chance each one's attack drops */
   tiny:[
     {id:'chirp',  name:"Cheery Chirp",  lv:1, mp:3, mend:0.5, song:true,
      desc:"A bright little chirp that perks anyone right up. Heals one friend 50% of their max HP."},
-    {id:'peck',   name:"Peck Peck Peck",lv:2, mp:3, pecks:3, pow:0.45,
-     desc:"Tiny beak, terrible manners. Three quick pecks at random foes, power x0.45 each from Agility."},
+    {id:'peck',   name:"Peck Peck Peck",lv:2, mp:3, pecks:3, pow:0.5,
+     desc:"Tiny beak, terrible manners. Three quick pecks at random foes, power x0.5 each from Agility."},
     {id:'clear',  name:"Clear Note",    lv:4, mp:3, clear:true, song:true,
      desc:"One pure, ringing note that shakes off whatever's wrong. Cures all of one friend's troubles."},
     {id:'chorus', name:"Dawn Chorus",   lv:6, mp:7, mendAll:0.3, song:true,
      desc:"The whole morning's worth of birdsong at once. Heals everyone 30% of their max HP."},
-    {id:'trill',  name:"Piercing Trill",lv:8, mp:5, pow:0.7, all:true, weak:0.35, song:true,
-     desc:"Small bird, very big voice. Every foe, power x0.7, may rattle them so their attacks drop."},
+    {id:'trill',  name:"Disarming Trill",lv:8, mp:5, pow:0.7, all:true, weak:0.75, song:true,
+     desc:"Small bird, very big voice. Every foe, power x0.7, and a 75% chance each one is weakened."},
     {id:'nest',   name:"A True Bird's Nest",lv:10,mp:10, mendAll:0.15, regen:{n:3,share:0.15}, song:true,
      desc:"A song about home, and everyone in it. Heals everyone 15% of their max HP, then 15% more at the start of each of their next 3 turns."},
     {id:'wake',   name:"Wake-Up Call",  lv:12,mp:8, revive:0.3, song:true,
-     desc:"The loudest, most insistent good morning. Brings a friend who's down back into the fight with 30% of their max HP."},
+     desc:"The loudest, most insistent good morning. Brings a friend who's down back into the fight with 30% of their max HP, or fills a friend who's still up to full HP."},
   ],
   /* Tituba. stat: the stat a skill's power comes from (Intelligence if not given; Strength
      and Defense hits are physical, so Defense softens them fully); crit: added chance of a
-     critical hit; weakAll: chance each foe's attack drops */
+     critical hit; weakAll, scareAll: chance each foe is weakened, scared; steal: tries to
+     steal from the foe (see stealChance); full: pecks at full power (x1.5 like a single
+     hit); night: power multiplied at night */
   tituba:[
+    {id:'snitch',  name:"Snitch",         lv:1, mp:0, steal:true,
+     desc:"Now you see it, now it's hers. Tries to steal an item from one foe (better with Luck and Agility)."},
     {id:'pounce',  name:"Pounce",         lv:1, mp:3, pow:1.2, stat:'str', crit:0.25,
      desc:"Wiggle, wiggle... leap! One foe, power x1.2 from Strength, with a big chance of a critical hit."},
-    {id:'hiss',    name:"Hiss",           lv:3, mp:3, weakAll:0.6,
-     desc:"Ears back, fur up, very rude noise. Every foe may lose its nerve, so its attacks drop."},
+    {id:'hiss',    name:"Hiss",           lv:3, mp:3, weakAll:0.5, scareAll:0.5,
+     desc:"Ears back, fur up, very rude noise. Each foe may be scared (50%) and weakened (50%)."},
     {id:'swipes',  name:"Fury Swipes",    lv:6, mp:5, pecks:4, pow:0.5, stat:'str',
      desc:"A blur of claws. Four slashes at random foes, power x0.5 each from Strength."},
     {id:'ninelives',name:"Nine Lives",    lv:9, mp:6, heal:0.35, cure:true,
      desc:"A cat always lands on her feet. Heals 35% of her HP and shakes off poison, blindness and weakness."},
-    {id:'moonslash',name:"Moonlight Slash",lv:11,mp:9, pow:1.0, all:true, stat:'str', crit:0.15,
-     desc:"One silver arc under the moon. Every foe, power x1.0 from Strength, with more critical hits."},
+    {id:'moonslash',name:"Moonlight Slash",lv:11,mp:9, pow:1.0, all:true, stat:'str', crit:0.15, night:1.25,
+     desc:"One silver arc under the moon. Every foe, power x1.0 from Strength, with more critical hits. 25% stronger at night."},
+    {id:'dswipe',  name:"Double Swipe",   lv:12,mp:10, pecks:2, pow:1.1, stat:'str', full:true, steal:true,
+     desc:"Swipe, swipe, and something shiny's gone. Two hits at random foes, power x1.1 each from Strength, each trying to steal."},
   ],
   /* Tex. shell: hits on him are quartered until his next turn; cover: until his next turn
-     he takes the hits aimed at the friend he picks (braced) */
+     he takes the hits aimed at the friend he picks (braced); coverAll: at everyone;
+     graze: he mends himself at the start of each of his next n turns (like the Nest) */
   tex:[
     {id:'shell',   name:"Shell Up",       lv:1, mp:2, shell:true,
      desc:"In he goes. Hits on Tex do a quarter of the damage until his next turn."},
@@ -349,8 +368,10 @@ const ALLY_SKILLS={
      desc:"A calm old voice: no rush, no panic. Hits on everyone are halved until their next turn."},
     {id:'slam',    name:"Shell Slam",     lv:9, mp:6, pow:1.4, stat:'def',
      desc:"All that shell, all at once. One foe, power x1.4 from Defense."},
-    {id:'sunwarm', name:"Sun-Warmed",     lv:11,mp:7, mendAll:0.2,
-     desc:"He shares the warmth of a long afternoon in the sun. Heals everyone 20% of their max HP."},
+    {id:'graze',   name:"Graze",          lv:11,mp:5, graze:{n:3,share:0.15},
+     desc:"A slow, thoughtful munch on some grass. Tex gets back 15% of his max HP at the start of each of his next 3 turns."},
+    {id:'vitashell',name:"VitaShell",     lv:12,mp:9, coverAll:true,
+     desc:"The biggest, bravest shell there ever was. Until his next turn, hits meant for anyone else hit Tex instead, and he's braced."},
   ],
 };
 const FIELD=[

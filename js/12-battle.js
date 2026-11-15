@@ -80,6 +80,8 @@ function startBattle(pest,kinds){
      order:[], turn:'busy', tgt:null, inspect:null, prep:null, banner:null, lastFoe:foes[0],
      log:boss?"The HOA President demands a word!":foes.length===1?"A "+foes[0].name+" blocks your path!"
         :foes.length===2?listAnd(foes.map(f=>f.name))+" block your path!":"A party of pests blocks your path!",
+     stolen:[],                      /* what Tituba has snitched this fight */
+     wane:null,                      /* the troubles to count down when the next one acts (see wane) */
      over:null,pops:[],fx:[],anim:null,shout:null};
   B.party.forEach(id=>B.st[id]={});
   G.scene='battle'; setMusic(boss?'boss':'battle'); blip(220,0.1,0.2); partyImg(); backdropImg();
@@ -112,6 +114,26 @@ function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++)
 function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:kind==='enemy'?null:actor(),...extra}; }
 const has=(id,s)=>B.st[id]&&B.st[id][s]>0;
 function addStatus(id,s){ if(!B.st[id]) B.st[id]={}; B.st[id][s]=STATUS[s].turns+(s==='sleep'?ri(0,1):0); }
+/* a trouble on a pest: turns left, or for Venom {n turns left, dmg each turn} */
+function foeStatus(f,s,dmg){ if(s==='venom') f.st.venom={n:STATUS.venom.turns,dmg}; else f.st[s]=STATUS[s].turns+(s==='sleep'?ri(0,1):0); }
+const venomDmg=id=>Math.round(2+statOf(id,'int')*0.5);
+/* Blind and Weak count down once the turn they hampered is over (B.wane: whose they are),
+   so they last all their turns */
+function wane(S){ ['blind','weak'].forEach(k=>{ if(S[k]>0) S[k]--; }); }
+/* who got which trouble, for the log: {"Poisoned":[foes], ...} -> "  Poisoned: Paper Wasp." */
+function gotLog(by){ return Object.keys(by).filter(k=>by[k].length).map(k=>"  "+k+": "+listAnd(by[k].map(t=>t.name))+".").join(""); }
+/* Tituba's Snitch: (25 + 0.7 Luck + 0.5 Agility)% to steal from a pest, once per pest. It's
+   the pest's rare thing Luck% of the time, otherwise its ordinary one. */
+const stealChance=id=>clamp((25+0.7*statOf(id,'luk')+0.5*statOf(id,'agi'))/100,0,1);
+function trySteal(id,f){
+  const D=PEST_DROPS[f.sp];
+  if(!D||f.stolen) return {why:'empty'};
+  if(Math.random()>=stealChance(id)) return {why:'miss'};
+  const k=Math.random()<statOf(id,'luk')/100?D[1]:D[0];
+  G.goods[k]=(G.goods[k]||0)+1; f.stolen=k; B.stolen.push(k);
+  focus(f); pop(GOODS[k].name+"!",EX,EY-34,'#ffe08a',20); burst(EX,EY,'#ffe08a',10,0.12);
+  return {k};
+}
 const foeDef=f=>f.def;
 /* damage after the target's Defense softens it (magic only half minds it) */
 const soften=(raw,def,magic)=>Math.max(1,Math.round(raw*16/(16+def*(magic?0.5:1))));
@@ -125,6 +147,7 @@ function newRound(){
 /* whoever is next acts: a party member gets the menu, a pest (by number) takes its turn */
 function nextActor(){
   if(!B||B.over) return;
+  if(B.wane){ wane(B.wane); B.wane=null; }
   if(allDown()){ winFight(); return; }
   if(!B.order.length) newRound();
   const id=B.order.shift();
@@ -143,7 +166,8 @@ function setCmd(i){ B.idx=i; B.ctop=clamp(B.ctop||0,Math.max(0,i-CMD_VIS+1),i); 
 /* a member's troubles at the start of their turn; returns why they can't act, if so */
 function memberTicks(id){
   const S=B.st[id], M=member(id), name=PARTY_INFO[id].name, s=slotOf(id);
-  B.guard[id]=false;                     /* Meditate's or Focus's bracing lasts until now */
+  B.wane=S;                              /* Blind and Weak count this turn when it's over */
+  B.guard[id]=false;                    /* Meditate's or Focus's bracing lasts until now */
   B.shell[id]=false; if(B.cover&&B.cover.by===id) B.cover=null;     /* and Shell Up's and Cover's */
   const R=B.regen[id]; if(R&&R.n>0){ R.n--; mendMember(id,M.maxhp*R.share); }   /* A True Bird's Nest */
   let why=null;
@@ -151,7 +175,6 @@ function memberTicks(id){
     pop("-"+d,s.x,headOf(id),'#c88ae0'); why=name+" takes "+d+" from poison."; if(!standing(id)){ downed(id); return why; } }
   if(S.sleep>0){ S.sleep--; return name+" is fast asleep..."; }
   if(S.scared>0){ S.scared--; if(Math.random()<0.5) return name+" is too scared to move!"; }
-  ['blind','weak'].forEach(k=>{ if(S[k]>0) S[k]--; });
   return why&&!standing(id)?why:null;
 }
 /* a party member at 0 HP: Kaitlyn losing ends the fight */
@@ -194,7 +217,7 @@ function cmdInfo(c,id){
   const I=PARTY_INFO[id];
   if(c==='attack') return id==='kaitlyn'?[I.attack,"Free · power from Strength"]
                         :I.tweet?[I.attack,"Free · heals everyone "+Math.round(I.tweet*100)+"% of their max HP"]
-                        :I.venom?[I.attack,"Free · always poisons · may finish the foe"]
+                        :I.venom?[I.attack,"Free · always gives Venom · may finish the foe"]
                         :[I.attack,"Free · power from Strength"+(I.crit?" · sharp: more critical hits":"")];
   if(c==='skills') return skillList(id).length?[I.skills,id==='kaitlyn'?"Flute songs (♪) and moves":I.tweet?"Songs (♪) and pecks · uses MP":"Use a skill · uses MP"]
                                               :[I.skills,"None learned yet"];
@@ -316,7 +339,7 @@ function useSub(x){
   }
   if(!canPay(x,id)){ B.log=x.hpCost?"Too worn out for that!":id==='kaitlyn'?"Not enough Music Points!":"Not enough MP!"; blip(150,0.08,0.2); return; }
   if(x.hpCost) chooseFoe(f=>useKarate(x,f));
-  else if(x.notes){ if(x.pow>0&&!x.all) chooseFoe(f=>useSong(x,f)); else useSong(x,x.all?liveFoes()[0]:null); }
+  else if(x.notes){ if(x.pow>0&&!x.all&&!x.hits) chooseFoe(f=>useSong(x,f)); else useSong(x,x.all||x.hits?liveFoes()[0]:null); }
   else if(x.mend||x.clear) chooseAlly(to=>useSkill(x,null,to));
   else if(x.cover){
     /* a friend still standing, not Tex himself */
@@ -325,12 +348,11 @@ function useSub(x){
     if(L.length===1) useSkill(x,null,L[0]);
     else { B.tgt={kind:'ally',list:L,i:0,then:to=>useSkill(x,null,to),back:B.menu}; B.menu='target'; blip(520,0.04,0.08,'triangle'); } }
   else if(x.revive){
-    /* only for a friend who's down (Kaitlyn going down ends the fight) */
-    const L=B.party.filter(id=>!standing(id));
-    if(!L.length){ B.log="Everyone's still up. No one needs waking!"; blip(150,0.08,0.2); return; }
-    if(L.length===1) useSkill(x,null,L[0]);
-    else { B.tgt={kind:'ally',list:L,i:0,then:to=>useSkill(x,null,to),back:B.menu}; B.menu='target'; blip(520,0.04,0.08,'triangle'); } }
-  else if(x.heal||x.mendAll||x.cureAll||x.guardAll||x.all||x.pecks||x.shell||x.weakAll) useSkill(x,null);
+    /* anyone: a friend who's down gets back up, one who's up is filled to full HP (the
+       pointer starts on the first one who's down) */
+    const L=B.party.slice(), down=L.findIndex(m=>!standing(m));
+    B.tgt={kind:'ally',list:L,i:Math.max(0,down),then:to=>useSkill(x,null,to),back:B.menu}; B.menu='target'; blip(520,0.04,0.08,'triangle'); }
+  else if(x.heal||x.mendAll||x.cureAll||x.guardAll||x.all||x.pecks||x.shell||x.weakAll||x.scareAll||x.graze||x.coverAll) useSkill(x,null);
   else chooseFoe(f=>useSkill(x,f));
 }
 
@@ -384,10 +406,10 @@ function doAttack(f){
     burst(EX-20,EY+20,'#ffe6a0',14,0.17);
     hitFoe(f,dmg,I.name+"'s "+I.attack+" hits for "+dmg+"!"+(cm>1?"  A focused blow!":""));
     if(f.hp<=0||!I.venom) return;
-    f.st.poison={n:STATUS.poison.turns,dmg:Math.round(2+statOf(id,'int')*0.5)};
-    burst(EX,EY+10,'#b06ae0',12,0.12);
+    foeStatus(f,'venom',venomDmg(id));
+    burst(EX,EY+10,'#5ab06a',12,0.12);
     if(!f.boss&&Math.random()<KILL_CHANCE){ f.hp=0; B.log=PARTY_INFO.ivy.name+"'s venom overwhelms the "+f.name+"!"; }
-    else B.log+="  It's poisoned!";
+    else B.log+="  It's envenomed!";
   },{tgt:f});
 }
 /* Karate Kick: twice a Quick Kick, paid for with a little of her HP (its own battle row
@@ -406,19 +428,30 @@ function useSong(mv,f){
   startRhythm(null,{notes:mv.notes,name:mv.name,mp:mv.mp,song:BATTLE_SONG[mv.id],cb:(acc)=>{
     G.scene='battle'; B.menu='cmd'; playOne('flute',0.5);
     anim(mv.fx,1500,()=>{
-      if(mv.heal){       /* healing songs reach the whole party */
-        const h=Math.round(mv.heal*(0.5+acc)*(statOf('kaitlyn','int')/7*0.5+0.5));
-        B.party.filter(standing).forEach(id=>{ const M=member(id), s=slotOf(id);
-          M.hp=Math.min(M.maxhp,M.hp+h); pop("+"+h,s.x,headOf(id),'#8fe07a'); });
-      }
-      if(mv.pow>0&&f){
-        /* a song for everyone hits every pest still there */
-        const T=mv.all?liveFoes():[f], cm=useCharge('kaitlyn');
-        T.forEach(t=>{ const dmg=soften(songPower()*mv.pow*(0.35+acc*1.1)*cm,foeDef(t),true);
-          hitFoe(t,dmg,mv.name+" hits for "+dmg+"!  ("+Math.round(acc*100)+"%)");
-          if(mv.weaken&&t.hp>0){ t.st.weak=STATUS.weak.turns; B.log+="  Its attack drops!"; } });
-        if(T.length>1) B.log=mv.name+" sweeps over every pest!  ("+Math.round(acc*100)+"%)";
-        if(cm>1) B.log+="  A focused blow!";
+      /* healing songs reach the whole party: a share of each one's max HP */
+      if(mv.heal) B.party.filter(standing).forEach(id=>mendMember(id,member(id).maxhp*mv.heal));
+      const pc="  ("+Math.round(acc*100)+"%)", healed=mv.heal?"  Everyone heals!":"";
+      const songHit=(t,cm)=>soften(songPower()*mv.pow*(0.35+acc*1.1)*cm,foeDef(t),true);
+      if(mv.pow>0&&mv.hits){
+        /* hits at whoever's still there, a moment apart */
+        const cm=useCharge('kaitlyn'), got=[];
+        for(let i=0;i<mv.hits;i++) setTimeout(()=>{
+          if(!B||B.over) return; const L=liveFoes(); if(!L.length) return;
+          const t=L[ri(0,L.length-1)], dmg=songHit(t,cm);
+          hitFoe(t,dmg,""); got.push(t.hp>0?String(dmg):dmg+" (it runs off)");
+          B.log=mv.name+": "+got.join(", ")+"!"+pc+(cm>1?"  A focused blow!":"");
+        },i*170);
+      } else if(mv.pow>0&&f){
+        /* a song for everyone hits every pest still there; then each may be troubled */
+        const T=mv.all?liveFoes():[f], cm=useCharge('kaitlyn'), by={Weakened:[],Bound:[],Poisoned:[]};
+        T.forEach(t=>{ const dmg=songHit(t,cm);
+          hitFoe(t,dmg,mv.name+" hits for "+dmg+"!"+pc);
+          if(t.hp<=0) return;
+          if(mv.weak&&Math.random()<mv.weak){ foeStatus(t,'weak'); by.Weakened.push(t); }
+          if(mv.bind&&Math.random()<mv.bind){ foeStatus(t,'bound'); by.Bound.push(t); }
+          if(mv.poison&&Math.random()<mv.poison){ foeStatus(t,'poison'); by.Poisoned.push(t); } });
+        if(T.length>1) B.log=mv.name+" sweeps over every pest!"+pc;
+        B.log+=gotLog(by)+healed+(cm>1?"  A focused blow!":"");
       } else B.log=mv.name+" heals the party.";
     },{tgt:f});
   }});
@@ -445,8 +478,8 @@ function useSkill(sk,f,to){
   const sings=sk.song?" sings ":" uses ", st=sk.stat||'int', magic=!sk.stat;   /* power from Intelligence is magic */
   M.mp-=sk.mp; B.turn='busy'; B.menu='cmd';
   const spell=PARTY_ART[id]&&PARTY_ART[id].spell;      /* their own spell animation, when they have one */
-  const kind=spell?'spell':sk.song?'sing':sk.heal?'meditate':'lunge';
-  const kind_heal=!!(sk.heal||sk.mend||sk.mendAll||sk.cureAll||sk.guardAll||sk.clear||sk.revive||sk.shell||sk.cover);
+  const kind=sk.graze?'meditate':sk.steal&&!sk.pecks?'lunge':spell?'spell':sk.song?'sing':sk.heal?'meditate':'lunge';
+  const kind_heal=!!(sk.heal||sk.mend||sk.mendAll||sk.cureAll||sk.guardAll||sk.clear||sk.revive||sk.shell||sk.cover||sk.coverAll||sk.graze);
   anim(kind,spell?1400:sk.song?1300:1000,()=>{
     /* Tiny One's songs */
     if(sk.mend){ const h=mendMember(to,member(to).maxhp*sk.mend*healMul(id));
@@ -456,30 +489,55 @@ function useSkill(sk,f,to){
       B.log=name+" pulls into his shell. Hits on him do a quarter of the damage until his next turn."; return; }
     if(sk.cover){ B.cover={by:id,to}; B.guard[id]=true; const s=slotOf(to); burst(s.x,headOf(to)+20*s.s,'#bfe8ff',8,0.06);
       B.log=name+" plods in front of "+PARTY_INFO[to].name+". Hits meant for "+PARTY_INFO[to].name+" will hit "+name+" instead."; return; }
-    /* Tituba's Hiss: each foe may lose its nerve (a boss half as often) */
-    if(sk.weakAll){ const L=liveFoes(), got=L.filter(t=>Math.random()<sk.weakAll*(t.boss?0.5:1));
-      got.forEach(t=>{ t.st.weak=STATUS.weak.turns; focus(t); burst(EX,EY+10,'#f0b070',8,0.1); });
-      B.log=name+" hisses! "+(!got.length?"No one's impressed.":got.length===L.length?(L.length>1?"Every foe's":"The "+L[0].name+"'s")+" attack drops!"
-        :"The "+listAnd(got.map(t=>t.name))+(got.length===1?" loses its":" lose their")+" nerve!"); return; }
+    /* VitaShell: Cover for everyone at once */
+    if(sk.coverAll){ B.cover={by:id,all:true}; B.guard[id]=true;
+      B.party.filter(m=>m!==id&&standing(m)).forEach(m=>{ const s=slotOf(m); burst(s.x,headOf(m)+20*s.s,'#bfe8ff',6,0.06); });
+      B.log=name+" puts himself in front of everyone. Hits meant for anyone else will hit "+name+" instead."; return; }
+    /* Graze: Tex mends himself at the start of each of his next few turns */
+    if(sk.graze){ B.regen[id]={n:sk.graze.n,share:sk.graze.share}; const s=slotOf(id); burst(s.x,headOf(id)+20*s.s,'#8fe07a',8,0.06);
+      B.log=name+" munches on some grass. He'll get back "+Math.round(sk.graze.share*100)+"% of his HP at the start of each of his next "+sk.graze.n+" turns."; return; }
+    /* Tituba's Hiss: each foe may be scared, and may be weakened */
+    if(sk.weakAll||sk.scareAll){ const by={Scared:[],Weakened:[]};
+      liveFoes().forEach(t=>{ let any=false;
+        if(sk.scareAll&&Math.random()<sk.scareAll){ foeStatus(t,'scared'); by.Scared.push(t); any=true; }
+        if(sk.weakAll&&Math.random()<sk.weakAll){ foeStatus(t,'weak'); by.Weakened.push(t); any=true; }
+        if(any){ focus(t); burst(EX,EY+10,'#f0b070',8,0.1); } });
+      B.log=name+" hisses!"+(by.Scared.length||by.Weakened.length?gotLog(by):"  No one's impressed."); return; }
+    /* Ivy's Ssssss: one foe is scared */
+    if(sk.scare){
+      if(Math.random()<sk.scare){ foeStatus(f,'scared'); burst(EX,EY+10,'#a08ae0',8,0.1); B.log=name+" hisses: Ssssss! The "+f.name+" is scared!"; }
+      else B.log="The "+f.name+" isn't scared of "+name+"'s "+sk.name+".";
+      return; }
+    /* Tituba's Snitch */
+    if(sk.steal&&!sk.pecks){ const r=trySteal(id,f);
+      B.log=r.k?name+" snitches a "+GOODS[r.k].name+" from the "+f.name+"!"
+        :r.why==='miss'?name+" tries to snitch from the "+f.name+", but comes away empty-pawed."
+        :"The "+f.name+" has nothing left to steal.";
+      return; }
     if(sk.mendAll){ B.party.filter(standing).forEach(m=>{ mendMember(m,member(m).maxhp*sk.mendAll*healMul(id));
         if(sk.regen) B.regen[m]={n:sk.regen.n,share:sk.regen.share*healMul(id)}; });
       B.log=name+sings+sk.name+": everyone heals"+(sk.regen?", and will keep mending for "+sk.regen.n+" turns!":"!"); return; }
     if(sk.clear){ const S=B.st[to]||(B.st[to]={}); Object.keys(STATUS).forEach(k=>S[k]=0);
       const s=slotOf(to); burst(s.x,headOf(to)+14*s.s,'#fff6c8',8,0.08);
       B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+"'s troubles are shaken off!"; return; }
-    if(sk.revive){ const T=member(to); if(standing(to)){ B.log=PARTY_INFO[to].name+" is already up!"; return; }
+    if(sk.revive){ const T=member(to);
+      if(standing(to)){ const h=T.maxhp-T.hp;          /* someone who's up is filled to full */
+        if(h>0) mendMember(to,h);
+        B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+(h>0?" is back to full HP!":" was already at full HP."); return; }
       B.st[to]={}; B.regen[to]=null; mendMember(to,T.maxhp*sk.revive*healMul(id));
       B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+" is back in the fight!"; return; }
     if(sk.pecks){
       /* quick pecks at whoever's still there, a moment apart */
-      const cm=useCharge(id), got=[];
+      /* (full: each at a single hit's full power; steal: each also tries to steal first) */
+      const cm=useCharge(id), got=[], took=[];
       for(let i=0;i<sk.pecks;i++) setTimeout(()=>{
         if(!B||B.over) return; const L=liveFoes(); if(!L.length) return;
         const t=L[ri(0,L.length-1)];
+        if(sk.steal){ const r=trySteal(id,t); if(r.k) took.push(GOODS[r.k].name); }
         if(has(id,'blind')&&Math.random()<0.5){ focus(t); pop("miss",EX,EY-10,'#e8eef8'); got.push("miss"); }
-        else { const dmg=soften(statOf(id,sk.stat||'agi')*sk.pow*weakMul(id)*cm*rnd(0.85,1.15),foeDef(t));
+        else { const dmg=soften(statOf(id,sk.stat||'agi')*(sk.full?1.5:1)*sk.pow*weakMul(id)*cm*rnd(0.85,1.15),foeDef(t));
           hitFoe(t,dmg,""); burst(EX-10,EY+16,'#ffe6a0',8,0.14); got.push(t.hp>0?String(dmg):dmg+" (it runs off)"); }
-        B.log=name+(sk.stat==='str'?" slashes: ":" pecks: ")+got.join(", ")+"!"+(cm>1?"  A focused flurry!":"");
+        B.log=name+(sk.stat==='str'?" slashes: ":" pecks: ")+got.join(", ")+"!"+(took.length?"  Snitched: "+listAnd(took)+"!":"")+(cm>1?"  A focused flurry!":"");
       },i*170);
       return;
     }
@@ -489,13 +547,20 @@ function useSkill(sk,f,to){
     if(sk.guardAll){ B.party.filter(standing).forEach(m=>{ B.guard[m]=true; const s=slotOf(m); burst(s.x,headOf(m)+20*s.s,'#bfe8ff',6,0.06); });
       B.log=name+sings+sk.name+": hits on everyone are halved until their next turn."; return; }
     if(sk.all&&sk.pow){
-      const cm=useCharge(id), T=liveFoes();
+      const cm=useCharge(id), T=liveFoes(), moon=sk.night&&isNight()?sk.night:1;
+      const by={Weakened:[],Poisoned:[],Envenomed:[],Blinded:[]};
       B.critUp=sk.crit||0;
-      T.forEach(t=>{ const dmg=soften(statOf(id,st)*1.5*sk.pow*cm*weakMul(id)*rnd(0.9,1.1),foeDef(t),magic);
+      T.forEach(t=>{ const dmg=soften(statOf(id,st)*1.5*sk.pow*moon*cm*weakMul(id)*rnd(0.9,1.1),foeDef(t),magic);
         hitFoe(t,dmg,"");
-        if(t.hp>0&&sk.weak&&Math.random()<sk.weak) t.st.weak=STATUS.weak.turns; });
+        if(t.hp<=0) return;
+        if(sk.weak&&Math.random()<sk.weak){ foeStatus(t,'weak'); by.Weakened.push(t); }
+        /* Snakespit: a separate chance of each */
+        if(sk.spit){
+          if(Math.random()<sk.spit){ foeStatus(t,'poison'); by.Poisoned.push(t); }
+          if(Math.random()<sk.spit){ foeStatus(t,'venom',venomDmg(id)); by.Envenomed.push(t); }
+          if(Math.random()<sk.spit){ foeStatus(t,'blind'); by.Blinded.push(t); } } });
       B.critUp=0;
-      B.log=name+"'s "+sk.name+(magic?" rings out over":" sweeps across")+" every pest!"+(cm>1?"  A focused blow!":"");
+      B.log=name+"'s "+sk.name+(magic?" rings out over":" sweeps across")+" every pest!"+(moon>1?"  The moon makes it stronger!":"")+gotLog(by)+(cm>1?"  A focused blow!":"");
       return;
     }
     if(sk.sleep){      /* Hypnosis: the foe nods off for a few turns (a boss shrugs it off more often) */
@@ -510,10 +575,12 @@ function useSkill(sk,f,to){
       B.log=name+" uses "+sk.name+": +"+h+" HP"+(sk.cure?" and feels clean":"")+".";
       return;
     }
-    const cm=useCharge(id); let mul=cm, burst3=false; if(sk.burst&&f.st.poison){ mul*=3; burst3=true; f.st.poison=null; }
-    const dmg=soften(statOf(id,st)*1.5*sk.pow*mul*weakMul(id)*rnd(0.9,1.1),foeDef(f),magic);
+    /* Venom Burst: x3 for Venom, x2 for Poison (x6 with both), and they're used up */
+    const cm=useCharge(id); let bm=1;
+    if(sk.burst){ if(f.st.venom) bm*=3; if(f.st.poison>0) bm*=2; if(bm>1){ f.st.venom=null; f.st.poison=0; } }
+    const dmg=soften(statOf(id,st)*1.5*sk.pow*cm*bm*weakMul(id)*rnd(0.9,1.1),foeDef(f),magic);
     B.critUp=sk.crit||0;
-    hitFoe(f,dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(burst3?"  The venom bursts!":"")+(cm>1?"  A focused blow!":""));
+    hitFoe(f,dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(bm>1?"  The venom bursts! (x"+bm+")":"")+(cm>1?"  A focused blow!":""));
     B.critUp=0;
     if(f.hp>0&&sk.bind&&Math.random()<sk.bind){ f.st.bound=1; B.log+="  It's held fast!"; }
   },{heal:kind_heal,tgt:f});
@@ -560,25 +627,33 @@ const PREP_MS=700;
 function foeTurn(f){
   if(!B||B.over) return;
   const P=PESTS[f.sp], F=f.st;
-  F.guard=0; focus(f);
-  if(F.poison){ const d=F.poison.dmg; f.hp=Math.max(0,f.hp-d); pop("-"+d,EX,EY-10,'#c88ae0'); burst(EX,EY+10,'#b06ae0',8,0.1);
-    B.log="The "+f.name+" takes "+d+" from poison."; if(--F.poison.n<=0) F.poison=null;
+  F.guard=0; focus(f); B.wane=F;
+  /* Venom (a set amount) and Poison (7% of its max HP, as for the party) */
+  const ven=!!F.venom, poi=F.poison>0;
+  if(ven||poi){ let d=0;
+    if(ven){ d+=F.venom.dmg; if(--F.venom.n<=0) F.venom=null; }
+    if(poi){ d+=Math.max(1,Math.round(f.maxhp*0.07)); F.poison--; }
+    f.hp=Math.max(0,f.hp-d); pop("-"+d,EX,EY-10,'#c88ae0'); burst(EX,EY+10,ven?'#5ab06a':'#b06ae0',8,0.1);
+    B.log="The "+f.name+" takes "+d+" from "+(ven&&poi?"venom and poison":ven?"venom":"poison")+".";
     if(f.hp<=0){ B.log+="  It runs off!"; setTimeout(()=>{ if(!B||B.over) return; if(allDown()) winFight(); else nextActor(); },900); return; } }
   if(F.bound>0){ F.bound--; B.log="The "+f.name+" struggles but can't move!"; setTimeout(nextActor,1000); return; }
   if(F.sleep>0){ F.sleep--; B.log="The "+f.name+" is fast asleep..."; setTimeout(nextActor,1000); return; }
-  if(F.weak>0) F.weak--;
+  if(F.scared>0){ F.scared--; if(Math.random()<0.5){ B.log="The "+f.name+" is too scared to move!"; setTimeout(nextActor,1000); return; } }
   const charged=F.charge; F.charge=0;
   /* a charged-up pest always lets loose with its strongest hit */
   const sk=charged?P.skills.filter(s=>s.kind==='hit').sort((a,z)=>z.pow-a.pow)[0]:pickWeighted(P.skills);
   const live=B.party.filter(standing);
   let targets=sk.kind==='all'?live:sk.kind==='multi'?Array.from({length:sk.hits},()=>live[ri(0,live.length-1)])
                :sk.kind==='hit'||sk.kind==='steal'?[live[ri(0,live.length-1)]]:[];
-  /* Tex's Cover: what's aimed at the one he covers hits him (not a hit on everyone) */
-  const C=B.cover, covered=!!(C&&sk.kind!=='all'&&standing(C.by)&&targets.includes(C.to));
-  if(covered) targets=targets.map(t=>t===C.to?C.by:t);
+  /* Tex's Cover: what's aimed at the one he covers (or anyone, with VitaShell) hits him
+     (not a hit on everyone) */
+  const C=B.cover, moved=t=>!!(C&&sk.kind!=='all'&&standing(C.by)&&t!==C.by&&(C.all||t===C.to));
+  const savedFrom=[...new Set(targets.filter(moved))];
+  if(savedFrom.length) targets=targets.map(t=>moved(t)?C.by:t);
+  const cover=savedFrom.length?{by:C.by,to:savedFrom}:null;
   const go=()=>{ if(!B||B.over) return; B.prep=null;
     B.log="The "+f.name+" uses "+sk.name+"!";
-    anim('enemy',sk.kind==='multi'?1300:900,()=>foeHits(f,sk,targets,charged,covered&&C),{fx:sk.fx,targets,self:!targets.length,foe:f}); };
+    anim('enemy',sk.kind==='multi'?1300:900,()=>foeHits(f,sk,targets,charged,cover),{fx:sk.fx,targets,self:!targets.length,foe:f}); };
   if(sk!==P.skills[0]||charged){
     B.prep={f,t:0}; B.banner={txt:sk.name,f,t:PREP_MS+1100};
     B.log="The "+f.name+" is up to something...";
@@ -596,6 +671,7 @@ function foeHits(f,sk,targets,charged,cover){
     pop("+"+h,EX,EY-10,'#8fe07a'); B.log="The "+f.name+" uses "+sk.name+" and recovers "+h+" HP."; return; }
   if(sk.kind==='steal'){
     const id=targets[0], luck=statOf(id,'luk');
+    if(F.blind>0&&Math.random()<0.5){ B.log="The "+f.name+" can't see, and grabs at thin air!"; return; }
     if(Math.random()<luck*0.02){ B.log=PARTY_INFO[id].name+" keeps a tight grip on the coin purse!"; return; }
     const n=Math.min(G.coins,Math.round(f.atk*1.5+ri(0,6))); G.coins-=n;
     const s=slotOf(id); pop("-"+n+"c",s.x,headOf(id),'#ffd24a');
@@ -606,11 +682,14 @@ function foeHits(f,sk,targets,charged,cover){
     if(!standing(id)) return;
     const name=PARTY_INFO[id].name, s=slotOf(id), M=member(id);
     if(sk.miss&&Math.random()<sk.miss){ pop("miss",s.x,headOf(id),'#e8eef8'); lines.push("It misses "+name+"."); return; }
+    if(F.blind>0&&Math.random()<0.5){ pop("miss",s.x,headOf(id),'#e8eef8'); lines.push("It can't see and misses "+name+"."); return; }
     if(sk.pow>0){
       const braced=B.guard[id];         /* braced: half damage until their next turn (a quarter in a shell) */
       const raw=f.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*(B.shell[id]?0.25:braced?0.5:1);
       const dmg=soften(raw,statOf(id,'def'));
-      M.hp=Math.max(0,M.hp-dmg); if(B.st[id]) B.st[id].sleep=0;            /* a hit wakes you */
+      M.hp=Math.max(0,M.hp-dmg);
+      /* a hit may wake you, as it may a pest */
+      const S=B.st[id]; if(S&&S.sleep>0&&M.hp>0&&Math.random()<0.4){ S.sleep=0; lines.push(name+" wakes up!"); }
       pop("-"+dmg,s.x,headOf(id),'#ff8a8a'); burst(s.x,s.y-80,'#ff9a8a',8);
       if(sk.drain){ const h=Math.round(dmg*sk.drain); f.hp=Math.min(f.maxhp,f.hp+h); pop("+"+h,EX,EY-10,'#8fe07a'); }
       if(targets.length===1) lines.push("It hits "+name+" for "+dmg+"!"+(braced?" (braced)":"")+(charged?" A huge blow!":""));
@@ -619,7 +698,7 @@ function foeHits(f,sk,targets,charged,cover){
     if(!standing(id)){ lines.push(name+" is down!"); if(id==='kaitlyn'){ B.over='lose'; } }
   });
   if(targets.length>1&&sk.pow>0) lines.unshift(sk.kind==='multi'?"It hits again and again!":"It hits the whole party!");
-  if(cover) lines.unshift(PARTY_INFO[cover.by].name+" takes it for "+PARTY_INFO[cover.to].name+"!");
+  if(cover) lines.unshift(PARTY_INFO[cover.by].name+" takes it for "+listAnd(cover.to.map(m=>PARTY_INFO[m].name))+"!");
   B.log="The "+f.name+" uses "+sk.name+"!  "+lines.join("  ");
   blip(180,0.09,0.2);
   if(B.over==='lose') B.log="Kaitlyn is worn out...";
@@ -648,7 +727,7 @@ function winRewards(){
   const coins=Math.round(B.foes.reduce((a,f)=>a+f.coin,0)*(bonus?1.5:1));
   const from={}; up.forEach(id=>{ const M=member(id); from[id]={lv:M.lv,xp:M.xp,next:M.next}; });
   /* drops: each pest may leave an ordinary thing, or (rarely) a special one */
-  const drops=[];
+  const drops=B.stolen.slice();            /* what Tituba snitched is already in the basket */
   B.foes.forEach(f=>{ const D=PEST_DROPS[f.sp]; if(!D) return;
     const k=Math.random()<RARE_P?D[1]:Math.random()<DROP_P?D[0]:null;
     if(k){ G.goods[k]=(G.goods[k]||0)+1; drops.push(k); } });
@@ -1106,7 +1185,7 @@ function drawFoeFx(fx,k,targets){
    guarding or charging, and a member braced by Meditate. */
 const ICON_COL={guard:'#3a8a5a',charge:'#d84a3a',regen:'#4aa84a'}, ICON_ALPHA=0.5;
 function foeIcons(f){ const F=f.st;
-  return ['poison','bound','weak','sleep','guard','charge'].filter(k=>!!F[k]); }
+  return ['venom','poison','blind','scared','bound','weak','sleep','guard','charge'].filter(k=>!!F[k]); }
 function memberIcons(id){ const S=B.st[id]||{};
   return Object.keys(STATUS).filter(k=>S[k]>0).concat(B.guard[id]?['guard']:[],B.charged[id]?['charge']:[],B.regen[id]&&B.regen[id].n>0?['regen']:[]); }
 function statusIcon(x,y,k){
@@ -1115,7 +1194,12 @@ function statusIcon(x,y,k){
   b.fillStyle=col; b.beginPath(); b.arc(x,y,r,0,7); b.fill();
   b.fillStyle='#ffffff'; b.strokeStyle='#ffffff'; b.lineWidth=0.9; b.lineCap='round'; b.lineJoin='round';
   b.beginPath();
-  if(k==='poison'){ b.moveTo(x,y-2.6); b.quadraticCurveTo(x+2.1,y+0.2,x+1.6,y+1.2); b.arc(x,y+1,1.65,0.1,Math.PI-0.1); b.quadraticCurveTo(x-2.1,y+0.2,x,y-2.6); b.fill(); }
+  if(k==='venom'){       /* a little skull and crossbones */
+    b.lineWidth=0.7; b.moveTo(x-2.3,y-0.3); b.lineTo(x+2.3,y+2.5); b.moveTo(x+2.3,y-0.3); b.lineTo(x-2.3,y+2.5); b.stroke();
+    [[-2.3,-0.3],[2.3,-0.3],[-2.3,2.5],[2.3,2.5]].forEach(([dx,dy])=>{ b.beginPath(); b.arc(x+dx,y+dy,0.55,0,7); b.fill(); });
+    b.beginPath(); b.arc(x,y-1.1,1.75,0,7); b.fill(); b.fillRect(x-0.95,y+0.1,1.9,1.0);
+    b.fillStyle=STATUS.venom.col; b.fillRect(x-1.0,y-1.45,0.75,0.75); b.fillRect(x+0.25,y-1.45,0.75,0.75); }
+  else if(k==='poison'){ b.moveTo(x,y-2.6); b.quadraticCurveTo(x+2.1,y+0.2,x+1.6,y+1.2); b.arc(x,y+1,1.65,0.1,Math.PI-0.1); b.quadraticCurveTo(x-2.1,y+0.2,x,y-2.6); b.fill(); }
   else if(k==='blind'){ b.ellipse(x,y,2.5,1.4,0,0,7); b.stroke(); b.beginPath(); b.moveTo(x-2.2,y+2); b.lineTo(x+2.2,y-2); b.stroke(); }
   else if(k==='sleep'){ b.moveTo(x-1.6,y-1.7); b.lineTo(x+1.6,y-1.7); b.lineTo(x-1.6,y+1.7); b.lineTo(x+1.6,y+1.7); b.stroke(); }
   else if(k==='weak'){ b.moveTo(x,y-2.3); b.lineTo(x,y+1.8); b.moveTo(x-1.7,y+0.2); b.lineTo(x,y+2.1); b.lineTo(x+1.7,y+0.2); b.stroke(); }
@@ -1135,7 +1219,7 @@ function drawStatusTags(){
 }
 /* what a tap on someone shows: who they are, how they're doing, and what each of their
    troubles does */
-const ST_DESC={poison:"loses a little HP every turn",blind:"attacks miss half the time",
+const ST_DESC={poison:"loses 7% of max HP every turn",blind:"attacks miss half the time",
   sleep:"can't act (a hit may wake them)",weak:"hits do 40% less damage",scared:"half the time too scared to move",
   bound:"held fast: loses a turn",guard:"braced: hits on it are halved until its next turn",charge:"its next hit is twice as hard",
   braced:"braced: hits on them are halved until their next turn", charged:"focused: their next hit is twice as hard"};
@@ -1147,7 +1231,10 @@ function inspectInfo(x){
     add("HP "+f.hp+" / "+f.maxhp+"    Attack "+Math.round(f.atk)+"    Defense "+Math.round(f.def)+"    Agility "+Math.round(f.agi),'#f4f6ff',17);
     if(P.about) add(P.about,'#c8d4ff',17);
     const S=[];
-    if(F.poison) S.push(["Poison",STATUS.poison.col,"takes "+F.poison.dmg+" HP every turn",F.poison.n]);
+    if(F.venom) S.push(["Venom",'#8fe0a0',"takes "+F.venom.dmg+" HP every turn",F.venom.n]);
+    if(F.poison>0) S.push(["Poison",'#e0b0ff',ST_DESC.poison,F.poison]);
+    if(F.blind>0) S.push(["Blind",'#c8c8d8',ST_DESC.blind,F.blind]);
+    if(F.scared>0) S.push(["Scared",'#c0a8ff',ST_DESC.scared,F.scared]);
     if(F.bound) S.push(["Bound",'#d8b07a',ST_DESC.bound,0]);
     if(F.weak) S.push(["Weak",'#f0b070',ST_DESC.weak,F.weak]);
     if(F.sleep) S.push(["Asleep",'#9ac0ff',ST_DESC.sleep,F.sleep]);
