@@ -137,6 +137,9 @@ function trySteal(id,f){
   return {k};
 }
 const foeDef=f=>f.def;
+/* A move that hits every foe hits each one a little softer the more there are: x1 for one,
+   0.9 for two, down to 0.6 for five (so the total still grows a little with each one) */
+const spreadMul=n=>1-0.1*(clamp(n,1,5)-1);
 /* damage after the target's Defense softens it (magic only half minds it) */
 const soften=(raw,def,magic)=>Math.max(1,Math.round(raw*16/(16+def*(magic?0.5:1))));
 
@@ -533,8 +536,8 @@ function useSong(mv,f){
         },i*170);
       } else if(mv.pow>0&&f){
         /* a song for everyone hits every pest still there; then each may be troubled */
-        const T=mv.all?liveFoes():[f], cm=useCharge('kaitlyn'), by={Weakened:[],Bound:[],Poisoned:[]};
-        T.forEach(t=>{ const dmg=songHit(t,cm);
+        const T=mv.all?liveFoes():[f], cm=useCharge('kaitlyn'), by={Weakened:[],Bound:[],Poisoned:[]}, sp=spreadMul(T.length);
+        T.forEach(t=>{ const dmg=songHit(t,cm*sp);
           hitFoe(t,dmg,mv.name+" hits for "+dmg+"!"+pc);
           if(t.hp<=0) return;
           if(mv.weak&&Math.random()<mv.weak){ foeStatus(t,'weak'); by.Weakened.push(t); }
@@ -564,7 +567,7 @@ function rallyLands(s,acc){
   /* (a song may do more than one of these: Tangleroot Reel hits and binds, Clean Slate
      cures and heals) */
   const said=[];
-  if(s.pow){ liveFoes().forEach(t=>hitFoe(t,soften(songPower()*s.pow*(0.35+acc*1.1),foeDef(t),true),""));
+  if(s.pow){ const T=liveFoes(), sp=spreadMul(T.length); T.forEach(t=>hitFoe(t,soften(songPower()*s.pow*sp*(0.35+acc*1.1),foeDef(t),true),""));
     said.push(s.bindAll?"Roots lash every pest!":"It rings out over every pest!"); }
   if(s.bindAll){ const got=liveFoes().filter(t=>Math.random()<0.4+0.6*acc); got.forEach(t=>{ foeStatus(t,'bound'); focus(t); burst(EX,EY+10,'#8a6a3a',10,0.1); });
     said.push(got.length?gotLog({Bound:got}).trim():"The pests wriggle free."); }
@@ -673,10 +676,10 @@ function useSkill(sk,f,to){
     if(sk.guardAll){ B.party.filter(standing).forEach(m=>{ B.guard[m]=true; const s=slotOf(m); burst(s.x,headOf(m)+20*s.s,'#bfe8ff',6,0.06); });
       B.log=name+sings+sk.name+": hits on everyone are halved until their next turn."; return; }
     if(sk.all&&sk.pow){
-      const cm=useCharge(id), T=liveFoes(), moon=sk.night&&isNight()?sk.night:1;
+      const cm=useCharge(id), T=liveFoes(), moon=sk.night&&isNight()?sk.night:1, sp=spreadMul(T.length);
       const by={Weakened:[],Poisoned:[],Envenomed:[],Blinded:[]};
       B.critUp=sk.crit||0;
-      T.forEach(t=>{ const dmg=soften(statOf(id,st)*1.5*sk.pow*moon*cm*weakMul(id)*rnd(0.9,1.1),foeDef(t),magic);
+      T.forEach(t=>{ const dmg=soften(statOf(id,st)*1.5*sk.pow*moon*sp*cm*weakMul(id)*rnd(0.9,1.1),foeDef(t),magic);
         hitFoe(t,dmg,"");
         if(t.hp<=0) return;
         if(sk.weak&&Math.random()<sk.weak){ foeStatus(t,'weak'); by.Weakened.push(t); }
