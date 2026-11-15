@@ -196,7 +196,10 @@ const FLUTE_INFO={
   silver  :{name:"Silver Flute",    stats:{int:3,mp:4},  body:'#c6ced6',hi:'#ffffff',dark:'#79848c'},
   dizi    :{name:"Mystic Dizi",     stats:{int:7,mp:10}, body:'#dfe4ea',hi:'#fff6cf',dark:'#8a7a3a'},
   fife    :{name:"Bamboo Fife",     stats:{int:2,agi:2}, body:'#d6c27a',hi:'#f6e8b0',dark:'#86703a'},
+  muramatsu:{name:"Muramatsu",      stats:{int:14,mp:20,luk:3}, body:'#e8c66a',hi:'#fff2c0',dark:'#8a6a20'},
 };
+/* better flutes rank higher: buying one that beats what she holds puts it in her hands */
+const FLUTE_RANK=['recorder','fife','silver','dizi','muramatsu'];
 const fluteOwned=id=>id==='recorder'||!!G.gear[id];
 function drawFluteIcon(c,cx,cy,zoom){
   if(assetsReady<5) return;

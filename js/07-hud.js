@@ -102,8 +102,8 @@ function panel(x,y,w,h){ rpgWin({x,y,w,h},0.95); }
 /* The menu cursor is the flute you have equipped (its big art), laid at a slight
    tilt with a warm glow and bobbing beside the highlighted row; tipX is where its
    foot ends, y the row's middle. FLUTE_PTR holds each flute's centre, the angle of
-   its mouthpiece-to-foot line (degrees) and its length, in flutes_big.png cells. */
-const FLUTE_PTR=[[102.4,71.1,76.5,152],[98.6,79.4,134.2,204],[94.2,78.0,121.0,159]];
+   its mouthpiece-to-foot line (degrees) and its length, in flutes_big.png cells (FLUTE_PTR,
+   with FLUTE_META and FLBIG_META, are made by tools/build_art.py into js/data/art.js). */
 const PTR_LEN=30, PTR_TILT=-14*Math.PI/180;
 function fluteCursor(tipX,y){
   if(!IMG_FLBIG.complete||!IMG_FLBIG.naturalWidth) return;

@@ -42,6 +42,7 @@ function sceneImg(name){
   if(!SCENE_IMG[name]){ SCENE_IMG[name]=new Image(); SCENE_IMG[name].src=ASSET_SCENES[name]||'assets/scenes/'+name+'.jpg'; }
   const im=SCENE_IMG[name]; return im.complete&&im.naturalWidth?im:null;
 }
+const SCENE_WHOLE=['meet_tituba','meet_tex'], TALK_ROOM=128;     /* TALK_ROOM: the talk box and its margin */
 /* the screen above the deck (all of it without one) */
 const storyArea=()=>deckShown()?SCREEN_H-DECK_H:SCREEN_H;
 function drawStory(){
@@ -51,9 +52,13 @@ function drawStory(){
     bottom=storyArea();
     fillScreen(b,'#0d1410');
     const im=sceneImg(story.pic);
-    if(im){ const s=Math.max(LW/im.naturalWidth,bottom/im.naturalHeight), w=im.naturalWidth*s, h=im.naturalHeight*s;
+    if(im){
+      /* SCENE_WHOLE pictures (their friend is down by the bottom edge) are shown whole above the
+         talk box when the screen is tall enough; the others fill it */
+      const room=bottom-TALK_ROOM, whole=SCENE_WHOLE.includes(story.pic)&&LW*im.naturalHeight/im.naturalWidth<=room;
+      const s=whole?LW/im.naturalWidth:Math.max(LW/im.naturalWidth,bottom/im.naturalHeight), w=im.naturalWidth*s, h=im.naturalHeight*s;
       b.save(); b.beginPath(); b.rect(0,0,LW,bottom); b.clip(); b.imageSmoothingEnabled=true;
-      b.drawImage(im,(LW-w)/2,(bottom-h)/2,w,h); b.restore(); }
+      b.drawImage(im,(LW-w)/2,whole?(room-h)/2:(bottom-h)/2,w,h); b.restore(); }
     blit();
   } else drawWorld();
   const s=story.steps[story.i];
@@ -90,6 +95,7 @@ function drawPopup(text,who){
   b.fillStyle='rgba(255,224,138,.7)'; b.fillRect(x+10,y+8,w-20,1.5);
   if(who==='ivy') drawIvyMap(b,LW/2,y+62,64,null,false,false);
   if(who==='tiny') drawTinyBird(b,LW/2,y+70,52,false);
+  if(who==='tituba'||who==='tex') drawFriendMap(b,who,LW/2,y+76,who==='tex'?0.5:0.75);
   blit();
   wrapLines(text,24,w-28).forEach((ln,i)=>TS(ln,LW/2,ty+i*18,24,WIN_TXT.title,'center',true));
   if(story.t>450&&Math.floor(G.t/500)%2===0) TS(IS_TOUCH?"tap or press A":"press J",LW/2,y+h-6,16,WIN_TXT.dim,'center');

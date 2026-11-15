@@ -24,6 +24,7 @@ function interact(){
   if(G.area!=='garden'){ placeInteract(); return; }
   if(G.indoors){ houseInteract(); return; }
   if(nearIvy()){ talkIvy(); return; }
+  const fr=nearFriend(); if(fr){ talkFriend(fr); return; }       /* Tex, stuck on the ice */
   if(nearStall()){ openShop(); return; }
   if(nearDoor()){ travel(enterHouse); return; }
   const way=!ZONES&&nearGardenExit(); if(way){ goTo(way.to); return; }
@@ -255,6 +256,7 @@ function drawWorld(){
   if(bl&&!bl.inside) ents.push({y:bl.y,f:()=>{ const sx=bl.x-cam.x, sy=bl.y-cam.y;
     b.save(); b.translate(sx,sy); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); b.translate(-sx,-sy);
     drawIvyMap(b,sx,sy,IVY_W,bl.mood,bl.flip,bl.moving); b.restore(); }});
+  ents.push(...friendGardenEnts(cam));             /* Tex, stuck on the ice in winter */
   /* the market stand stands over the painted table; drawn goods until its picture loads */
   ents.push({y:STAND_AT.y,f:()=>{
     if(cropsReady()&&CROP_ART.stand) groundShadow(b,c=>drawCropArt(c,'stand',0,0),STAND_AT.x-cam.x,STAND_AT.y-cam.y,40);
@@ -313,7 +315,9 @@ function drawWorld(){
   drawClockText(); drawBuffsText();
   const R=PROMPT_REACH, p=nearestPlot(R), f=nearestFrog(R);
   let label=null;
+  const pal=nearFriend(R);
   if(nearIvy(R)) label=ivyLabel();
+  else if(pal) label=friendLabel(pal);
   else if(nearStall(R)) label="Shop";
   else if(nearDoor(R)) label="Go inside";
   else if(!ZONES&&nearGardenExit(R)) label=nearGardenExit(R).label;

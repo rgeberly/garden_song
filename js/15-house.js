@@ -135,6 +135,7 @@ function drawStand(x,y,k){
 function houseInteract(){
   if(nearIvy()){ talkIvy(); return; }
   if(nearTinyNest()){ tinyInteract(); return; }
+  const fr=nearFriend(); if(fr){ talkFriend(fr); return; }       /* Tituba and Tex at home */
   if(nearStand()){ askStand(); return; }
   if(nearBed()){ askSleep(); return; }
   if(nearHouseDoor()){ travel(leaveHouse); return; }
@@ -170,13 +171,15 @@ function drawHouse(){
   const bl=ivyHere();
   if(bl&&bl.inside) ents.push({y:bl.y,f:()=>drawIvyMap(b,bl.x*k,cam.top+(bl.y-cam.y)*k,IVY_W*HOUSE_KAIT,bl.mood,false,false)});
   const tn=tinyHouseEnt(k,cam); if(tn) ents.push(tn);
+  ents.push(...friendHouseEnts(k,cam));
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   const fr=frontImg('house'); if(fr) b.drawImage(fr,0,cam.top-cam.y*k,LW,HOUSE.h*k);   /* what she walks behind */
   b.restore();
   drawClockBack(); drawBuffsBack();
   blit();
   drawClockText(); drawBuffsText();
-  const label=nearIvy(PROMPT_REACH)?ivyLabel():nearTinyNest(PROMPT_REACH*1.4)?tinyLabel():nearStand()?(G.daily.practice===G.day?"Practiced today":"Practice flute")
+  const pal=nearFriend(PROMPT_REACH);
+  const label=nearIvy(PROMPT_REACH)?ivyLabel():nearTinyNest(PROMPT_REACH*1.4)?tinyLabel():pal?friendLabel(pal):nearStand()?(G.daily.practice===G.day?"Practiced today":"Practice flute")
     :nearBed()?"Sleep":nearHouseDoor()?"Go outside":null;
   if(label&&G.scene==='world') drawPrompt(label,sx,sy-74*HOUSE_KAIT);
   drawHUD();

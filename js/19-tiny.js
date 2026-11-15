@@ -223,10 +223,12 @@ const PETE_HINT=[
 /* what a townsperson says (Old Pete has the hint while Tiny One is hungry) */
 function personLines(who){
   if(who.name==="Old Pete"&&tinyHungry()){ G.story.peteHint=true; return PETE_HINT; }
+  if(who.name==="Gus"&&tituStage()==='aloof'){ G.story.tituHint=true; return GUS_HINT; }
   return who.lines;
 }
 /* a "!" over someone with something new to say */
-const personMarked=who=>who.name==="Old Pete"&&tinyHungry()&&!G.story.peteHint;
+const personMarked=who=>who.name==="Old Pete"&&tinyHungry()&&!G.story.peteHint
+                        ||who.name==="Gus"&&tituStage()==='aloof'&&!G.story.tituHint;
 function drawMarker(c,x,y){
   y+=Math.sin(G.t/260)*1.6;
   c.fillStyle='rgba(20,12,4,.35)'; c.beginPath(); c.arc(x+0.6,y+0.8,5.4,0,7); c.fill();

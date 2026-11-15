@@ -19,14 +19,15 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Add `?partytest` to try big fights: nothing is saved, Kaitlyn (Lv.6) has four Ivys, and it's spring. In the console, `partyTestFight(5,'rows')` starts a fight with that many pests in that layout (`BATTLE_LAYOUTS` in `js/12-battle.js`).
 - In `?partytest`, `ivyTest('hurt'|'recover'|'better'|'released'|'home')` jumps to a step of Ivy's story (she first appears on day 5).
 - In `?partytest`, `tinyTest('egg'|'nest'|'hatch'|'worms'|'grown'|'fight')` in the console jumps to a step of Tiny One's quest.
+- In `?partytest`, `tituTest('stray'|'aloof'|'fish'|'home'|'fight')` and `texTest('stuck'|'home'|'fight')` jump to steps of meeting Tituba (outside the Tipsy Toad from 6 PM, from day 11) and Tex (on the garden pool's ice in winter, from day 31). Both are in `js/20-friends.js`.
 - Song editor: http://localhost:8000/tools/song-editor.html?song=NAME. It can only save while `serve.py` is running.
 - There's no test suite. Verify in the Browser pane with `javascript_tool` and screenshots. `node` isn't installed; Python 3 is, with cv2, numpy, librosa and imageio_ffmpeg.
 - After editing `tools/songs_data.py`, restart `serve.py`, because it imports that module.
 
 ## Layout
-- `index.html` loads `js/assets.js`, then `js/data/*.js` (generated data), then `js/00-core.js` … `js/19-tiny.js` in order. These are shared globals, not modules.
+- `index.html` loads `js/assets.js`, then `js/data/*.js` (generated data), then `js/00-core.js` … `js/20-friends.js` in order. These are shared globals, not modules.
 - `G` is the game state (`js/04-state.js`). Save keys are short (`jm`, `nm`, `sh`, …), so keep them stable.
-- Party member ids are `kaitlyn`, `ivy` and `tiny` (Tituba and Tex later). Saves and art file names depend on them, so keep them stable. (Ivy's id was `bling` until Nov 14, 2026; saves from before then don't carry over.)
+- Party member ids are `kaitlyn`, `ivy`, `tiny`, `tituba` and `tex`. Saves and art file names depend on them, so keep them stable. (Ivy's id was `bling` until Nov 14, 2026; saves from before then don't carry over.)
 - New `SPECIES` go at the end, because saves store plots by their index in that list.
 
 ## Art pipeline (art folder: `C:\kaitlyns-garden-song-art`)
@@ -38,7 +39,8 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Town interiors (`ROOMS`: cafe, music, fishshop, bar): `maps/<room>` painted at 512x768 like the house, with `maps/<room>_collision.png` and `maps/<room>_transitions.png` (red: the doorway back to town). Kaitlyn and the townsfolk are drawn at `ROOM_KAIT` in them.
 - Battle backdrops: `backdrops/<season>`, and `backdrops/mountain_<season>` for fights on the mountain. Where each one's ground begins is `BACK_HORIZON` in `js/12-battle.js`.
 - The rhythm game's hit line and side vines: `rhythm/flute` and `rhythm/vine`.
-- `PARTY_IN_GAME` in `build_art.py` lists the party members built into `party.webp`. Future members (Tituba, Tex) sit in `party/` until they're added.
+- `PARTY_IN_GAME` in `build_art.py` lists the party members built into `party.webp`. Future members sit in `party/` until they're added. `PARTY_MOVE_NAMES` maps a member's own move names to the game's (`bite` is the attack; `special slash` and `withdraw` play for skills). Tex's `fumble` loop is him stuck on his back.
+- Kaitlyn's flutes (`flutes.png` in her hand, `flutes_big.png` as the menu cursor) are built from the `shop items/` pictures listed in `FLUTES` in `build_art.py`, with mouthpieces at the top.
 - Front layers (what she walks behind, drawn over everyone) are see-through pictures showing only the parts of the painting that overlap her: `maps/<season>_front.png` (garden), `maps/house_front.png`, and `maps/<place>_<season>_front.png` (town, mountain). The user edits these by hand and prefers this picture format over masks. Never overwrite them.
 - Party art: loose `party/<Name>-<kind>-spritesheet.png`, or a folder `party/<Name>/` with `<Name> - <kind> - spritesheet.png` (Tiny One's). `PARTY_IDS` maps folder names to ids (`tiny one` is `tiny`). Crops' `harvest <Crop>` pictures are the bag icons; `<Tree> sapling` shop pictures replace the trees' seeds.
 - Running animation: `python tools/build_run.py` produces `assets/sprites/run.png` and `js/data/run.js`.

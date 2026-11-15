@@ -194,6 +194,8 @@ const EQUIP={
   recorder:{name:"Wooden Recorder",slot:'weapon',who:['kaitlyn'],desc:"Her trusty first flute. No bonus.",own:()=>true,stats:{}},
   silver:  {name:"Silver Flute",   slot:'weapon',who:['kaitlyn'],cost:800, desc:"+3 Intelligence, +4 max MP.",own:()=>!!G.gear.silver,stats:FLUTE_INFO.silver.stats},
   dizi:    {name:"Mystic Dizi",    slot:'weapon',who:['kaitlyn'],cost:1800,desc:"+7 Intelligence, +10 max MP.",own:()=>!!G.gear.dizi,stats:FLUTE_INFO.dizi.stats},
+  /* the finest flute there is: for sale at Rosa's for now, found in a later area one day */
+  muramatsu:{name:"Muramatsu",     slot:'weapon',who:['kaitlyn'],cost:10000,desc:"A master's handmade gold flute. +14 Intelligence, +20 max MP, +3 Luck.",own:()=>!!G.gear.muramatsu,stats:FLUTE_INFO.muramatsu.stats},
   fife:    {name:"Bamboo Fife",    slot:'weapon',who:['kaitlyn'],cost:450, desc:"A light little fife. +2 Intelligence, +2 Agility.",own:()=>!!G.gear.fife,stats:FLUTE_INFO.fife.stats},
   /* the others' weapons */
   fangcaps:{name:"Silver Fang Caps",slot:'weapon',who:['ivy'],cost:480,desc:"Shiny caps for her fangs. +3 Strength.",own:()=>!!G.gear.fangcaps,stats:{str:3}},
@@ -320,6 +322,35 @@ const ALLY_SKILLS={
      desc:"A song about home, and everyone in it. Heals everyone 15% of their max HP, then 15% more at the start of each of their next 3 turns."},
     {id:'wake',   name:"Wake-Up Call",  lv:12,mp:8, revive:0.3, song:true,
      desc:"The loudest, most insistent good morning. Brings a friend who's down back into the fight with 30% of their max HP."},
+  ],
+  /* Tituba. stat: the stat a skill's power comes from (Intelligence if not given; Strength
+     and Defense hits are physical, so Defense softens them fully); crit: added chance of a
+     critical hit; weakAll: chance each foe's attack drops */
+  tituba:[
+    {id:'pounce',  name:"Pounce",         lv:1, mp:3, pow:1.2, stat:'str', crit:0.25,
+     desc:"Wiggle, wiggle... leap! One foe, power x1.2 from Strength, with a big chance of a critical hit."},
+    {id:'hiss',    name:"Hiss",           lv:3, mp:3, weakAll:0.6,
+     desc:"Ears back, fur up, very rude noise. Every foe may lose its nerve, so its attacks drop."},
+    {id:'swipes',  name:"Fury Swipes",    lv:6, mp:5, pecks:4, pow:0.5, stat:'str',
+     desc:"A blur of claws. Four slashes at random foes, power x0.5 each from Strength."},
+    {id:'ninelives',name:"Nine Lives",    lv:9, mp:6, heal:0.35, cure:true,
+     desc:"A cat always lands on her feet. Heals 35% of her HP and shakes off poison, blindness and weakness."},
+    {id:'moonslash',name:"Moonlight Slash",lv:11,mp:9, pow:1.0, all:true, stat:'str', crit:0.15,
+     desc:"One silver arc under the moon. Every foe, power x1.0 from Strength, with more critical hits."},
+  ],
+  /* Tex. shell: hits on him are quartered until his next turn; cover: until his next turn
+     he takes the hits aimed at the friend he picks (braced) */
+  tex:[
+    {id:'shell',   name:"Shell Up",       lv:1, mp:2, shell:true,
+     desc:"In he goes. Hits on Tex do a quarter of the damage until his next turn."},
+    {id:'cover',   name:"Cover",          lv:3, mp:3, cover:true,
+     desc:"He plods in front of a friend. Until his next turn, hits meant for them hit Tex instead, and he's braced."},
+    {id:'steady',  name:"Slow and Steady",lv:6, mp:6, guardAll:true,
+     desc:"A calm old voice: no rush, no panic. Hits on everyone are halved until their next turn."},
+    {id:'slam',    name:"Shell Slam",     lv:9, mp:6, pow:1.4, stat:'def',
+     desc:"All that shell, all at once. One foe, power x1.4 from Defense."},
+    {id:'sunwarm', name:"Sun-Warmed",     lv:11,mp:7, mendAll:0.2,
+     desc:"He shares the warmth of a long afternoon in the sun. Heals everyone 20% of their max HP."},
   ],
 };
 const FIELD=[

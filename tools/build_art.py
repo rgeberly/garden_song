@@ -89,11 +89,19 @@ SHOP_FLOOR = {'music stand': 0.65}
 SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'seed apron': 2000}
 # Party members in battle, sized on their first ready frame, in sheet px (the game draws
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
-# Ivy by her length.
-PARTY_FIT = {'kaitlyn': ('h', 189), 'ivy': ('w', 70), 'tiny': ('h', 66)}
+# Ivy and Tex by their length.
+PARTY_FIT = {'kaitlyn': ('h', 189), 'ivy': ('w', 70), 'tiny': ('h', 66), 'tituba': ('h', 84), 'tex': ('w', 150)}
 # party members the game has (PARTY_INFO in js/04-state.js); others in party/ (future
-# members like Tituba and Tex) are left out of party.webp until they join the game
-PARTY_IN_GAME = {'kaitlyn', 'ivy', 'tiny'}
+# members) are left out of party.webp until they join the game
+PARTY_IN_GAME = {'kaitlyn', 'ivy', 'tiny', 'tituba', 'tex'}
+# a member's own names for their moves: what the game calls them (attack: their plain hit,
+# spell: what plays for their skills)
+PARTY_MOVE_NAMES = {'bite': 'attack', 'specialslash': 'spell', 'withdraw': 'spell'}
+# loops with more frames than the game can show (a skill plays in 1.4 s): keep every Nth
+PARTY_FRAME_STEP = {('tex', 'spell'): 2, ('tituba', 'spell'): 2, ('tex', 'fumble'): 2}
+# loops only ever shown small (Tex stuck on the ice): stored at this share of their size,
+# which the game is told (k) so it can draw them at the right size
+PARTY_SMALL = {'fumble': 0.5}
 # party folders named differently from the member's id in the game
 PARTY_IDS = {'tiny one': 'tiny'}
 # a baby's still picture and begging loop, by their height in sheet px (drawn smaller in the nest)
@@ -471,6 +479,69 @@ def fit_to(still, frame, pad=40):
     return out
 
 
+# Kaitlyn's flutes, in the game's order (FLUTE_INFO in js/00-core.js), and the shop picture
+# each is made from (shop items/<Name>, mouthpiece at the top)
+FLUTES = [('recorder', 'wooden recorder'), ('silver', 'silver flute'), ('dizi', 'mystic dizi'),
+          ('fife', 'bamboo fife'), ('muramatsu', 'muramatsu')]
+FLUTE_HAND_LEN = 60     # in her hand (flutes.png): this long laid flat, in device px
+FLUTE_BIG_LEN = 200     # the menu cursor (flutes_big.png): mouthpiece to foot, in device px
+
+
+def flute_axis(a):
+    """A flute picture's mouthpiece and foot (x, y): its direction from the body (the top
+    55% of it, above any tassel or flowers at the foot), through its topmost point."""
+    m = a[..., 3] > 128
+    ys, xs = np.nonzero(m)
+    top, bot = ys.min(), ys.max()
+    body = ys < top + (bot - top) * 0.55
+    pts = np.stack([xs[body], ys[body]], 1).astype(float)
+    c = pts.mean(0)
+    _, _, vt = np.linalg.svd(pts - c, full_matrices=False)
+    d = vt[0] if vt[0][1] > 0 else -vt[0]                      # pointing down, to the foot
+    allp = np.stack([xs, ys], 1).astype(float)
+    t = (allp - c) @ d
+    return c + d * t.min(), c + d * t.max()
+
+
+def build_flutes():
+    """flutes.png: each flute laid flat, mouthpiece to the right, for her hand; flutes_big.png:
+    each as painted, for the menu cursor, with its centre, angle (mouthpiece to foot, degrees)
+    and length in FLUTE_PTR."""
+    pics = dict(named_pics('shop items'))
+    order, small, big, ptr = [], [], [], []
+    for key, name in FLUTES:
+        f = pics.get(name)
+        if not f: continue
+        a = trim(remove_white(load(f), CROP_HOLE), 4)
+        (mx, my), (fx, fy) = flute_axis(a)
+        ang = np.degrees(np.arctan2(fy - my, fx - mx)); ln = np.hypot(fx - mx, fy - my)
+        # in her hand: turned so the foot points left and the mouthpiece right
+        h, w = a.shape[:2]; D = int(np.hypot(w, h)) + 4
+        R = cv2.getRotationMatrix2D(((mx + fx) / 2, (my + fy) / 2), ang - 180, 1.0)
+        R[0, 2] += D / 2 - (mx + fx) / 2; R[1, 2] += D / 2 - (my + fy) / 2
+        flat = trim(cv2.warpAffine(a, R, (D, D), flags=cv2.INTER_CUBIC, borderValue=(0, 0, 0, 0)), 0)
+        small.append(shrink(flat, FLUTE_HAND_LEN / ln))
+        s = FLUTE_BIG_LEN / ln
+        g = shrink(a, s)
+        big.append(g); ptr.append([round(float((mx + fx) / 2 * s), 1), round(float((my + fy) / 2 * s), 1), round(float(ang), 1), round(float(ln * s))])
+        order.append(key)
+    if not order: return None
+    def strip(ims):
+        cw, ch = max(i.shape[1] for i in ims) + 2, max(i.shape[0] for i in ims) + 2
+        sheet = np.zeros((ch, cw * len(ims), 4), np.uint8); offs = []
+        for i, im in enumerate(ims):
+            ox, oy = (cw - im.shape[1]) // 2, (ch - im.shape[0]) // 2
+            sheet[oy:oy + im.shape[0], i * cw + ox:i * cw + ox + im.shape[1]] = im; offs.append((ox, oy))
+        return sheet, cw, ch, offs
+    ssheet, scw, sch, _ = strip(small)
+    bsheet, bcw, bch, boffs = strip(big)
+    for p, (ox, oy) in zip(ptr, boffs): p[0] += ox; p[1] += oy
+    cv2.imwrite(os.path.join(OUT, 'flutes.png'), ssheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+    cv2.imwrite(os.path.join(OUT, 'flutes_big.png'), bsheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+    print('flutes.png', scw, 'x', sch, 'cells; flutes_big.png', bcw, 'x', bch, 'cells -', ', '.join(order))
+    return {'meta': {'cw': scw, 'ch': sch, 'order': order}, 'big': {'cw': bcw, 'ch': bch}, 'ptr': ptr}
+
+
 def build_tackle():
     """The fishing game's rod and reel (fishing/ in the art folder) packed into
     assets/sprites/fishing.png; returns where each is in it. Each is the first of its names
@@ -606,6 +677,8 @@ def main():
         if name not in PARTY_IN_GAME:
             print('  party/' + name + ': not in the game yet (add it to PARTY_IN_GAME once it is)'); continue
         if 'ready' not in F: continue
+        for own, mk in PARTY_MOVE_NAMES.items():
+            if own in F and mk not in F: F[mk] = F[own]
         box = grid_frames(F['ready'])
         x0, y0, x1, y1 = bbox(box[0])
         how, size = PARTY_FIT.get(name, ('h', 189))
@@ -621,18 +694,21 @@ def main():
             # its bottom-centre on the first ready frame's
             pmeta[name]['stance'] = {'ax': im.shape[1] // 2, 'ay': im.shape[0] - 1 + (round(box[0].shape[0] * sc) - round(y1 * sc))}
         # the attack and spell: their first frame is the resting pose, sized and grounded like the ready loop's
-        # (a victory loop may not start from the resting pose: it's drawn at the spell's scale)
+        # (a victory loop may not start from the resting pose: it's drawn at the spell's scale,
+        # and so is a fumble loop: Tex stuck on his back)
         msc = {}
-        for move in ('attack', 'spell', 'victory'):
+        for move in ('attack', 'spell', 'victory', 'fumble'):
             hit = F.get(move)
             if not hit: continue
-            abox = grid_frames(hit)
+            abox = grid_frames(hit)[::PARTY_FRAME_STEP.get((name, move), 1)]
             ax0, ay0, ax1, ay1 = bbox(abox[0])
             asc = size / ((ay1 - ay0) if how == 'h' else (ax1 - ax0))
-            if move == 'victory': asc = msc.get('spell', msc.get('attack', asc))
+            if move in ('victory', 'fumble'): asc = msc.get('spell', msc.get('attack', sc))
             msc[move] = asc
-            for i, x in enumerate(abox): pframes.append((name + ' ' + move + ' %d' % i, shrink(x, asc)))
-            pmeta[name][move] = {'n': len(abox), 'ax': round((ax0 + ax1) / 2 * asc), 'ay': round(ay1 * asc) - 1}
+            small = PARTY_SMALL.get(move, 1)
+            for i, x in enumerate(abox): pframes.append((name + ' ' + move + ' %d' % i, shrink(x, asc * small)))
+            pmeta[name][move] = {'n': len(abox), 'ax': round((ax0 + ax1) / 2 * asc * small), 'ay': round(ay1 * asc * small) - 1}
+            if small != 1: pmeta[name][move]['k'] = small
         # a baby: its still picture and begging loop, BABY_H tall, standing on their bottom-centre
         if F.get('baby'):
             im = trim(remove_white(load(F['baby']), STANCE_HOLE), 0)
@@ -671,7 +747,7 @@ def main():
         for n, d in pmeta.items():
             d['ready'] = [ppos['%s %d' % (n, i)] for i in range(d.pop('n'))]
             if 'stance' in d: d['stance']['r'] = ppos[n + ' stance']
-            for move in ('attack', 'spell', 'victory'):
+            for move in ('attack', 'spell', 'victory', 'fumble'):
                 if move in d: d[move]['f'] = [ppos['%s %s %d' % (n, move, i)] for i in range(d[move].pop('n'))]
             if 'baby' in d: d['baby']['r'] = ppos[n + ' baby']
             for key in ('beg', 'fallasleep', 'asleep', 'hatch'):
@@ -864,6 +940,7 @@ def main():
         print('scene', name, flat.shape[1], 'x', flat.shape[0]); scene_names.append(name)
 
     fmeta = build_tackle()
+    flutes = build_flutes()
     # the title logo: logo (with the words) or logo frame (the game writes the words on it)
     logo_kind = None
     for lk, name in (('words', 'logo'), ('frame', 'logo frame')):
@@ -909,6 +986,10 @@ def main():
         fh.write('const FRONT_LAYERS=' + json.dumps(fronts) + ';\n')
         fh.write('const HOUSE_MASK=' + ('true' if hcol else 'false') + ';\n')
         fh.write('const PEOPLE_PORTRAITS=' + json.dumps(people, separators=(',', ':')) + ';\n')
+        if flutes:
+            fh.write('const FLUTE_META=' + json.dumps(flutes['meta'], separators=(',', ':')) + ';\n')
+            fh.write('const FLBIG_META=' + json.dumps(flutes['big'], separators=(',', ':')) + ';\n')
+            fh.write('const FLUTE_PTR=' + json.dumps(flutes['ptr'], separators=(',', ':')) + ';\n')
     print('crops.png', sheet.shape[1], 'x', sheet.shape[0], '-', len(crops), 'pictures:', ', '.join(sorted(meta)))
     print('shop_items.png', ssheet.shape[1], 'x', ssheet.shape[0], '-', len(shop), 'pictures')
     print('creatures.png', ', '.join('%s %d frames' % (n, len(v)) for n, v in cmeta.items()))

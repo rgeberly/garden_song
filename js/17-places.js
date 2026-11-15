@@ -387,6 +387,7 @@ function nearPlaceExit(f=1){
 function placeInteract(){
   const ex=nearPlaceExit(); if(ex){ goTo(ex.to); return; }
   const who=nearPerson();
+  const fr=nearFriend(); if(fr){ talkFriend(fr); return; }       /* Tituba by the Tipsy Toad (before its door) */
   const dr=nearTownDoor();
   if(dr){ if(doorOpen(dr)){ goTo(dr.to); return; }
     say(dr.to==='bar'?PLACES.bar.name+" opens at 6 PM.":PLACES[dr.to].name+" is closed. Open 8 AM to 6 PM."); blip(150,.08,.2); return; }
@@ -403,6 +404,7 @@ function placeInteract(){
 function placeLabel(){
   const R=PROMPT_REACH;
   const who=nearPerson(R); if(who) return who.shop?who.name+" (shop)":who.name;
+  const fr=nearFriend(R); if(fr) return friendLabel(fr);
   const dr=nearTownDoor(R*1.6); if(dr) return doorOpen(dr)?PLACES[dr.to].name:"Closed";
   if(nearTinyEgg(R)) return "Check";
   if(nearGather(R)>=0) return "Gather";
@@ -531,6 +533,7 @@ function drawPlace(){
   const ps=Math.max(1,peopleScale());
   placePeople(P).forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
     b.save(); b.translate(x,y); b.scale(ps,ps); b.translate(-x,-y); drawPerson(b,{...p,x,y}); b.restore(); }}));
+  ents.push(...friendPlaceEnts(cam));          /* Tituba by the Tipsy Toad */
   if(nearTinyEgg(9)) ents.push({y:TINY_EGG.y,f:()=>drawTinyEgg(b,TINY_EGG.x-cam.x,TINY_EGG.y-cam.y)});   /* Tiny One's egg, under the pine */
   if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
   /* the pests, scaled like her here (shadow and all), around their feet */
@@ -575,7 +578,7 @@ const TOWN_SHOPS={
     {name:"Honey Bun",cost:28,desc:"Restores 20 HP to everyone in the party. Goes in your bag.",buy:()=>addGood('bun')}]},
   /* Rosa's music shop: sheet music for new songs to practice at the music stand */
   music:{title:"Rosa's Music Shop", empty:"Nothing new in yet. Check back soon!", items:()=>
-    gearRows(['fife','silver','dizi','reedwhistle','polish','cloth']).concat(
+    gearRows(['fife','silver','dizi','muramatsu','reedwhistle','polish','cloth']).concat(
     PRACTICE_SONGS.filter(s=>!songKnown(s)).map(s=>({name:"Sheet music: "+s.name,cost:s.cost,
       desc:"A new song to practice at home: up to "+practiceXp(1,s)+" EXP a day.",buy:()=>{ G.sheets.push(s.id); }})))},
   /* Mr. Hollis: the next rod and reel up, one set at a time */
@@ -607,7 +610,8 @@ function gearRows(keys){
     return {name:it.name,cost:it.cost,desc:cap(it.desc)+(E?({weapon:" A weapon",clothes:" Clothes"}[E.slot]||" An accessory")+" (Equip tab)."+who:" Garden gear."),
       buy:()=>{ G.gear[k]=1;
         /* a better flute goes straight into her hands */
-        if(k==='dizi'||(k==='silver'&&equipOf('kaitlyn').weapon!=='dizi')){ equipOf('kaitlyn').weapon=k; refitMember('kaitlyn'); } }}; });
+        const r=FLUTE_RANK.indexOf(k);
+        if(r>=0&&r>FLUTE_RANK.indexOf(equipOf('kaitlyn').weapon||'recorder')){ equipOf('kaitlyn').weapon=k; refitMember('kaitlyn'); } }}; });
 }
 const pawn=(k,n)=>{ G.pawn[k]=(G.pawn[k]||0)+n; };
 let tshop=null;
