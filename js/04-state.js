@@ -16,6 +16,7 @@ const G={
   clock:6*60, day:1, indoors:false,      /* game minutes since midnight; see 14-daytime.js */
   party:['kaitlyn'], allies:{},          /* who fights (up to PARTY_MAX), in spot order; allies' own stats */
   slots:null,                            /* the five spots they stand in, top to bottom (see partySlots) */
+  pep:0,                                 /* the Pep meter (PEP_MAX full), kept from fight to fight */
   story:{},                              /* how far each story has got; see 16-story.js */
   daily:{},                              /* once-a-day things: the day each was last done */
   area:'garden', goods:{}, gearOff:{},              /* where she is (17-places.js); things gathered and caught */
@@ -173,7 +174,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,ps:partySlots(),al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,
+    pa:G.party,ps:partySlots(),pp:G.pep,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0,p.deadDay||0])};
 }
@@ -187,7 +188,7 @@ function applySave(o){
   G.flute=o.fl||'recorder';
   /* (members the game doesn't know, like an old id, are left behind) */
   G.allies=Object.fromEntries(Object.entries(o.al||{}).filter(([id])=>PARTY_INFO[id])); G.party=(o.pa||['kaitlyn']).filter(id=>id==='kaitlyn'||G.allies[id]);
-  G.slots=o.ps||null; partySlots();
+  G.slots=o.ps||null; partySlots(); G.pep=o.pp||0;
   for(const id in G.allies){ const A=G.allies[id];          /* older saves had no EXP for friends */
     if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; }
   G.runMode=o.jm||'hold';

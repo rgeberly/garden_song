@@ -140,29 +140,90 @@ const foeDef=f=>f.def;
 /* damage after the target's Defense softens it (magic only half minds it) */
 const soften=(raw,def,magic)=>Math.max(1,Math.round(raw*16/(16+def*(magic?0.5:1))));
 
-/* ---------- turn order ---------- */
+/* ---------- a round ----------
+   Everyone standing picks their move first, one at a time top to bottom as they stand
+   (B.inputs; B.plan[id] is what they picked; Back goes to the one before). Then, after a
+   Pep Rally if the meter was full and she plays one, everyone and every pest acts,
+   quickest (Agility) first (B.order). Guarding moves take hold as the round starts. */
+function beginRound(){
+  if(!B||B.over) return;
+  if(allDown()){ winFight(); return; }
+  B.plan={}; B.pepPick=null; B.shieldAll=false; B.skipParty=false;
+  B.inputs=topDown(B.party).filter(id=>standing(id)&&!(B.st[id].sleep>0));
+  B.inputAt=0;
+  if(B.inputs.length) askInput(); else startActions();
+}
+function askInput(){ B.act=B.party.indexOf(B.inputs[B.inputAt]); startTurn(); B.log=PARTY_INFO[actor()].name+"'s move?"; }
+/* a member's move is picked (P: {kind, x the skill, song or item, f the foe, to the friend}):
+   on to the next, then maybe a Pep Rally, then the actions */
+function plan(P){
+  B.plan[actor()]=P; B.tgt=null; B.inputAt++;
+  if(B.inputAt<B.inputs.length){ askInput(); return; }
+  if(pepReady()){ B.act=B.party.indexOf('kaitlyn'); startTurn(); B.menu='pep'; B.sub=0; B.top=0;
+    B.log="The Pep meter is full! Play a Pep Rally?"; blip(880,0.06,0.12,'triangle'); return; }
+  startActions();
+}
+/* Back: the one before picks again (false if this is the first) */
+function unplan(){
+  if(!B.inputAt) return false;
+  B.inputAt--; delete B.plan[B.inputs[B.inputAt]]; askInput(); blip(330,0.04,0.08,'triangle'); return true;
+}
+const pepReady=()=>pepKnown()&&(G.pep||0)>=PEP_MAX&&standing('kaitlyn')&&!(B.st.kaitlyn&&B.st.kaitlyn.sleep>0)&&pepSongs().length>0;
+/* the moves are picked: guards go up, the order is set, a Pep Rally plays, and away */
+function startActions(){
+  B.turn='busy'; B.menu='cmd'; B.tgt=null;
+  for(const id in B.plan){ const P=B.plan[id], x=P.x||{};
+    if(P.kind==='meditate'||P.kind==='focus'||x.shell||x.cover||x.coverAll) B.guard[id]=true;
+    if(x.shell) B.shell[id]=true;
+    if(x.cover&&P.to) B.cover={by:id,to:P.to};
+    if(x.coverAll) B.cover={by:id,all:true};
+    if(x.guardAll) B.party.filter(standing).forEach(m=>{ B.guard[m]=true; }); }
+  newRound();
+  if(B.pepPick){ const s=B.pepPick; B.pepPick=null; playRally(s); return; }
+  setTimeout(nextActor,300);
+}
 function newRound(){
   const L=B.party.filter(standing).map(id=>({id,a:statOf(id,'agi')+rnd(0,4)}));
   B.foes.forEach((f,i)=>{ if(f.hp>0) L.push({id:i,a:f.agi+rnd(0,4)}); });
   B.order=L.sort((x,y)=>y.a-x.a).map(o=>o.id);
 }
-/* whoever is next acts: a party member gets the menu, a pest (by number) takes its turn */
+/* whoever is next acts: a party member does what they picked, a pest (by number) takes
+   its turn; when everyone has, a new round */
 function nextActor(){
   if(!B||B.over) return;
   if(B.wane){ wane(B.wane); B.wane=null; }
   if(allDown()){ winFight(); return; }
-  if(!B.order.length) newRound();
+  if(!B.order.length){ beginRound(); return; }
   const id=B.order.shift();
   if(typeof id==='number'){ const f=B.foes[id]; if(f.hp<=0){ nextActor(); return; }
     B.turn='enemy'; setTimeout(()=>foeTurn(f),500); return; }
-  if(!standing(id)){ nextActor(); return; }
+  if(!standing(id)||B.skipParty){ nextActor(); return; }
   B.act=B.party.indexOf(id);
   const why=memberTicks(id);
   if(B.over) return;
   if(why){ B.turn='busy'; B.log=why; setTimeout(nextActor,1100); return; }
-  startTurn();
+  runPlan(id);
 }
 function startTurn(){ B.turn='player'; B.menu='cmd'; B.idx=0; B.ctop=0; B.readyT=0; B.tgt=null; }
+/* a member does what they picked: a foe that's gone is swapped for another; a friend
+   who's down can't be helped (but Wake-Up Call is for them) */
+function runPlan(id){
+  const P=B.plan[id]; delete B.plan[id];
+  const nm=PARTY_INFO[id].name, x=P&&P.x, L=liveFoes();
+  const fizzle=t=>{ B.turn='busy'; B.log=t; setTimeout(nextActor,1000); };
+  if(!P){ B.turn='busy'; setTimeout(nextActor,150); return; }      /* (asleep when the moves were picked) */
+  let f=P.f; if(f&&f.hp<=0) f=L[ri(0,L.length-1)];
+  if(P.to&&!standing(P.to)&&!(x&&x.revive)) return fizzle(nm+" turns to help "+PARTY_INFO[P.to].name+", but they're down.");
+  if(P.kind==='item'){ if(itemCount(x)>0) eatInBattle(x,P.to||id); else fizzle("There's no "+itemName(x)+" left!"); return; }
+  if(x&&!canPay(x,id)) return fizzle(nm+" is too worn out for "+x.name+".");
+  if(P.kind==='attack') doAttack(f);
+  else if(P.kind==='tweet') doTweet();
+  else if(P.kind==='meditate') doMeditate();
+  else if(P.kind==='focus') doFocus();
+  else if(P.kind==='karate') useKarate(x,f);
+  else if(P.kind==='song') useSong(x,x.pow>0?(!x.all&&!x.hits?f:L[0]):null);
+  else useSkill(x,P.f?f:null,P.to);
+}
 /* the highlighted command, keeping it in view */
 function setCmd(i){ B.idx=i; B.ctop=clamp(B.ctop||0,Math.max(0,i-CMD_VIS+1),i); }
 /* a member's troubles at the start of their turn; returns why they can't act, if so */
@@ -173,7 +234,8 @@ function memberTicks(id){
   B.shell[id]=false; if(B.cover&&B.cover.by===id) B.cover=null;     /* and Shell Up's and Cover's */
   const R=B.regen[id]; if(R&&R.n>0){ R.n--; mendMember(id,M.maxhp*R.share); }   /* A True Bird's Nest */
   let why=null;
-  if(S.poison>0){ const d=Math.max(1,Math.round(M.maxhp*0.07)); M.hp=Math.max(0,M.hp-d); S.poison--;
+  if(S.poison>0&&B.shieldAll) S.poison--;            /* (Safe and Sound keeps even poison off) */
+  else if(S.poison>0){ const d=Math.max(1,Math.round(M.maxhp*0.07)); M.hp=Math.max(0,M.hp-d); S.poison--;
     pop("-"+d,s.x,headOf(id),'#c88ae0'); why=name+" takes "+d+" from poison."; if(!standing(id)){ downed(id); return why; } }
   if(S.sleep>0){ S.sleep--; return name+" is fast asleep..."; }
   if(S.scared>0){ S.scared--; if(Math.random()<0.5) return name+" is too scared to move!"; }
@@ -194,7 +256,8 @@ function afterAction(){
 /* ---------- what each member can pick ---------- */
 const skillList=id=>id==='kaitlyn'?moveList().filter(mv=>mv.id!=='kick'):(ALLY_SKILLS[id]||[]).filter(s=>s.lv<=member(id).lv);
 const battleFood=()=>battleItems();             /* crops and goods that heal (17-places.js) */
-const subList=()=>B.menu==='items'?battleFood():skillList(actor());
+const PEP_SAVE={save:true,name:"Save it for later"};
+const subList=()=>B.menu==='items'?battleFood():B.menu==='pep'?pepSongs().concat([PEP_SAVE]):skillList(actor());
 /* Karate Kick and the like cost a share of max HP instead of MP */
 const hpCostOf=(sk,id)=>Math.max(1,Math.ceil(member(id).maxhp*sk.hpCost));
 const canPay=(sk,id)=>sk.hpCost?member(id).hp>hpCostOf(sk,id):member(id).mp>=sk.mp;
@@ -232,6 +295,7 @@ function cmdInfo(c,id){
 function subInfo(x){
   if(!x) return B.menu==='items'?["Items","Harvest crops to eat them in battle"]:["Skills","None learned yet"];
   if(B.menu==='items') return [itemName(x),itemText(x)];
+  if(B.menu==='pep') return x.save?[x.name,"Keep the meter full for another time."]:["♪ "+x.name,x.desc];
   const id=actor();
   if(id==='kaitlyn') return [(x.song?"♪ ":"")+x.name,moveDesc(x)];
   return [(x.song?"♪ ":"")+x.name,x.desc];
@@ -294,13 +358,15 @@ function battleKey(k){
     if(isUp(k)) setCmd((B.idx+n-1)%n);
     if(isDown(k)) setCmd((B.idx+1)%n);
     if(isOk(k)) pickCmd(CMDS[B.idx]);
-    /* cancel points at Flee first, so a stray press doesn't run away */
-    if(isBack(k)){ if(B.idx===flee) tryFlee(); else setCmd(flee); }
+    /* cancel goes back to the one before; for the first, it points at Flee first, so a
+       stray press doesn't run away */
+    if(isBack(k)&&!unplan()){ if(B.idx===flee) tryFlee(); else setCmd(flee); }
   } else {
     const L=subList(), n=L.length;
     if(isUp(k)&&n) setSub((B.sub+n-1)%n);
     if(isDown(k)&&n) setSub((B.sub+1)%n);
     if(isOk(k)&&n) useSub(L[B.sub]);
+    else if(isBack(k)&&B.menu==='pep') unplan();
     else if(isBack(k)||isOk(k)) B.menu='cmd';
   }
 }
@@ -315,7 +381,7 @@ function battleTouch(x,y){
     if(i>=0) pickTarget(i); else cancelTarget();
     return;
   }
-  const list=B.menu==='skills'||B.menu==='items';
+  const list=B.menu==='skills'||B.menu==='items'||B.menu==='pep';
   const onWin=B.turn==='player'&&(list?inRect(W.list,x,y)||inRect(W.linfo,x,y):inRect(W.cmd,x,y)||inRect(W.party,x,y)||inRect(W.info,x,y));
   /* a tap on anyone in the scene: what they're like and what's troubling them */
   if(who&&!onWin){ B.inspect=who; blip(620,0.04,0.08,'triangle'); return; }
@@ -328,53 +394,60 @@ function battleTouch(x,y){
   } else {
     /* a tap on a row uses it; anywhere outside the list goes back */
     const L=W.list;
-    if(!inRect(L,x,y)){ B.menu='cmd'; return; }
+    if(!inRect(L,x,y)){ if(B.menu!=='pep') B.menu='cmd'; return; }
     const j=Math.floor((y-L.y-SUB_Y0)/SUB_ROW), sl=subList(), i=B.top+j;
     if(j>=0&&j<SUB_ROWS&&i<sl.length){ setSub(i); useSub(sl[i]); }
   }
 }
+/* a command picked: the move (and who it's for) is set down for when their turn comes */
 function pickCmd(c){
-  if(c==='attack'){ if(PARTY_INFO[actor()].tweet) chooseAll('ally',doTweet); else chooseFoe(doAttack); }
+  if(c==='attack'){ if(PARTY_INFO[actor()].tweet) chooseAll('ally',()=>plan({kind:'tweet'})); else chooseFoe(f=>plan({kind:'attack',f})); }
   else if(c==='skills') openSub('skills');
-  else if(c==='meditate') doMeditate();
-  else if(c==='focus') doFocus();
+  else if(c==='meditate') plan({kind:'meditate'});
+  else if(c==='focus') plan({kind:'focus'});
   else if(c==='items') openSub('items');
   else tryFlee();
 }
-/* a skill, song or item from the list: check it can be paid for, then who it's for */
+/* a skill, song or item from the list (or a Pep Rally): check it can be paid for, then
+   who it's for */
 function useSub(x){
   const id=actor();
+  if(B.menu==='pep'){ B.pepPick=x.save?null:x;
+    if(x.save) B.log="Kaitlyn saves the rally for later.";
+    startActions(); return; }
   if(B.menu==='items'){
     const e=isGoodKey(x)?goodEffect(x.slice(2)):null;
-    if(e&&(e.hpAll||e.mpAll)) chooseAll('ally',()=>eatInBattle(x,id)); else chooseAlly(to=>eatInBattle(x,to));
+    if(e&&(e.hpAll||e.mpAll)) chooseAll('ally',()=>plan({kind:'item',x,to:id})); else chooseAlly(to=>plan({kind:'item',x,to}));
     return;
   }
   if(!canPay(x,id)){ B.log=x.hpCost?"Too worn out for that!":id==='kaitlyn'?"Not enough Music Points!":"Not enough MP!"; blip(150,0.08,0.2); return; }
   const others=B.party.filter(m=>m!==id&&standing(m));
-  if(x.hpCost) chooseFoe(f=>useKarate(x,f));
-  else if(x.notes){ if(x.pow>0&&!x.all&&!x.hits) chooseFoe(f=>useSong(x,f));
-    else if(x.pow>0) chooseAll('foe',()=>useSong(x,liveFoes()[0]));
-    else chooseAll('ally',()=>useSong(x,null)); }
-  else if(x.mend||x.clear) chooseAlly(to=>useSkill(x,null,to));
+  const go=(f,to)=>plan({kind:x.hpCost?'karate':x.notes?'song':'skill',x,f,to});
+  if(x.hpCost) chooseFoe(f=>go(f));
+  else if(x.notes){ if(x.pow>0&&!x.all&&!x.hits) chooseFoe(f=>go(f));
+    else chooseAll(x.pow>0?'foe':'ally',()=>go()); }
+  else if(x.mend||x.clear) chooseAlly(to=>go(null,to));
   else if(x.cover||x.coverAll){
     /* friends still standing, not Tex himself */
     if(!others.length){ B.log="There's no one to cover!"; blip(150,0.08,0.2); return; }
-    if(x.cover) chooseAlly(to=>useSkill(x,null,to),others,others[0]);
-    else chooseAll('ally',()=>useSkill(x,null),others); }
+    if(x.cover) chooseAlly(to=>go(null,to),others,others[0]);
+    else chooseAll('ally',()=>go(),others); }
   /* Wake-Up Call: anyone, down or up (the pointer starts on the first one who's down) */
-  else if(x.revive) chooseAlly(to=>useSkill(x,null,to),B.party,B.party.find(m=>!standing(m)));
-  else if(x.heal||x.shell||x.graze) chooseAlly(()=>useSkill(x,null),[id]);        /* on themselves */
-  else if(x.mendAll||x.cureAll||x.guardAll) chooseAll('ally',()=>useSkill(x,null));
-  else if(x.all||x.pecks||x.weakAll||x.scareAll) chooseAll('foe',()=>useSkill(x,null));
-  else chooseFoe(f=>useSkill(x,f));
+  else if(x.revive) chooseAlly(to=>go(null,to),B.party,B.party.find(m=>!standing(m)));
+  else if(x.heal||x.shell||x.graze) chooseAlly(()=>go(),[id]);        /* on themselves */
+  else if(x.mendAll||x.cureAll||x.guardAll) chooseAll('ally',()=>go());
+  else if(x.all||x.pecks||x.weakAll||x.scareAll) chooseAll('foe',()=>go());
+  else chooseFoe(f=>go(f));
 }
 
 /* ---------- the party's moves ---------- */
+/* Flee: tried at once, for everyone. If it fails the party loses the round (the pests
+   still get theirs). */
 function tryFlee(){
+  if(B.boss){ B.log="The HOA President blocks the gate!"; blip(150,0.08,0.2); return; }
   B.turn='busy';
-  if(B.boss){ B.log="The HOA President blocks the gate!"; afterAction(); return; }
-  if(Math.random()<fleeChance()){ B.over='flee'; B.log="You slipped away."; }
-  else { B.log="Couldn't get away!"; afterAction(); }
+  if(Math.random()<fleeChance()){ B.over='flee'; B.log="You slipped away."; return; }
+  B.plan={}; B.skipParty=true; startActions(); B.log="Couldn't get away!";
 }
 function hitFoe(f,dmg,label){
   const crit=B.turn!=='enemy'&&Math.random()<critChance(actor());
@@ -472,6 +545,42 @@ function useSong(mv,f){
       } else B.log=mv.name+" heals the party.";
     },{tgt:f});
   }
+}
+/* ---------- Pep Rally (PEP_SONGS) ----------
+   Played before anyone moves: the meter empties, the rhythm game plays the song's stretch,
+   then it lands, as strong as it was played (attacks and Tangleroot Reel; the others
+   always work). Then the round goes on. */
+function playRally(s){
+  B.turn='busy'; B.act=B.party.indexOf('kaitlyn'); G.pep=0;
+  startRhythm(null,{notes:0,name:s.name,mp:0,song:s.song,section:s.sec,pep:s,cb:acc=>{
+    G.scene='battle'; B.menu='cmd'; playOne('flute',0.5);
+    B.log="Kaitlyn plays "+s.name+"!";
+    anim(s.pow?'hymn':'lull',1500,()=>rallyLands(s,acc),{tgt:s.pow?liveFoes()[0]:null,heal:!s.pow&&!s.bindAll});
+  }});
+}
+function rallyLands(s,acc){
+  const pc="  ("+Math.round(acc*100)+"%)", up=B.party.filter(standing);
+  const sparkle=m=>{ const p=slotOf(m); burst(p.x,headOf(m)+14*p.s,'#fff6c8',8,0.08); };
+  /* (a song may do more than one of these: Tangleroot Reel hits and binds, Clean Slate
+     cures and heals) */
+  const said=[];
+  if(s.pow){ liveFoes().forEach(t=>hitFoe(t,soften(songPower()*s.pow*(0.35+acc*1.1),foeDef(t),true),""));
+    said.push(s.bindAll?"Roots lash every pest!":"It rings out over every pest!"); }
+  if(s.bindAll){ const got=liveFoes().filter(t=>Math.random()<0.4+0.6*acc); got.forEach(t=>{ foeStatus(t,'bound'); focus(t); burst(EX,EY+10,'#8a6a3a',10,0.1); });
+    said.push(got.length?gotLog({Bound:got}).trim():"The pests wriggle free."); }
+  if(s.cureAll){ up.forEach(m=>{ Object.keys(STATUS).forEach(k=>B.st[m][k]=0); sparkle(m); }); said.push("Every trouble is shaken off!"); }
+  if(s.heal){ up.forEach(m=>mendMember(m,member(m).maxhp*s.heal)); said.push("Everyone heals!"); }
+  if(s.chargeAll){ up.forEach(m=>{ B.charged[m]=true; sparkle(m); }); said.push("Everyone's next hit will be twice as hard!"); }
+  if(s.shieldAll){ B.shieldAll=true; up.forEach(sparkle); said.push("No one can be hurt this turn!"); }
+  B.log=s.name+pc+"  "+said.join("  ");
+}
+/* the Pep meter fills a little with every hit the party takes (more for a big one):
+   PEP_HIT for any hit, plus PEP_HURT times the share of max HP it took */
+const PEP_HIT=3, PEP_HURT=8;
+function pepFill(id,dmg){
+  if(!pepKnown()||dmg<=0) return;
+  const was=G.pep||0; G.pep=Math.min(PEP_MAX,was+PEP_HIT+Math.round(PEP_HURT*dmg/Math.max(1,member(id).maxhp)));
+  if(was<PEP_MAX&&G.pep>=PEP_MAX) B.pepFlash=1200;
 }
 /* healing: +h HP to member id, with a pop and a few sparkles */
 function mendMember(id,h){
@@ -700,11 +809,14 @@ function foeHits(f,sk,targets,charged,cover){
     const name=PARTY_INFO[id].name, s=slotOf(id), M=member(id);
     if(sk.miss&&Math.random()<sk.miss){ pop("miss",s.x,headOf(id),'#e8eef8'); lines.push("It misses "+name+"."); return; }
     if(F.blind>0&&Math.random()<0.5){ pop("miss",s.x,headOf(id),'#e8eef8'); lines.push("It can't see and misses "+name+"."); return; }
-    if(sk.pow>0){
+    if(sk.pow>0&&B.shieldAll){          /* Safe and Sound: nothing gets through this round */
+      pop("0",s.x,headOf(id),'#bfe8ff'); burst(s.x,s.y-80,'#bfe8ff',8);
+      if(targets.length===1) lines.push("It can't get through to "+name+"!"); }
+    else if(sk.pow>0){
       const braced=B.guard[id];         /* braced: half damage until their next turn (a quarter in a shell) */
       const raw=f.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*(B.shell[id]?0.25:braced?0.5:1);
       const dmg=soften(raw,statOf(id,'def'));
-      M.hp=Math.max(0,M.hp-dmg);
+      M.hp=Math.max(0,M.hp-dmg); pepFill(id,dmg);
       /* a hit may wake you, as it may a pest */
       const S=B.st[id]; if(S&&S.sleep>0&&M.hp>0&&Math.random()<0.4){ S.sleep=0; lines.push(name+" wakes up!"); }
       pop("-"+dmg,s.x,headOf(id),'#ff8a8a'); burst(s.x,s.y-80,'#ff9a8a',8);
@@ -714,7 +826,7 @@ function foeHits(f,sk,targets,charged,cover){
     if(standing(id)&&sk.st&&Math.random()<sk.p){ addStatus(id,sk.st); lines.push(name+" is "+STATUS[sk.st].name.toLowerCase()+"!"); }
     if(!standing(id)){ lines.push(name+" is down!"); if(id==='kaitlyn'){ B.over='lose'; } }
   });
-  if(targets.length>1&&sk.pow>0) lines.unshift(sk.kind==='multi'?"It hits again and again!":"It hits the whole party!");
+  if(targets.length>1&&sk.pow>0) lines.unshift(B.shieldAll?"Nothing gets through!":sk.kind==='multi'?"It hits again and again!":"It hits the whole party!");
   if(cover) lines.unshift(PARTY_INFO[cover.by].name+" takes it for "+listAnd(cover.to.map(m=>PARTY_INFO[m].name))+"!");
   B.log="The "+f.name+" uses "+sk.name+"!  "+lines.join("  ");
   blip(180,0.09,0.2);
@@ -1358,8 +1470,10 @@ function drawBattle(dt){
     b.globalAlpha=Math.min(1,f.t/300); px(b,Math.round(f.x),Math.round(f.y),3,3,f.col); b.globalAlpha=1; });
   B.fx=B.fx.filter(f=>f.t>0);
 
-  const pick=B.turn==='player'&&!B.over, W=battleWins(), dn=W.dn, id=actor();
-  const list=(B.menu==='skills'||B.menu==='items')&&pick, L=list?subList():null;
+  const pick=B.turn==='player'&&!B.over, W=battleWins(), dn=W.dn, id=actor(), pepBar=W=>({x:40,y:W.cmd.y-11,w:312,h:5});
+  /* a name in the party window: dim when down, green once they've picked their move */
+  const nameCol=m=>!standing(m)?"#8a90b8":pick&&B.plan&&B.plan[m]?'#b8f0a0':"#f4f6ff";
+  const list=(B.menu==='skills'||B.menu==='items'||B.menu==='pep')&&pick, L=list?subList():null;
   const PR=partyRow(), compact=PR<PARTY_ROW; let msgA=0;
   /* the pests' window shows only while picking one: its name, HP and level */
   const FW=tg&&B.tgt.kind==='foe'?{x:W.foe.x,y:W.foe.y,w:W.foe.w,h:8+FOE_ROW}:null, FB=FW?FW.y+FW.h:W.foe.y;
@@ -1387,6 +1501,11 @@ function drawBattle(dt){
         gauge(W.party.x+150,y+(compact?11:17),50,compact?3:5,M.mp,memberMaxMp(m),'#4aa8f0','#b0e0ff'); });
       if(pick&&!picking) winCursor(W.cmd.x+6,cmdTop(W)+(B.idx-(B.ctop||0))*CMD_ROW,W.cmd.w-12,CMD_ROW-2);
     }
+    /* the Pep meter, just above the windows: gold and glowing when full */
+    if(pepKnown()){ const P=pepBar(W), full=(G.pep||0)>=PEP_MAX, glow=full?0.5+Math.sin(G.t/160)*0.5:0;
+      if(B.pepFlash>0) B.pepFlash-=dt;
+      if(full){ b.globalAlpha=0.2+glow*0.3+(B.pepFlash>0?0.4:0); b.fillStyle='#ffe08a'; b.beginPath(); b.roundRect(P.x-3,P.y-3,P.w+6,P.h+6,(P.h+6)/2); b.fill(); b.globalAlpha=1; }
+      gauge(P.x,P.y,P.w,P.h,G.pep||0,PEP_MAX,full?'#ffc84a':'#e8709a',full?'#fff3b0':'#ffc0d8'); }
   } else if(won&&B.win.t>=POSE_MS) drawResultsBack();
   else if(won){}
   else rpgWin({x:60,y:300+dn,w:240,h:84});
@@ -1402,6 +1521,7 @@ function drawBattle(dt){
 
   if(!B.over){
     const log=B.log;
+    if(pepKnown()){ const P=pepBar(W); TS("Pep",10,P.y+6,16,(G.pep||0)>=PEP_MAX?'#ffe08a':'#ffc0d8',null,true); }
     if(msgA>0){ m.globalAlpha=msgA;
       wrapLines(log,24,W.msg.w-16).slice(0,2).forEach((ln,i,a)=>
         TS(ln,W.msg.x+10,W.msg.y+(a.length>1?17:26)+i*16,24,'#f4f6ff'));
@@ -1410,13 +1530,14 @@ function drawBattle(dt){
       TS(f.name+(f.boss?"  ★":""),FW.x+10,y,23,f.boss?'#ffd870':'#f4f6ff',null,true);
       TS("Lv."+f.lv,FW.x+FW.w-10,y,20,'#c8d4ff','right',true); }
     if(list){
-      const R=W.list, title=B.menu==='items'?"Items":PARTY_INFO[id].skills;
+      const R=W.list, pep=B.menu==='pep', title=B.menu==='items'?"Items":pep?"Pep Rally":PARTY_INFO[id].skills;
       TS(title,R.x+12,R.y+15,23,'#ffe08a',null,true);
-      TS(B.menu==='items'?"from your basket":"HP "+member(id).hp+"   MP "+member(id).mp+"/"+memberMaxMp(id),R.x+R.w-12,R.y+15,19,'#c8d4ff','right');
+      TS(B.menu==='items'?"from your basket":pep?"the meter is full!":"HP "+member(id).hp+"   MP "+member(id).mp+"/"+memberMaxMp(id),R.x+R.w-12,R.y+15,19,'#c8d4ff','right');
       if(!L.length) TS(B.menu==='items'?"Nothing to eat yet — harvest some crops!":"No skills learned yet.",
         R.x+R.w/2,R.y+SUB_Y0+30,20,'#aab6e8','center');
       L.slice(B.top,B.top+SUB_ROWS).forEach((x,j)=>{ const i=B.top+j, y=R.y+SUB_Y0+j*SUB_ROW+15, sel=i===B.sub;
-        if(B.menu==='items'){
+        if(pep) TS((x.save?"":"♪ ")+x.name,R.x+40,y,24,x.save?'#c8d4ff':'#f4f6ff',null,sel);
+        else if(B.menu==='items'){
           TS(itemName(x),R.x+40,y,24,'#f4f6ff',null,sel);
           TS(itemText(x),R.x+200,y,19,'#b8f0a0');
           TS("x"+itemCount(x),R.x+R.w-12,y,21,'#f4f6ff','right');
@@ -1437,10 +1558,10 @@ function drawBattle(dt){
       if(ct+CMD_VIS<CMDS.length) TS("▼",W.cmd.x+W.cmd.w-14,W.cmd.y+W.cmd.h-5,13,'#c8d4ff','center');
       topDown(B.party).forEach((m,i)=>{ const y=W.party.y+3+i*PR, M=member(m), mx=memberMaxMp(m);
         if(compact){     /* one line: name, then HP and MP over thin gauges (level on a tap) */
-          TS(PARTY_INFO[m].name,W.party.x+9,y+11.5,20,standing(m)?"#f4f6ff":"#8a90b8",null,true);
+          TS(PARTY_INFO[m].name,W.party.x+9,y+11.5,20,nameCol(m),null,true);
           TS(M.hp+"/"+M.maxhp,W.party.x+141,y+9.5,17,'#ffd0c8','right');
           TS(M.mp+"/"+mx,W.party.x+201,y+9.5,17,'#c8e8ff','right'); return; }
-        TS(PARTY_INFO[m].name,W.party.x+9,y+12,23,standing(m)?"#f4f6ff":"#8a90b8",null,true);
+        TS(PARTY_INFO[m].name,W.party.x+9,y+12,23,nameCol(m),null,true);
         TS("Lv."+M.lv,W.party.x+9,y+24,17,'#aab6e8');
         TS("HP",W.party.x+80,y+12,17,'#ffb0a8',null,true);
         TS(M.hp+"/"+M.maxhp,W.party.x+141,y+12,19,'#f4f6ff','right');

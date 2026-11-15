@@ -33,8 +33,9 @@ Kaitlyn's battle songs have no recordings yet (each plays a stand-in tune). Save
 - [x] Party screen: five slots with Kaitlyn in the middle, empty slots selectable, swap with reserves or other slots; the order matches where they stand in battle (#3, #4)
 - [x] Equip screen: pick from a list of what she can wear in each slot (#5)
 - [x] Town shops laid out like the garden stall, with Buy and Sell tabs (#6)
-- [ ] Choose everyone's commands first, then all act by Agility (Dragon Quest style) (#7.4)
-- [ ] Pep Rally: a meter filled by hits, and rally songs as an in-battle rhythm game, learned along the story (#7.7, #7.8)
+- [x] Choose everyone's commands first, then all act by Agility (Dragon Quest style) (#7.4)
+- [x] Pep Rally: a meter filled by hits, and rally songs as an in-battle rhythm game, learned along the story (#7.7, #7.8)
+- [ ] Record the Pep Rally songs (each plays a stretch of Grow Little Croppies or Drink Up, Lovelies for now; `PEP_SONGS`)
 - [ ] Shorter map shadows, better cloud shadows and pool ripples, stronger morning/evening/night tints, sunset by season (7 PM summer, 6 PM spring/fall, 5 PM winter), night-strong moves from 7 PM (#10)
 - [ ] Fishing: no text prompts, no slider over the rod, fish-shaped shadows, the line stays on a leaping fish, jumps by kind of fish (#12)
 

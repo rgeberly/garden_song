@@ -184,9 +184,14 @@ function fluteOn(){
    still loading, wait a moment for them; if they can't load, the same flute notes
    play over a drawn accompaniment instead. */
 const STEM_WAIT=5000;
+/* just a stretch of a song (bc.section: [from, to] in seconds; a Pep Rally) */
+function songSection(D,sec){
+  const [a,z]=sec; return {...D,n:D.n.filter(n=>n.t>=a-0.01&&n.t<z-0.05),len:z};
+}
 function startRhythm(plot,bc,waited){
   initAudio();
-  const D=songData(songKey(plot,bc)), SB=D&&loadSong(songKey(plot,bc));
+  let D=songData(songKey(plot,bc)); const SB=D&&loadSong(songKey(plot,bc));
+  if(D&&bc&&bc.section) D=songSection(D,bc.section);
   if((D?SB&&!SB.ready&&!SB.failed:STEM.loading)&&(waited||0)<STEM_WAIT){
     if(!waited&&!bc) say("Tuning the flute...");
     setTimeout(()=>startRhythm(plot,bc,(waited||0)+150),150); return;
@@ -252,6 +257,10 @@ function cancelRhythm(){
   if(musicGain) musicGain.gain.value=0.34;
   if(bc&&bc.practice){ R_=null; G.scene='world'; setMusic(areaMusic()); say("You put the flute down. (Practice again any time today.)"); return; }
   R_=null;
+  if(bc&&bc.pep){                           /* a Pep Rally stopped: the meter stays full, and the round goes on */
+    G.pep=PEP_MAX; G.scene='battle'; setMusic(B&&B.boss?'boss':'battle');
+    if(B){ B.log="Kaitlyn saves the rally for later."; setTimeout(nextActor,600); }
+    return; }
   if(bc){                                   /* give the Music Points back */
     G.player.mp=Math.min(maxMp(),G.player.mp+(bc.mp||0));
     G.scene='battle'; if(B){ B.turn='player'; B.log="Kaitlyn lowers the flute."; }

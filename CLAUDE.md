@@ -29,6 +29,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - `index.html` loads `js/assets.js`, then `js/data/*.js` (generated data), then `js/00-core.js` … `js/20-friends.js` in order. These are shared globals, not modules.
 - `G` is the game state (`js/04-state.js`). Save keys are short (`jm`, `nm`, `sh`, …), so keep them stable.
 - The party stands in five spots, top to bottom (`G.slots`, save key `ps`, Kaitlyn in the middle by default). `G.party` is who's out, in spot order; `partySlots()` keeps the two in step. Battles put each member at `PARTY_SPOTS[spot]`.
+- Battle rounds: everyone picks a move top to bottom (`plan`, `B.plan`), then all act by Agility (`startActions`, `nextActor`, `runPlan`). The Pep meter (`G.pep`, save key `pp`) fills on hits; when it's full, a Pep Rally (`PEP_SONGS` in `js/01-content.js`) can be played after the last pick, as a rhythm game over a stretch of a practice song (`bc.section`).
 - Town shops (`TOWN_SHOPS` in `js/17-places.js`, each with `tabs`) open in the garden stall's window (`openTownShop` in `js/09-menu-shop.js`).
 - Party member ids are `kaitlyn`, `ivy`, `tiny`, `tituba` and `tex`. Saves and art file names depend on them, so keep them stable. (Ivy's id was `bling` until Nov 14, 2026; saves from before then don't carry over.)
 - New `SPECIES` go at the end, because saves store plots by their index in that list.
