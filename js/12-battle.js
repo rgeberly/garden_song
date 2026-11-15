@@ -252,6 +252,7 @@ function downed(id){
 /* the next one acts (or the fight is over); called when a move's animation ends */
 function afterAction(){
   if(!B||B.over) return;
+  if(B.pending>0){ setTimeout(afterAction,120); return; }      /* a flurry's last hits still to land */
   if(allDown()){ winFight(); return; }
   setTimeout(nextActor,250); B.turn='busy';
 }
@@ -526,14 +527,11 @@ function useSong(mv,f){
       const pc="", healed=mv.heal?"  Everyone heals!":"";
       const songHit=(t,cm)=>soften(songPower()*mv.pow*(0.35+acc*1.1)*cm,foeDef(t),true);
       if(mv.pow>0&&mv.hits){
-        /* hits at whoever's still there, a moment apart */
+        /* hits at whoever's still there, a moment apart (every one lands: see flurry) */
         const cm=useCharge('kaitlyn'), got=[];
-        for(let i=0;i<mv.hits;i++) setTimeout(()=>{
-          if(!B||B.over) return; const L=liveFoes(); if(!L.length) return;
-          const t=L[ri(0,L.length-1)], dmg=songHit(t,cm);
-          hitFoe(t,dmg,""); got.push(t.hp>0?String(dmg):dmg+" (it runs off)");
-          B.log=mv.name+": "+got.join(", ")+"!"+pc+(cm>1?"  A focused blow!":"");
-        },i*170);
+        flurry(mv.hits,(t,up)=>{ const dmg=songHit(t,cm);
+          hitFoe(t,dmg,""); got.push(up&&t.hp<=0?dmg+" (it runs off)":String(dmg));
+          B.log=mv.name+": "+got.join(", ")+"!"+pc+(cm>1?"  A focused blow!":""); });
       } else if(mv.pow>0&&f){
         /* a song for everyone hits every pest still there; then each may be troubled */
         const T=mv.all?liveFoes():[f], cm=useCharge('kaitlyn'), by={Weakened:[],Bound:[],Poisoned:[]}, sp=spreadMul(T.length);
@@ -584,6 +582,19 @@ function pepFill(id,dmg){
   if(!pepKnown()||dmg<=0) return;
   const was=G.pep||0; G.pep=Math.min(PEP_MAX,was+PEP_HIT+Math.round(PEP_HURT*dmg/Math.max(1,member(id).maxhp)));
   if(was<PEP_MAX&&G.pep>=PEP_MAX) B.pepFlash=1200;
+}
+/* A move of n quick hits, a moment apart: each lands on someone still standing, or, once
+   they're all beaten, on the last one it hit, so a flurry is never cut short. hit(t, up):
+   up, whether t was standing. B.pending keeps beaten pests from fading, and the win from
+   coming, until the last hit has landed. */
+function flurry(n,hit){
+  let last=null; B.pending=(B.pending||0)+n;
+  for(let i=0;i<n;i++) setTimeout(()=>{
+    if(!B) return; B.pending--;
+    if(B.over) return;
+    const L=liveFoes(), t=L.length?L[ri(0,L.length-1)]:last||B.foes[B.foes.length-1];
+    last=t; hit(t,t.hp>0);
+  },i*170);
 }
 /* healing: +h HP to member id, with a pop and a few sparkles */
 function mendMember(id,h){
@@ -659,15 +670,12 @@ function useSkill(sk,f,to){
       /* quick pecks at whoever's still there, a moment apart */
       /* (full: each at a single hit's full power; steal: each also tries to steal first) */
       const cm=useCharge(id), got=[], took=[];
-      for(let i=0;i<sk.pecks;i++) setTimeout(()=>{
-        if(!B||B.over) return; const L=liveFoes(); if(!L.length) return;
-        const t=L[ri(0,L.length-1)];
-        if(sk.steal){ const r=trySteal(id,t); if(r.k) took.push(GOODS[r.k].name); }
+      flurry(sk.pecks,(t,up)=>{
+        if(sk.steal&&up){ const r=trySteal(id,t); if(r.k) took.push(GOODS[r.k].name); }
         if(has(id,'blind')&&Math.random()<0.5){ focus(t); pop("miss",EX,EY-10,'#e8eef8'); got.push("miss"); }
         else { const dmg=soften(statOf(id,sk.stat||'agi')*(sk.full?1.5:1)*sk.pow*weakMul(id)*cm*rnd(0.85,1.15),foeDef(t));
-          hitFoe(t,dmg,""); burst(EX-10,EY+16,'#ffe6a0',8,0.14); got.push(t.hp>0?String(dmg):dmg+" (it runs off)"); }
-        B.log=name+(sk.stat==='str'?" slashes: ":" pecks: ")+got.join(", ")+"!"+(took.length?"  Snitched: "+listAnd(took)+"!":"")+(cm>1?"  A focused flurry!":"");
-      },i*170);
+          hitFoe(t,dmg,""); burst(EX-10,EY+16,'#ffe6a0',8,0.14); got.push(up&&t.hp<=0?dmg+" (it runs off)":String(dmg)); }
+        B.log=name+(sk.stat==='str'?" slashes: ":" pecks: ")+got.join(", ")+"!"+(took.length?"  Snitched: "+listAnd(took)+"!":"")+(cm>1?"  A focused flurry!":""); });
       return;
     }
     if(sk.cureAll){ B.party.filter(standing).forEach(m=>{ const S=B.st[m]||(B.st[m]={});
@@ -1420,7 +1428,7 @@ function drawBattle(dt){
   const A=B.anim&&B.anim.kind==='enemy'?B.anim:null;
   B.foes.slice().sort((a,z)=>foeSpot(a).y-foeSpot(z).y).forEach(f=>{
     if(f.shake>0) f.shake-=dt; if(f.flash>0) f.flash-=dt;
-    if(f.hp<=0||B.over==='win') f.fade=Math.min(1,f.fade+dt/450);     /* a beaten pest fades away */
+    if((f.hp<=0&&!(B.pending>0))||B.over==='win') f.fade=Math.min(1,f.fade+dt/450);     /* a beaten pest fades away (once a flurry's done) */
     if(f.fade>=1) return;
     const p=foeSpot(f), me=A&&A.foe===f, sh=f.shake>0?Math.round(Math.sin(G.t/25)*3):0;
     const eL=me&&!A.self?Math.round(Math.sin(k*Math.PI)*(A.fx==='dive'?-110:A.fx==='zoom'?-150:-38)):0;
