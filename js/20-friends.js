@@ -92,7 +92,7 @@ const tituMeets=()=>[
 /* Gus, while she's still aloof */
 const GUS_HINT=[
   "That Siamese out front? She's been hanging around the Toad for weeks. Won't let a soul near her.",
-  "Folks call her Tituba. Nobody remembers who started it. The only ones she's ever warmed up to are the fishermen, after a good day on the water, if you catch my meaning.",
+  "Folks call her Tituba...after a wicked witch. You can see the devil in her eyes. The only ones she's ever warmed up to are the fishermen, after a good day on the water, if you catch my meaning.",
 ];
 const tituFed=k=>[
   {say:'kaitlyn',text:"I brought you something. A fresh "+GOODS[k].name+"!"},
@@ -107,7 +107,7 @@ const tituFed=k=>[
   {say:'kaitlyn',text:"Oh! Are you...walking me home?"},
   {say:'tituba',text:"Mrrp."},
   {say:'kaitlyn',text:"Well, if you're coming with me, there's plenty more fish where that came from. Well...I have a fishing rod, anyway."},
-  {say:'tituba',text:"Then I suppose I'll stay. For now."},
+  {say:'tituba',text:"...I'm just a cat."},
   {say:'kaitlyn',text:"...Did you just say something?"},
   {say:'tituba',text:"Mrrow?"},
   {fade:'out',ms:900},
@@ -120,24 +120,25 @@ const tituFed=k=>[
 /* ---------- Tex ---------- */
 const texMeets=()=>[
   {say:'kaitlyn',text:"What on earth...? A tortoise?! Out here on the ice?"},
-  {say:'tex',label:"Tortoise",text:"Oh...hello there. Don't suppose you could...give an old fella a hand?"},
+  {say:'tex',label:"Tortoise",text:"Sigh..."},
   {say:'kaitlyn',text:"Oh, you poor thing! Hang on, I've got you!"},
   {fade:'out',ms:900},
   {pic:'meet_tex'},
   {fade:'in',ms:2400},
   {say:'kaitlyn',text:"Okay...one, two, three...hup!"},
-  {say:'tex',label:"Tortoise",text:"Whoa...whoa...there we go. Much obliged, young lady. The world looks a whole lot better right side up."},
+  {say:'tex',label:"Tortoise",text:"Hnnngghhh..."},
   {say:'kaitlyn',text:"You're freezing! What are you doing out of your burrow in the middle of winter?"},
-  {say:'tex',label:"Tortoise",text:"Woke up early. Thought I smelled spring. Turns out it was just somebody's chimney."},
+  {say:'tex',label:"Tortoise",text:"Sigh..."},
   {say:'kaitlyn',text:"Come on, let's get you warmed up by the fire."},
   {fade:'out',ms:900},
   {pic:null},
   {run:()=>{ G.story.tex='warm'; G.indoors=true; houseImg(); place(TEX_HEARTH.x+58,TEX_HEARTH.y+14,6); }},
   {fade:'in',ms:900},
-  {say:'tex',label:"Tortoise",text:"Ahhh...now that's the stuff. Name's Tex, by the way. I've been around a hundred winters, give or take."},
-  {say:'kaitlyn',text:"A hundred?! Well, Tex, you're welcome to stay as long as you like."},
-  {say:'tex',text:"Careful, now. A tortoise takes an offer like that very seriously."},
-  {say:'tex',text:"And from what I hear, your garden's got a pest problem. These old bones still have a little fight left in 'em."},
+  {say:'tex',label:"Tortoise",text:"Ahhh..."},
+  {say:'kaitlyn',text:"Bro...you're bigger than Texas. Maybe I'll call you Tex."},
+  {say:'tex',text:"...mhmm."},
+  {say:'tex',text:"Much obliged, puddin'. I'll be your plastron from here on out."},
+  {say:'kaitlyn',text:"...shell yeah, Tex."},
   {run:()=>{ G.story.tex='joined'; joinParty('tex'); }},
   {popup:"Tex the old tortoise joins the party!",who:'tex'},
 ];

@@ -128,7 +128,8 @@ const tinyHatches=()=>[
 const tinyJoins=()=>[
   {say:'tiny',text:"Tweet! Tweet tweet!"},
   {say:'kaitlyn',text:"Look at you, all grown up! Want to come along with me?"},
-  {say:'tiny',text:"Tweeeet!"},
+  {say:'tiny',text:"Feed the babies! Hey baby! Whatcha doin'?"},
+  {say:'kaitlyn',text:"...I guess it's not as weird if a bird talks."},
   {run:()=>{ G.story.tiny='joined'; joinParty('tiny'); delete G.goods.worm; }},
   {popup:"Tiny One the little brown bird joins the party!",who:'tiny'},
 ];
