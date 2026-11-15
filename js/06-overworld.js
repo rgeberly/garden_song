@@ -229,12 +229,7 @@ function drawWorld(){
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);           /* the zoomed-out garden */
   drawMap(cam);
-  if(season()!=='winter') for(let i=0;i<7;i++){       /* ripples on the water (not on ice) */
-    const yy=POOL.y+18+i*13, off=Math.round(Math.sin(G.t/450+i)*13);
-    b.globalAlpha=.35;
-    px(b,POOL.x+24+off+i*46-cam.x,yy-cam.y,18,2,'#dff4ff');
-    b.globalAlpha=1;
-  }
+  drawPoolRipples(cam);                               /* rings and glints on the water (not on ice) */
   const ents=[];
   plots.forEach(p=>{ if(!active(p))return;
     ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
@@ -289,19 +284,7 @@ function drawWorld(){
   /* shadows drift across the ground in world space, so they stay put
      relative to the garden while the camera moves */
   const day=daylight();
-  b.globalAlpha=.07*day; b.fillStyle='#1d3018';
-  const CP=WORLD_W+300;
-  for(let i=0;i<3;i++){
-    const wy=110+i*190;
-    const wx=((G.t*0.010+i*260)%CP);
-    for(const off of [0,-CP]){
-      const sx=wx+off-cam.x, sy=wy-cam.y;
-      if(sx<-220||sx>VIEW_WW+220) continue;
-      b.beginPath(); b.ellipse(sx,sy,120,44,0,0,7); b.fill();
-      b.beginPath(); b.ellipse(sx+70,sy+22,74,30,0,0,7); b.fill();
-    }
-  }
-  b.globalAlpha=1;
+  drawCloudShadows(cam,day);
   b.restore();                                         /* back to screen px */
   /* the painting is lit from the upper right — follow it */
   const sun=b.createLinearGradient(LW,0,0,VIEW_H);

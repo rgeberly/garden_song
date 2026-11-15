@@ -7,7 +7,9 @@
 const WAKE_AT=6*60, EARLY_BED=22*60, MIDNIGHT=24*60;
 const MS_PER_MINUTE=500, DAYS_PER_SEASON=10, SEASONS=['spring','summer','fall','winter'];
 const SEASON_NAME={spring:'Spring',summer:'Summer',fall:'Fall',winter:'Winter'};
-const isNight=()=>G.clock>=19.5*60;
+/* night (night-only pests and fish, moves that are stronger at night): from 7 PM, whatever the season */
+const NIGHT_AT=19;
+const isNight=()=>G.clock>=NIGHT_AT*60;
 const seasonOf=day=>SEASONS[Math.floor((day-1)/DAYS_PER_SEASON)%SEASONS.length];
 const season=()=>seasonOf(G.day);
 
@@ -49,7 +51,7 @@ function drawClockBack(){
   rpgWin({x,y,w,h},CLOCK_GLASS);
   const hr=G.clock/60, cx=x+12*CK, cy=y+h/2;
   b.save(); b.translate(cx,cy); b.scale(CK,CK);
-  if(hr>=SUNRISE&&hr<SUNSET){                        /* sun */
+  if(hr>=SUNRISE&&hr<sunsetHour()){                  /* sun */
     b.strokeStyle='#e8a03a'; b.lineWidth=1.2;
     for(let i=0;i<8;i++){ const a=i*Math.PI/4;
       b.beginPath(); b.moveTo(Math.cos(a)*5.5,Math.sin(a)*5.5);
@@ -71,20 +73,30 @@ function drawClockText(){
 }
 
 /* ---------- sun, shadow and colour of the hour ---------- */
-const SUNRISE=6, SUNSET=19.5, MAX_ELEV=62*Math.PI/180, GROUND_TILT=0.6, MAX_SHADOW=2.0;
+/* The sun sets earlier as the year turns: 7 PM in summer, 6 PM in spring and fall, 5 PM in
+   winter (SUNSETS); the evening colours follow it. Shadows grow as the sun sinks, but no
+   longer than MAX_SHADOW times what casts them (SHADOW_SCALE shortens them all). */
+const SUNRISE=6, SUNSETS={spring:18,summer:19,fall:18,winter:17}, MAX_ELEV=62*Math.PI/180, GROUND_TILT=0.6;
+const MAX_SHADOW=1.0, SHADOW_SCALE=0.7;
+const sunsetHour=()=>SUNSETS[season()]||18;
 /* the painted light suits shadows that swing east (morning) -> south (noon) -> west (evening) */
 function sunAt(hour){
-  const p=(hour-SUNRISE)/(SUNSET-SUNRISE), up=p>0&&p<1;
+  const p=(hour-SUNRISE)/(sunsetHour()-SUNRISE), up=p>0&&p<1;
   const elev=up?MAX_ELEV*Math.sin(Math.PI*p):0, a=Math.PI*clamp(p,0,1);
-  return {len:up?Math.min(MAX_SHADOW,1/Math.tan(Math.max(elev,0.05))):0,
+  return {len:up?Math.min(MAX_SHADOW,SHADOW_SCALE/Math.tan(Math.max(elev,0.05))):0,
           gx:Math.cos(a), gy:Math.sin(a),
           strength:up?Math.min(1,elev/(10*Math.PI/180)):0};   // fades in/out near the horizon
 }
 const SHADOW_RGB={spring:[16,32,12],summer:[16,32,12],fall:[34,24,10],winter:[28,40,82]}; // blue on snow
-const TINT=[[5,'#26336e',.66],[6,'#ff9a6a',.38],[7.5,'#ffd6a8',.18],[10,'#ffffff',0],[15,'#ffffff',0],
-            [17.5,'#ffd296',.18],[19,'#ff8a5a',.36],[20,'#6a5aa0',.5],[21,'#2c3a7a',.64],[22,'#1e2a62',.7]];
+/* the colour of the hour, laid over the view: [hour, colour, strength]. Mornings by the
+   clock; evenings in hours from sunset (golden before it, orange as it goes, then dusk
+   and night) */
+const TINT_AM=[[5,'#26336e',.78],[6,'#ff9a6a',.5],[7.5,'#ffd6a8',.28],[10,'#ffffff',0]];
+const TINT_PM=[[-3,'#ffffff',0],[-1.75,'#ffd296',.28],[-0.4,'#ff8a5a',.5],[0.6,'#6a5aa0',.64],[1.6,'#2c3a7a',.76],[2.6,'#1e2a62',.82]];
+const tintKeys=()=>{ const s=sunsetHour(); return TINT_AM.concat(TINT_PM.map(([h,c,a])=>[s+h,c,a])); };
 const hexRgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
 function tintAt(hour){
+  const TINT=tintKeys();
   let i=0; while(i<TINT.length-2&&hour>TINT[i+1][0]) i++;
   const [h0,c0,a0]=TINT[i], [h1,c1,a1]=TINT[i+1];
   const t=clamp((hour-h0)/(h1-h0),0,1), A=hexRgb(c0), B=hexRgb(c1);
@@ -174,6 +186,62 @@ function groundShadow(c,draw,x,y,w,lift){
 }
 /* 0 at night, 1 in full day: scales the drifting cloud shadows and sunlight wash */
 const daylight=()=>sunAt(G.clock/60).strength;
+/* Cloud shadows: soft, lumpy patches (each a few blurry puffs, painted once on a small
+   canvas and stretched big, so their edges stay soft) sliding slowly over the garden on
+   the wind, in world px so they keep to the ground as the camera moves. */
+const CLOUD_SH=[];
+function cloudShadowPics(){
+  if(CLOUD_SH.length) return CLOUD_SH;
+  let seed=11; const r=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  for(let k=0;k<CLOUD_ROWS.length;k++){ const w=96, h=56, c=document.createElement('canvas'); c.width=w; c.height=h;
+    const x=c.getContext('2d');
+    for(let i=0;i<10;i++){ const px=w*(0.18+0.64*r()), py=h*(0.32+0.36*r()), rad=h*(0.16+0.2*r());
+      const g=x.createRadialGradient(px,py,0,px,py,rad); g.addColorStop(0,'rgba(0,0,0,.5)'); g.addColorStop(0.7,'rgba(0,0,0,.25)'); g.addColorStop(1,'rgba(0,0,0,0)');
+      x.fillStyle=g; x.fillRect(0,0,w,h); }
+    const W=CLOUD_SIZES[k]; CLOUD_SH.push({c,w:W,h:W*0.55}); }
+  return CLOUD_SH;
+}
+/* world px per ms; where each one crosses (world y), and how wide it is (smaller than the
+   view, so you see them pass) */
+const CLOUD_WIND=0.006, CLOUD_ROWS=[40,190,330,480,630], CLOUD_SIZES=[210,160,250,180,230];
+const CLOUD_DARK=0.34;                                    /* how dark they are at their darkest (in full sun) */
+function drawCloudShadows(cam,strength){
+  if(strength<=0) return;
+  const span=WORLD_W+800;
+  b.save(); b.imageSmoothingEnabled=true;
+  b.globalAlpha=CLOUD_DARK*strength;
+  cloudShadowPics().forEach((S,i)=>{
+    const along=((G.t*CLOUD_WIND+i*613)%span)-400, x=along-cam.x, y=CLOUD_ROWS[i]+along*0.22-120-cam.y;
+    b.drawImage(S.c,x-S.w/2,y-S.h/2,S.w,S.h); });
+  b.restore();
+}
+/* The pool: little rings spreading where something touched the water, and glints of light
+   shimmering on it (none in winter, when it's ice). Worked out from the clock, nothing kept. */
+function drawPoolRipples(cam){
+  if(season()==='winter') return;
+  const cx=POOL.x+POOL.w/2-cam.x, cy=POOL.y+POOL.h/2-cam.y, rx=POOL.w*0.4, ry=POOL.h*0.34, P=2800, N=5;
+  b.save(); b.lineWidth=1;
+  for(let i=0;i<N;i++){ const t=G.t+i*P/N, k=Math.floor(t/P), q=(t%P)/P;
+    const h=((k*73856093)^(i*19349663))>>>0, a=(h%1000)/1000*Math.PI*2, d=Math.sqrt(((h>>>10)%1000)/1000)*0.85;
+    const x=cx+Math.cos(a)*rx*d, y=cy+Math.sin(a)*ry*d;
+    [[1,0.55],[0.6,0.35]].forEach(([k2,al])=>{ const rr=(2+q*15)*k2;
+      b.globalAlpha=al*(1-q)*Math.min(1,q*6); b.strokeStyle='#eef9ff';
+      b.beginPath(); b.ellipse(x,y,rr,rr*0.42,0,0,7); b.stroke(); }); }
+  /* a soft band of light sliding slowly across the water, as the surface rolls */
+  const day=daylight();
+  if(day>0){ const L=POOL.x-cam.x, T=POOL.y-cam.y, W=POOL.w, H=POOL.h, q=(G.t/9000)%1, bx=L-W*0.5+q*W*2;
+    b.save(); b.beginPath(); b.rect(L,T,W,H); b.clip();
+    const g=b.createLinearGradient(bx-60,T,bx+60,T+H*0.6);
+    g.addColorStop(0,'rgba(255,255,255,0)'); g.addColorStop(0.5,'rgba(255,255,255,'+(0.1*day)+')'); g.addColorStop(1,'rgba(255,255,255,0)');
+    b.globalAlpha=1; b.fillStyle=g; b.fillRect(L,T,W,H); b.restore(); }
+  /* glints: little points of sunlight that twinkle in and out */
+  for(let j=0;j<9;j++){ const gx=cx+Math.sin(j*2.3)*rx*0.8+Math.sin(G.t/1900+j)*5, gy=cy+Math.cos(j*1.7)*ry*0.7;
+    const tw=Math.max(0,Math.sin(G.t/520+j*1.9)); if(tw<=0.05) continue;
+    b.globalAlpha=0.55*tw*Math.max(0.3,day); b.fillStyle='#ffffff';
+    b.fillRect(gx-1.5,gy-0.25,3,0.5); b.fillRect(gx-0.25,gy-1.5,0.5,3);
+    b.globalAlpha=0.25*tw*Math.max(0.3,day); b.beginPath(); b.arc(gx,gy,1.4,0,7); b.fill(); }
+  b.restore();
+}
 
 /* ---------- going to bed ---------- */
 /* Bed is allowed any time: sleep till morning, or (earlier in the day) a nap till noon or
