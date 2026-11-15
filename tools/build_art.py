@@ -72,7 +72,7 @@ CREATURE_W = {'bluebird': 66, 'monarch': 48, 'music note': 39, 'earthworm': 48}
 GROUND_CREATURES = {'earthworm'}
 CREATURE_CELL = 256
 # ...and these, where the background caught inside is off-white too (between legs, inside loops)
-SHOP_SOFT_HOLES = {'music stand': 40}
+SHOP_SOFT_HOLES = {'music stand': 40, 'mossy wrap': 400}
 # ...and these, white themselves on white: cut out by their outline instead
 SHOP_CUTOUT = {'snowdrop'}
 # ...and studio photos of what pests leave behind: cut out with photo_cutout. Pale ones,
@@ -108,7 +108,11 @@ HATCH_H = 90            # an egg hatching: the egg's height in sheet px
 ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200), 'goat': (0.0, 1500), 'boar': (0.5, 2000), 'bear': (0.5, 2000)}
 # Enemy pictures with a transparency checkerboard painted in (no real transparency)
 ENEMY_CHECKERED = {'dung beetle', 'hoa president', 'raccoon'}
-PLACE_SIZE = {'mountain': (1080, 1446), 'town': (720, 720)}
+# the town's shops and the bar, inside: maps/<room> (or a maps/<room>/ folder holding one
+# picture), painted like the house at 512 x 768, with maps/<room>_collision and
+# maps/<room>_transitions (the red patch: the doorway back to town)
+ROOMS = ('cafe', 'music', 'fishshop', 'bar')
+PLACE_SIZE = {'mountain': (1080, 1446), 'town': (720, 720), **{r: (512, 768) for r in ROOMS}}
 PLACE_GRID = 4
 SEASON_NAMES = ('spring', 'summer', 'fall', 'winter')
 # entry/exit maps (maps/<area>_transitions): the colour for each place a patch leads to
@@ -117,7 +121,7 @@ ZONE_DESTS = ('garden', 'town', 'mountain', 'house', 'cafe', 'music', 'fishshop'
 ZONE_COLS = {'garden': (34, 177, 76), 'town': (237, 28, 36), 'mountain': (255, 201, 14), 'house': (0, 162, 232),
              'cafe': (255, 127, 39), 'music': (163, 73, 164), 'fishshop': (63, 72, 204), 'bar': (185, 122, 87)}
 # the areas with entry/exit maps, and their size in the game (world px; the house in painting px)
-AREA_ZONE_SIZE = {'town': (720, 720), 'mountain': (1080, 1446), 'house': (512, 768)}
+AREA_ZONE_SIZE = {'town': (720, 720), 'mountain': (1080, 1446), 'house': (512, 768), **{r: (512, 768) for r in ROOMS}}
 MOUNTAIN_OPEN = [(0.34, 0.90, 0.21, 0.10)]
 # Enemies (enemies/<Name>.png|jpg): their key in the game and height in battle (device px).
 # Pixel art smaller than that is enlarged with hard edges.
@@ -694,7 +698,8 @@ def main():
         for k in emeta: emeta[k]['r'] = epos[k]
         print('enemies.webp', esheet.shape[1], 'x', esheet.shape[0], '-', ', '.join(sorted(emeta)))
 
-    # battle backdrops (backdrops/<season>), the rhythm game's background and its four
+    # battle backdrops (backdrops/<season>, and backdrops/mountain_<season> for fights on the
+    # mountain; loose or a folder holding one picture), the rhythm game's background and its four
     # note gems (rhythm/background, rhythm/notes), and maps of other places
     # (maps/<place>_<season>): JPEGs for the game, no wider than the screen needs
     def save_jpg(src, out, maxw=SCENE_W):
@@ -705,8 +710,8 @@ def main():
     os.makedirs(os.path.join(ROOT, 'assets', 'scenes'), exist_ok=True)
     os.makedirs(os.path.join(ROOT, 'assets', 'places'), exist_ok=True)
     backs = []
-    for f in pics('backdrops'):
-        k = os.path.splitext(os.path.basename(f))[0].lower(); backs.append(k)
+    for k, f in named_pics('backdrops'):
+        k = '_'.join(k.split()); backs.append(k)
         save_jpg(f, os.path.join(ROOT, 'assets', 'scenes', 'backdrop_' + k + '.jpg'))
     bg = find_pic(os.path.join(SRC, 'rhythm', 'background 2')) or find_pic(os.path.join(SRC, 'rhythm', 'background'))
     if bg: save_jpg(bg, os.path.join(ROOT, 'assets', 'scenes', 'rhythm_bg.jpg'))
@@ -831,6 +836,21 @@ def main():
         where, when = base.split('_', 1)
         save_jpg(f, os.path.join(ROOT, 'assets', 'places', base + '.jpg'), 2160)
         pmaps.setdefault(where, []).append(when)
+    # the rooms inside town: the same all year ('all')
+    for room, f in named_pics('maps'):
+        if room not in ROOMS: continue
+        save_jpg(f, os.path.join(ROOT, 'assets', 'places', room + '.jpg'), 2160)
+        pmaps[room] = ['all']; print('room', room)
+
+    # the rhythm game's flute (rhythm/flute: the hit line, end to end across the screen) and
+    # vine (rhythm/vine: climbing both sides as the combo grows), loose or in a one-picture folder
+    rpics = []
+    for name, f in named_pics('rhythm'):
+        if name not in ('flute', 'vine'): continue
+        im = trim(remove_white(load(f), 40, soft_holes=True))
+        im = shrink(im, min(1.0, (1044 / im.shape[1]) if name == 'flute' else (600 / im.shape[0])))
+        cv2.imwrite(os.path.join(OUT, 'rhythm_' + name + '.png'), im, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        rpics.append(name); print('rhythm_' + name + '.png', im.shape[1], 'x', im.shape[0])
 
     # story pictures: flattened onto black and saved as JPEG at screen width
     os.makedirs(os.path.join(ROOT, 'assets', 'scenes'), exist_ok=True)
@@ -885,6 +905,7 @@ def main():
         fh.write('const TITLE_LOGO=' + json.dumps(logo_kind) + ';\n')
         fh.write('const BACKDROPS=' + json.dumps(sorted(backs)) + ';\n')
         fh.write('const RHYTHM_BG=' + ('true' if bg else 'false') + ';\n')
+        fh.write('const RHYTHM_PICS=' + json.dumps(sorted(rpics)) + ';\n')
         fh.write('const FRONT_LAYERS=' + json.dumps(fronts) + ';\n')
         fh.write('const HOUSE_MASK=' + ('true' if hcol else 'false') + ';\n')
         fh.write('const PEOPLE_PORTRAITS=' + json.dumps(people, separators=(',', ':')) + ';\n')

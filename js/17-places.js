@@ -109,43 +109,36 @@ const PLACES={
       {name:"Milo",x:452,y:478,col:'#5aa85a',hair:'#e8c84a',at:'kid',
        lines:["Have you seen a snake with a gold ring around its neck? That'd be so cool!"]},
     ]},
-  /* Inside the town's buildings: placeholder rooms drawn in code until they have paintings
-     (room: floor and wall colours, wall: how deep the back wall is, furn [x,y,w,h,colour,label]
-     solid furniture). Each is entered from its door in town and left by the doorway at the
-     bottom. */
-  cafe:{name:"Mabel's Café", room:true, w:450, h:520, floor:'#b88a5a', wallCol:'#e8d0a8', wall:120,
-    furn:[[60,192,190,34,'#8a5a3a',"counter"],[40,124,120,40,'#6a4a2a',"ovens"],[290,250,70,46,'#a86a3a',"table"],
-          [320,370,70,46,'#a86a3a',"table"],[80,360,70,46,'#a86a3a',"table"],[300,124,110,30,'#c8a07a',"pastry case"]],
-    exits:[{x:225,y:520,r:44,to:'town',label:"Back outside"}], arrive:{town:{x:225,y:452,dir:0}},
-    people:[{name:"Mabel",x:150,y:180,col:'#c8584a',hair:'#e8e0d0',shop:'cafe',at:'shop',reach:58,
+  /* Inside the town's buildings: painted rooms (maps/<room> in the art folder, 512 x 768 like
+     the house), with walls (maps/<room>_collision) and a doorway back to town at the bottom
+     (maps/<room>_transitions). The shopkeepers stand at their counters (reach: across one).
+     Until a painting loads, or without one, a plain room is drawn (room: floor and wall
+     colours, wall: how deep the back wall is). */
+  cafe:{name:"Mabel's Café", room:true, w:512, h:768, floor:'#b88a5a', wallCol:'#e8d0a8', wall:420,
+    exits:[{x:256,y:768,r:50,to:'town',label:"Back outside"}], arrive:{town:{x:256,y:690,dir:0}},
+    people:[{name:"Mabel",x:358,y:430,col:'#c8584a',hair:'#e8e0d0',shop:'cafe',at:'shop',reach:36,      /* by her bread oven */
       lines:["Welcome to the café, dear! Something warm for the road?"]}]},
-  music:{name:"Rosa's Music Shop", room:true, w:450, h:520, floor:'#8a5a4a', wallCol:'#d8c8e8', wall:120,
-    furn:[[150,192,150,34,'#6a3a2a',"counter"],[20,130,40,260,'#5a3a2a',"sheet music"],[390,130,40,260,'#5a3a2a',"flutes & fiddles"],
-          [300,300,80,56,'#2a2020',"piano"],[90,330,60,40,'#a87a3a',"drum"]],
-    exits:[{x:225,y:520,r:44,to:'town',label:"Back outside"}], arrive:{town:{x:225,y:452,dir:0}},
-    people:[{name:"Rosa",x:225,y:180,col:'#4a8ad8',hair:'#3a2418',shop:'music',at:'shop',reach:58,
+  music:{name:"Rosa's Music Shop", room:true, w:512, h:768, floor:'#8a5a4a', wallCol:'#d8c8e8', wall:270,
+    exits:[{x:256,y:768,r:50,to:'town',label:"Back outside"}], arrive:{town:{x:256,y:690,dir:0}},
+    people:[{name:"Rosa",x:255,y:234,col:'#4a8ad8',hair:'#3a2418',shop:'music',at:'shop',reach:62,
       lines:["Welcome to the music shop! New sheet music comes in all the time."]}]},
-  fishshop:{name:"Hollis Fishing Supply", room:true, w:450, h:520, floor:'#7a8a8a', wallCol:'#c8d8d8', wall:120,
-    furn:[[230,192,170,34,'#5a4a3a',"counter"],[20,130,34,250,'#6a4a2a',"rod rack"],[60,124,140,34,'#4a6a8a',"tackle"],
-          [280,320,120,56,'#3a6a8a',"bait tanks"],[70,340,70,50,'#8a6a4a',"crates"]],
-    exits:[{x:225,y:520,r:44,to:'town',label:"Back outside"}], arrive:{town:{x:225,y:452,dir:0}},
-    people:[{name:"Mr. Hollis",x:315,y:180,col:'#6a6a6a',hair:'#8a8a8a',shop:'fishing',at:'shop',reach:58,
+  fishshop:{name:"Hollis Fishing Supply", room:true, w:512, h:768, floor:'#7a8a8a', wallCol:'#c8d8d8', wall:260,
+    exits:[{x:245,y:768,r:50,to:'town',label:"Back outside"}], arrive:{town:{x:245,y:690,dir:0}},
+    people:[{name:"Mr. Hollis",x:300,y:206,col:'#6a6a6a',hair:'#8a8a8a',shop:'fishing',at:'shop',reach:66,
       lines:["Rods, reels and good advice. The advice is free."]}]},
   /* the bar opens at 6 PM, when the shops close: some of the townsfolk come here */
-  bar:{name:"The Tipsy Toad", room:true, w:450, h:520, floor:'#5a3a2a', wallCol:'#7a4a3a', wall:120,
-    furn:[[50,192,350,34,'#3a2416',"bar"],[50,124,350,30,'#2a1a10',"bottles"],[70,330,70,46,'#6a4a2a',"table"],
-          [310,330,70,46,'#6a4a2a',"table"]],
-    exits:[{x:225,y:520,r:44,to:'town',label:"Back outside"}], arrive:{town:{x:225,y:470,dir:0}},
-    people:[
-      {name:"Gus",x:225,y:180,col:'#3a5a3a',hair:'#5a3a2a',shop:'bar',at:'night',reach:58,
+  bar:{name:"The Tipsy Toad", room:true, w:512, h:768, floor:'#5a3a2a', wallCol:'#7a4a3a', wall:400,
+    exits:[{x:260,y:768,r:50,to:'town',label:"Back outside"}], arrive:{town:{x:260,y:690,dir:0}},
+    people:[                                                    /* the regulars at the tables */
+      {name:"Gus",x:255,y:318,col:'#3a5a3a',hair:'#5a3a2a',shop:'bar',at:'night',reach:90,
        lines:["Welcome to the Tipsy Toad! Pull up a stool. What'll it be?"]},
-      {name:"Old Pete",x:110,y:318,col:'#7a6a5a',hair:'#d8d8d8',at:'night',
+      {name:"Old Pete",x:190,y:532,col:'#7a6a5a',hair:'#d8d8d8',at:'night',
        lines:["Did I ever tell you about the summer my tomatoes grew as big as pumpkins?","...No? Well, neither did they. But it's a good story."]},
-      {name:"Mr. Hollis",x:350,y:318,col:'#6a6a6a',hair:'#8a8a8a',at:'night',
+      {name:"Mr. Hollis",x:345,y:500,col:'#6a6a6a',hair:'#8a8a8a',at:'night',
        lines:["Nothing like a quiet drink after a day of tangled line.","Caught a catfish this big once. ...Well, maybe this big."]},
-      {name:"Rosa",x:290,y:350,col:'#4a8ad8',hair:'#3a2418',at:'night',
+      {name:"Rosa",x:340,y:596,col:'#4a8ad8',hair:'#3a2418',at:'night',
        lines:["Gus says he'll play the old piano tonight. He says that every night."]},
-      {name:"Juniper",x:160,y:350,col:'#e8a03a',hair:'#a85a2a',at:'night',
+      {name:"Juniper",x:122,y:462,col:'#e8a03a',hair:'#a85a2a',at:'night',
        lines:["You wouldn't believe what people try to sell me. Today: one left boot.","Bought it, of course. Somebody out there has the right one."]},
     ]},
   /* Bramble Peak (maps/mountain_<season>): a trail winds up from the garden at the
@@ -178,7 +171,12 @@ function nearTownDoor(f=1){
   return (curPlace().doors||[]).find(d=>Math.hypot(G.player.x-d.x,G.player.y-d.y)<24*f); }
 /* how big Kaitlyn is drawn in each place, next to its painting (1 = as in the garden) */
 const PLACE_KAIT={town:0.8, mountain:0.7};
-const placeKait=()=>PLACE_KAIT[G.area]||1;
+/* in the rooms in town she's as big next to the painting as she is in the house's (painted at
+   the same size), and walks as fast across it */
+const ROOM_KAIT=1.5;
+const placeKait=()=>PLACE_KAIT[G.area]||(curPlace()&&curPlace().room?ROOM_KAIT:1);
+/* the townsfolk drawn to match her (they're drawn in world px) */
+const peopleScale=()=>placeKait()/WORLD_ZOOM;
 /* a place's size (the mountain is bigger than a garden screen) */
 const placeW=P=>(P&&P.w)||WORLD_W, placeH=P=>(P&&P.h)||WORLD_H;
 /* the size of wherever she is now, for the camera */
@@ -414,7 +412,7 @@ function placeLabel(){
 function updatePlace(dt){
   if(updateCast(dt)) return;
   if(G.area==='mountain'&&updateMountainPests(dt)) return;
-  walk(dt,WALK_SPEED,(x,y)=>placeSolid(x,y+9));
+  walk(dt,WALK_SPEED*(curPlace().room?ROOM_KAIT:1),(x,y)=>placeSolid(x,y+9));
   const [W,H]=areaSize(), P=G.player; P.x=clamp(P.x,21,W-21); P.y=clamp(P.y,24,H-30);
   /* the way back to the garden is a path: walking onto it takes her home */
   const ex=nearPlaceExit();
@@ -426,11 +424,15 @@ function updatePlace(dt){
 
 /* ---------- painting a place (until it has a real picture) ---------- */
 const PLACE_CANVAS={}, PLACE_PX=1.5;        /* canvas px per garden px */
-/* a place's painting for this season (maps/<place>_<season>), once it has loaded */
+/* a place's painting for this season (maps/<place>_<season>), or the one for all year (the
+   rooms in town: maps/<room>), once it has loaded */
 const PLACE_IMG={};
+function placeMapKey(area){
+  const L=typeof PLACE_MAPS!=='undefined'&&PLACE_MAPS[area]; if(!L) return null;
+  return L.includes(season())?area+'_'+season():L.includes('all')?area:null;
+}
 function placeImg(area){
-  const s=season(), key=area+'_'+s;
-  if(typeof PLACE_MAPS==='undefined'||!(PLACE_MAPS[area]||[]).includes(s)) return null;
+  const key=placeMapKey(area); if(!key) return null;
   if(!PLACE_IMG[key]){ PLACE_IMG[key]=new Image(); PLACE_IMG[key].src='assets/places/'+key+'.jpg'; }
   return PLACE_IMG[key].complete&&PLACE_IMG[key].naturalWidth?PLACE_IMG[key]:null;
 }
@@ -492,7 +494,7 @@ function drawRoom(c,P){
   c.fillStyle='#2a1a10'; c.fillRect(W/2-40,H-14,80,14);                       /* the doorway */
   c.fillStyle='#8a3a3a'; c.fillRect(W/2-34,H-34,68,16);                       /* the mat */
   c.fillStyle='rgba(255,246,216,.5)'; c.font='bold 10px '+FONT; c.textAlign='center';
-  c.fillText(P.name+" (placeholder)",W/2,P.wall-34); c.textAlign='left';
+  c.fillText(P.name,W/2,P.wall-34); c.textAlign='left';
 }
 /* a townsperson: a simple stand-in figure until they have art */
 function drawPerson(c,p){
@@ -522,11 +524,13 @@ function drawPlace(){
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);
   /* the painting; black while it loads (the drawn stand-in only for a place without one) */
-  const pim=placeImg(G.area), painted=typeof PLACE_MAPS!=='undefined'&&(PLACE_MAPS[G.area]||[]).includes(season());
+  const pim=placeImg(G.area), painted=!!placeMapKey(G.area);
   b.imageSmoothingEnabled=true;
   if(pim||!painted) b.drawImage(pim||placeCanvas(G.area),-cam.x,-cam.y,placeW(P),placeH(P));
   const ents=[];
-  placePeople(P).forEach(p=>ents.push({y:p.y,f:()=>drawPerson(b,{...p,x:p.x-cam.x,y:p.y-cam.y})}));
+  const ps=Math.max(1,peopleScale());
+  placePeople(P).forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
+    b.save(); b.translate(x,y); b.scale(ps,ps); b.translate(-x,-y); drawPerson(b,{...p,x,y}); b.restore(); }}));
   if(nearTinyEgg(9)) ents.push({y:TINY_EGG.y,f:()=>drawTinyEgg(b,TINY_EGG.x-cam.x,TINY_EGG.y-cam.y)});   /* Tiny One's egg, under the pine */
   if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
   /* the pests, scaled like her here (shadow and all), around their feet */
@@ -545,9 +549,9 @@ function drawPlace(){
   /* what she walks behind (maps/<place>_<season>_front: tree tops and the like) goes over everyone */
   const fr=frontImg(G.area+'_'+season()); if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,placeW(P),placeH(P)); }
   placePeople(P).forEach(p=>{ b.font='bold 7px '+FONT; b.textAlign='center'; b.fillStyle='rgba(20,12,4,.55)';
-    const w=b.measureText(p.name).width+6; b.fillRect(p.x-cam.x-w/2,p.y-cam.y-46,w,10);
-    b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,p.y-cam.y-38.5); b.textAlign='left';
-    if(personMarked(p)) drawMarker(b,p.x-cam.x,p.y-cam.y-54); });
+    const w=b.measureText(p.name).width+6, ny=p.y-cam.y-36*ps-10; b.fillRect(p.x-cam.x-w/2,ny,w,10);
+    b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,ny+7.5); b.textAlign='left';
+    if(personMarked(p)) drawMarker(b,p.x-cam.x,ny-8); });
   b.restore();
   if(!P.room) tintView(b);                    /* lamps are lit indoors */
   b.restore();

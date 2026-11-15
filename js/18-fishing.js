@@ -43,9 +43,9 @@ function waterPt(near,side){
   return {x,y,s:0.55+0.75*k};             /* s: how big things look there */
 }
 /* how close the line's end is (dist 1 is where the cast lands) */
-/* the fish whose pictures (shop items/<name>) face right; the rest face left. Update this
-   when a fish's picture changes (Croaker, Crab, Octopus, Tarpon and Dolphin don't have one yet). */
-const FISH_FACES_RIGHT=['bass','catfish','flounder','salmon'];
+/* the fish whose pictures (shop items/<name>) face right; the rest face left (the crab and
+   octopus face out at you). Update this when a fish's picture changes. */
+const FISH_FACES_RIGHT=['bass','catfish','flounder','salmon','dolphin'];
 const lineNear=()=>clamp(1-FS.dist,0,1)*0.95+0.05;
 /* the reel sits near the bottom right of the screen, where a thumb can reach it */
 const reelY=()=>Math.max(392,BAND_BOT()-98);

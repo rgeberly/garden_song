@@ -388,6 +388,13 @@ function rhythmArt(){
   const ok=im=>im&&im.complete&&im.naturalWidth?im:null;
   return {bg:ok(RHY_BG),gems:ok(RHY_GEMS)};
 }
+/* the painted flute and vine (rhythm/flute, rhythm/vine: RHYTHM_PICS), once loaded */
+const RHY_PIC={}, RVINE_H=150;          /* each copy of the vine this tall (logical px) */
+function rhythmPic(k){
+  if(typeof RHYTHM_PICS==='undefined'||!RHYTHM_PICS.includes(k)) return null;
+  if(!RHY_PIC[k]){ RHY_PIC[k]=new Image(); RHY_PIC[k].src='assets/sprites/rhythm_'+k+'.png'; }
+  return RHY_PIC[k].complete&&RHY_PIC[k].naturalWidth?RHY_PIC[k]:null;
+}
 /* a lane's gem, size px across, centred on x,y */
 function drawGem(gems,lane,x,y,size){
   const [sx,sy,w,h]=NOTE_ART[lane%NOTE_ART.length], k=size/Math.max(w,h);
@@ -517,8 +524,16 @@ function drawRhythm(){
       px(b,fx+7,y+10,7,7,'#c9a05a');
     }
   }
-  /* vine + leaves climbing the frame, growing with the combo */
-  for(const [fx,dir] of [[21,1],[LW-22,-1]]){
+  /* vine + leaves climbing the frame, growing with the combo: the painted vine (rhythm/vine),
+     copies stacked up each side, uncovered from the bottom; a drawn one until it loads */
+  const vine=rhythmPic('vine');
+  if(vine){ const h=LH*(0.25+grow*0.75), vh=RVINE_H, vw=vh*vine.naturalWidth/vine.naturalHeight;
+    b.save(); b.beginPath(); b.rect(0,LH-h,LW,h); b.clip(); b.imageSmoothingEnabled=true;
+    for(const [cx,flip] of [[10,1],[LW-10,-1]]){
+      for(let i=0,y=LH;y>T0-vh;i++,y-=vh*0.92){                  /* a little overlap, every other one mirrored */
+        b.save(); b.translate(cx,y); b.scale(flip*(i%2?-1:1),1); b.drawImage(vine,-vw/2,-vh,vw,vh); b.restore(); } }
+    b.restore(); }
+  else for(const [fx,dir] of [[21,1],[LW-22,-1]]){
     const h=LH*(0.25+grow*0.75);
     for(let yv=0;yv<h;yv+=4){
       const xv=fx+dir*Math.round(Math.sin(yv/26)*4);
@@ -528,7 +543,18 @@ function drawRhythm(){
     }
   }
   if(R_.shine>0){ b.globalAlpha=R_.shine/900; px(b,0,0,LW,LH,'#ffe08a'); b.globalAlpha=1; }
-  /* the hit line is the flute you have equipped */
+  /* the hit line is a flute: the painted one (rhythm/flute) with a finger hole over each lane
+     that lights up as it's played, or the one you have equipped, drawn */
+  const fl=rhythmPic('flute');
+  if(fl){ const w=LW-12, h=w*fl.naturalHeight/fl.naturalWidth;
+    b.globalAlpha=.35; px(b,8,HITLINE+h/2-2,LW-16,6,'#101820'); b.globalAlpha=1;
+    b.save(); b.imageSmoothingEnabled=true; b.drawImage(fl,6,HITLINE-h/2,w,h); b.restore();
+    for(let i=0;i<LANES;i++){ const x=LANE_X0+i*LANE_W+LANE_W/2-1.5, on=R_.press[i];
+      b.fillStyle='rgba(40,22,8,.9)'; b.beginPath(); b.arc(x,HITLINE,7.5,0,7); b.fill();
+      b.strokeStyle=on?'#ffe08a':'rgba(214,176,96,.9)'; b.lineWidth=on?2.4:1.6; b.beginPath(); b.arc(x,HITLINE,7.5,0,7); b.stroke();
+      if(on){ b.fillStyle='#fff3b0'; b.beginPath(); b.arc(x,HITLINE,4.5,0,7); b.fill();
+        b.globalAlpha=.5; px(b,LANE_X0+i*LANE_W,T0,LANE_W-3,TH,'#ffe08a'); b.globalAlpha=1; } }
+  } else {
   const FS=FLUTE_INFO[G.flute||'recorder'];
   b.globalAlpha=.35; px(b,6,HITLINE+10,LW-12,7,'#101820'); b.globalAlpha=1;
   px(b,6,HITLINE-10,LW-12,22,'#241a10');
@@ -545,7 +571,7 @@ function drawRhythm(){
     px(b,x,HITLINE-5,14,12,R_.press[i]?'#fff3b0':'#241a10');
     if(R_.press[i]){ px(b,x+2,HITLINE-3,10,8,'#ffe08a');
       b.globalAlpha=.5; px(b,LANE_X0+i*LANE_W,T0,LANE_W-3,TH,'#ffe08a'); b.globalAlpha=1; }
-  }
+  } }
   for(let i=0;i<LANES;i++) rhythmPlant(b,LANE_X0+i*LANE_W+LANE_W/2,LH-26,grow,R_.flash[i]>60);
   for(const n of R_.chart.notes){
     if(n.done) continue;

@@ -944,22 +944,27 @@ function TS(t,x,y,size,col,align,bold){ T(t,x+0.8,y+0.8,size,'#0a0f2a',align,bol
 function TO(t,x,y,size,col,align,bold,w){ const o=w||1.2;
   for(const [dx,dy] of [[-o,0],[o,0],[0,-o],[0,o],[-o,-o],[o,o],[-o,o],[o,-o]]) T(t,x+dx,y+dy,size,'#1a1430',align,bold);
   T(t,x,y,size,col,align,bold); }
-/* The season's painted backdrop (backdrops/<season>), placed so where its lawn begins
-   (BACK_HORIZON, a share of its height) lines up with HORIZON, and big enough to
-   cover the whole scene. Until it loads, a drawn one stands in. */
-const BACK_HORIZON={spring:0.50,summer:0.53,fall:0.53,winter:0.57}, BACK_IMG={};
+/* The season's painted backdrop (backdrops/<season>; on the mountain its own,
+   backdrops/mountain_<season>), placed so where its ground begins (BACK_HORIZON, a share of
+   its height) lines up with HORIZON, and big enough to cover the whole scene. Until it
+   loads, a drawn one stands in. */
+const BACK_HORIZON={spring:0.50,summer:0.53,fall:0.53,winter:0.57,
+  mountain_spring:0.56,mountain_summer:0.56,mountain_fall:0.50,mountain_winter:0.60}, BACK_IMG={};
+const backdropKey=()=>{ const s=season(), m='mountain_'+s;
+  return G.area==='mountain'&&typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(m)?m:s; };
+const hasBackdrop=()=>typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(backdropKey());
 function backdropImg(){
-  const s=season(); if(typeof BACKDROPS==='undefined'||!BACKDROPS.includes(s)) return null;
+  const s=backdropKey(); if(!hasBackdrop()) return null;
   if(!BACK_IMG[s]){ BACK_IMG[s]=new Image(); BACK_IMG[s].src='assets/scenes/backdrop_'+s+'.jpg'; }
   return BACK_IMG[s].complete&&BACK_IMG[s].naturalWidth?BACK_IMG[s]:null;
 }
 function drawBattleBackdrop(dt){
   const P=BACKDROP[season()]||BACKDROP.spring, T0=BAND_TOP(), T1=BAND_BOT(), im=backdropImg();
   if(im){
-    const f=BACK_HORIZON[season()]||0.5, r=im.naturalWidth/im.naturalHeight;
+    const f=BACK_HORIZON[backdropKey()]||0.5, r=im.naturalWidth/im.naturalHeight;
     const h=Math.max((T1-HORIZON)/(1-f),(HORIZON-T0)/f,LW/r), w=h*r;
     b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,(LW-w)/2,HORIZON-f*h,w,h); b.restore();
-  } else if(typeof BACKDROPS==='undefined'||!BACKDROPS.includes(season())) drawnBackdrop(P,T0,T1);
+  } else if(!hasBackdrop()) drawnBackdrop(P,T0,T1);
   else { b.fillStyle='#000'; b.fillRect(0,T0,LW,T1-T0); }        /* its painting is still loading */
   backdropLife(P,T0,T1,dt);
 }
