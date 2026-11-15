@@ -21,7 +21,25 @@ const RODS=[null,
   {name:"Spinning Rod & Reel",cost:800, reel:1.15,drag:0.88,max:2.3, about:"A proper spinning reel with a smooth drag. Lands a Golden Koi."},
   {name:"Pro Rod & Reel",     cost:2000,reel:1.6, drag:0.95,max:99,  about:"Tournament grade. Nothing in these waters can out-pull it."}];
 const rodNow=()=>RODS[G.rod||1];
-const lunkerSize=k=>Math.round(30*(0.7+GOODS[k].power*0.4));   /* the biggest one of a kind gets */
+/* How long each fish is, in inches: [smallest usual, biggest usual, near-record], from
+   typical sizes of the real species (a crab by its shell's width, an octopus arms and all,
+   the dolphin a bottlenose). Most catches fall in the usual range, more often near its
+   middle; now and then (LUNKER_P) a big one, up to the near-record: a "REEL" lunker. */
+const FISH_SIZE={minnow:[1.5,3,4], perch:[6,10,15], trout:[10,18,26], bass:[12,18,26], catfish:[14,24,40],
+  shad:[3,6,9], mullet:[10,18,24], flounder:[12,18,28], speckled:[14,22,30], salmon:[24,34,45],
+  croaker:[8,14,20], crab:[4,6,9], octopus:[12,36,50], tarpon:[48,72,96], dolphin:[84,108,150], koi:[18,28,36]};
+const LUNKER_P=0.1;
+function fishLength(k){
+  const [lo,hi,rec]=FISH_SIZE[k]||[6,12,20], big=Math.random()<LUNKER_P;
+  const x=big?hi+(rec-hi)*Math.pow(Math.random(),1.5):lo+(hi-lo)*(Math.random()+Math.random())/2;
+  return {len:Math.round(x*10)/10,big};
+}
+/* a length for showing: half inches under 10 inches, whole ones up to 4 feet, then feet and
+   inches ("2.5 in", "17 in", "6 ft 3 in"); a crab's is across its shell */
+function inchText(n,k){
+  const r=Math.round(n), t=n>=48?Math.floor(r/12)+" ft"+(r%12?" "+r%12+" in":""):(n<10?Math.round(n*2)/2:r)+" in";
+  return t+(k==='crab'?" across":"");
+}
 /* the reel's drag: past this tension the line slips out instead of breaking; the scale
    of the tension gauge (it only snaps above 1, held there for SNAP_MS) */
 const T_MAX=1.15, dragAt=()=>rodNow().drag, FISH_FADE=400;
@@ -179,8 +197,7 @@ function updateFishing(dt){
     FS.slackT=FS.tension<0.12?FS.slackT+dt:0;
     if(FS.snapT>SNAP_MS){ FS.phase='lost'; FS.t=0; FS.msg="Snap! The line broke."; blip(120,0.1,0.25,'sawtooth'); }
     else if(FS.slackT>SLACK_MS||FS.dist>=1.3){ FS.phase='lost'; FS.t=0; FS.msg="The line went slack and it got away."; }
-    else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; FS.size=Math.round(rnd(12,30)*(0.7+g.power*0.4)); fishSplash(1.2);
-      FS.lunker=FS.size>=lunkerSize(FS.fish)*0.88;
+    else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; const L0=fishLength(FS.fish); FS.size=L0.len; FS.lunker=L0.big; fishSplash(1.2);
       G.goods[FS.fish]=(G.goods[FS.fish]||0)+1;
       const L=G.lore.fish[FS.fish]||(G.lore.fish[FS.fish]={n:0,best:0}); L.n++; L.best=Math.max(L.best,FS.size);
       if(AC){ flute(9,AC.currentTime,.3,.6); flute(13,AC.currentTime+.12,.3,.6); flute(16,AC.currentTime+.24,.6,.6); } }
@@ -454,7 +471,7 @@ function drawFishing(dt){
     else if(FS.slipping) say2("Zzzz! The drag gives — keep reeling!",T0+90,20,'#ffe08a');
     else if(FS.tension<0.15) say2("The line's slack — reel!",T0+90,20,'#ffe08a'); }
   else if(FS.phase==='caught'){ const g=GOODS[FS.fish];
-    say2("You caught a "+g.name+"!",190,24,'#ffe08a'); say2(FS.size+" cm · sells for "+goodsPrice(FS.fish)+"c",222,18,'#c8d4ff');
+    say2("You caught a "+g.name+"!",190,24,'#ffe08a'); say2(inchText(FS.size,FS.fish)+" · sells for "+goodsPrice(FS.fish)+"c",222,18,'#c8d4ff');
     if(FS.lunker) say2("That's a \"REEL\" lunker!",246,20,'#ffb04a');
     if(FS.t>500) say2(IS_TOUCH?"tap to continue":"J to continue",268,16,'#8a94c4'); }
   else if(FS.phase==='lost'){ say2(FS.msg,190,20); if(FS.t>500) say2(IS_TOUCH?"tap to continue":"J to continue",222,16,'#8a94c4'); }

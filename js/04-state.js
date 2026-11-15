@@ -22,7 +22,7 @@ const G={
   area:'garden', goods:{}, gearOff:{},              /* where she is (17-places.js); things gathered and caught */
   diff:'normal',                         /* DIFFICULTY, from the Settings tab */
   slot:1,                                /* which save slot this game lives in */
-  lore:{beat:{},fish:{}},                /* pests beaten (times) and fish caught ({n,best cm}), for the Lore tab */
+  lore:{beat:{},fish:{},inch:1},         /* pests beaten (times) and fish caught ({n, best inches}), for the Lore tab */
   rod:0,                                 /* which rod and reel she has (RODS in 18-fishing.js; 0: none yet) */
   runMode:'hold', runOn:false,           /* how B runs (with the Sturdy Boots): RUN_MODES */
   sheets:[],                             /* practice songs bought as sheet music (PRACTICE_SONGS ids) */
@@ -200,7 +200,10 @@ function applySave(o){
   G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};
-  G.lore=o.lr||{beat:{},fish:{}};
+  G.lore=o.lr||{beat:{},fish:{},inch:1};
+  /* saves from before lengths were in inches (by species): their biggest catches were in
+     made-up centimetres, so those start over */
+  if(!G.lore.inch){ for(const k in G.lore.fish) G.lore.fish[k].best=0; G.lore.inch=1; }
   /* saves from before rods were sold: anyone who has fished keeps a starter rod */
   G.rod=o.rd!==undefined?o.rd:Object.keys(G.lore.fish).length||Object.keys(G.goods).some(k=>GOODS[k]&&GOODS[k].kind==='fish')?1:0;
   /* saves from before the Lore tab: the fish in the bag were surely caught */

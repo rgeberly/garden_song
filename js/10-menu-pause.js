@@ -184,7 +184,7 @@ function loreLines(){
     add(g.flavor);
     add("Sells for "+goodsPrice(S.k)+"c",'#ffe08a',17,true);
     add("Bites in: "+fishWhen(g),'#b8f0a0');
-    add("Caught "+F.n+(F.best?"  ·  biggest "+F.best+" cm":""),'#aab6e8'); }
+    add("Caught "+F.n+(F.best?"  ·  biggest "+inchText(F.best,S.k):""),'#aab6e8'); }
   return L;
 }
 const LORE_PIC={y:58,h:124};          /* the picture on a page: top and height, from the page's top */
