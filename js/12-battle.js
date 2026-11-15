@@ -10,36 +10,20 @@
    ================================================================ */
 /* the foe in focus (being hit, or acting): about its middle; see focus() */
 let EX=262, EY=210;
-/* where the party stands (feet), by party size: a staggered line on the left; the
-   foes mirror it on the right, a little smaller when there are more of them. Four or
-   five a side follow one of BATTLE_LAYOUTS (Kaitlyn's spot first, then her friends'; the
-   first pest's spot first). */
-const FORMATION={1:[[80,262]],2:[[102,236],[58,300]],3:[[80,262],[112,208],[48,318]]};
+/* Where the party stands (feet): one fixed spot for each of the five party spots
+   (G.slots), top to bottom, an arrowhead with the middle one (Kaitlyn's, to begin with)
+   at its tip. Whoever is in a spot stands there, however many are along.
+   The foes stand on the right, a little smaller when there are more of them; four or
+   five follow one of BATTLE_LAYOUTS (the first pest's spot first). */
+const PARTY_SPOTS=[[88,204],[44,233],[132,262],[42,291],[88,320]];
 const FOE_FORM={1:[[262,262]],2:[[250,236],[300,300]],3:[[300,206],[238,258],[306,316]]};   /* three zigzag so none hides another */
 const BATTLE_LAYOUTS={
-  /* three in front (Kaitlyn in the middle), two behind */
-  rows: {party:{4:[[122,262],[162,206],[108,316],[58,262]],
-                5:[[122,262],[162,206],[108,316],[62,228],[52,292]]},
-         foes: {4:[[240,262],[222,204],[228,318],[306,262]],
-                5:[[240,262],[222,204],[228,318],[306,232],[312,292]]}},
-  /* an arrowhead: Kaitlyn at the tip, the others fanning out behind her */
-  arrow:{party:{4:[[132,262],[88,210],[88,314],[44,262]],
-                5:[[132,262],[88,204],[88,320],[44,233],[42,291]]},
-         foes: {4:[[232,262],[276,214],[276,310],[320,262]],
-                5:[[232,262],[276,214],[276,310],[318,238],[320,288]]}},
-  /* the party as an arrowhead, the pests three in front and two behind */
-  mix:  {party:{4:[[132,262],[88,210],[88,314],[44,262]],
-                5:[[132,262],[88,204],[88,320],[44,233],[42,291]]},
-         foes: {4:[[240,262],[222,204],[228,318],[306,262]],
-                5:[[240,262],[222,204],[228,318],[306,232],[312,292]]}},
-  /* the party in one staggered line, Kaitlyn in the middle (the pests as in rows) */
-  line: {party:{4:[[100,262],[132,228],[68,296],[164,196]],
-                5:[[100,262],[132,230],[70,292],[164,198],[40,314]]},
-         foes: {4:[[240,262],[222,204],[228,318],[306,262]],
-                5:[[240,262],[222,204],[228,318],[306,232],[312,292]]}}};
-let BATTLE_LAYOUT='mix';            /* the party as an arrowhead, the pests three and two */
-const formation=n=>n>3?BATTLE_LAYOUTS[BATTLE_LAYOUT].party[n]:FORMATION[n];
-const foeForm=n=>n>3?BATTLE_LAYOUTS[BATTLE_LAYOUT].foes[n]:FOE_FORM[n];
+  rows: {4:[[240,262],[222,204],[228,318],[306,262]],              /* three in front, two behind */
+         5:[[240,262],[222,204],[228,318],[306,232],[312,292]]},
+  arrow:{4:[[232,262],[276,214],[276,310],[320,262]],              /* an arrowhead pointing at the party */
+         5:[[232,262],[276,214],[276,310],[318,238],[320,288]]}};
+let BATTLE_LAYOUT='rows';
+const foeForm=n=>n>3?BATTLE_LAYOUTS[BATTLE_LAYOUT][n]:FOE_FORM[n];
 const FOE_SCALE={1:1,2:0.9,3:0.8,4:0.74,5:0.68}, FLY_LIFT=30;   /* flyers hover this high over their shadow */
 /* the backdrop's depth: anyone standing further back (higher up) is drawn a little smaller,
    anyone nearer a little bigger, all the same at Kaitlyn's usual spot */
@@ -65,7 +49,8 @@ const listAnd=L=>L.length<2?L.join(''):L.slice(0,-1).join(", ")+" and "+L[L.leng
 /* kinds: exactly which pests (for tests); otherwise friends of the pest may tag along */
 function startBattle(pest,kinds){
   padVec={x:0,y:0}; padId=null; btnHeld=false;        /* a held pad must not scroll the menu */
-  const party=G.party.filter(id=>!isHurt(id)), boss=!!PESTS[pest.species].boss;
+  const slots=partySlots(), party=G.party.filter(id=>!isHurt(id)), boss=!!PESTS[pest.species].boss;
+  const spot={}; slots.forEach((id,i)=>{ if(id) spot[id]=i; });       /* each one's spot (PARTY_SPOTS) */
   /* one more for each extra member, most of the time; a full party of five meets 1-5
      (FULL_PARTY_FOES) */
   if(!kinds){ kinds=[pest.species];
@@ -83,7 +68,7 @@ function startBattle(pest,kinds){
   rest.sort((a,z)=>(PESTS[z.sp].fly?1:0)-(PESTS[a.sp].fly?1:0)).forEach((f,i)=>f.slot=spots[i]);
   /* two of a kind get letters */
   foes.forEach(f=>{ const same=foes.filter(g=>g.sp===f.sp); if(same.length>1) f.name+=" "+"ABCDE"[same.indexOf(f)]; });
-  B={pest,foes,boss,party, act:0, menu:'cmd', idx:0, sub:0, top:0, readyT:0,
+  B={pest,foes,boss,party,spot, act:0, menu:'cmd', idx:0, sub:0, top:0, readyT:0,
      guard:{},                       /* members braced by Meditate or Focus */
      shell:{},                       /* members in their shell (Tex's Shell Up): hits on them quartered */
      cover:null,                     /* Tex's Cover: {by, to}, hits aimed at `to` go to `by` */
@@ -107,7 +92,7 @@ const allDown=()=>!B.foes.some(f=>f.hp>0);
 /* just over a member's head, for numbers that pop up */
 const headOf=id=>{ const s=slotOf(id); return s.y-(id==='kaitlyn'?110:36*(MEMBER_SIZE[id]||1))*s.s; };
 /* where a member stands (feet) and how big they're drawn there */
-function slotOf(id){ const [x,y]=formation(B.party.length)[Math.max(0,B.party.indexOf(id))]; return {x,y:fieldY(y),s:depthScale(y)}; }
+function slotOf(id){ const [x,y]=PARTY_SPOTS[B.spot[id]!==undefined?B.spot[id]:2]; return {x,y:fieldY(y),s:depthScale(y)}; }
 /* where a foe stands: feet, size and how high it hovers */
 function foeSpot(f){ const n=B.foes.length, [x,y]=foeForm(n)[f.slot];
   return {x,y:fieldY(y),s:FOE_SCALE[n]*(PESTS[f.sp].size||1)*depthScale(y),lift:PESTS[f.sp].fly?FLY_LIFT:0}; }

@@ -222,11 +222,130 @@ function loreFoot(R){
   return null;
 }
 function ownedGearList(){ return GEAR.filter(g=>G.gear[g.id]); }
+/* ---------- the Party page ----------
+   The active team's five spots, top to bottom as they stand in battle (G.slots; Kaitlyn
+   in the middle to begin with), empty ones too, then the friends waiting at home as
+   portraits. Pick one (a spot, empty or not, or someone at home), then where it goes:
+   two spots swap, and someone at home takes a spot (its friend going home). Kaitlyn
+   can move to another spot but never home. sys.held: the row picked first. */
+const PTY={top:40,row:56,resY:330,res:52,resStep:60};
+const partyReserves=()=>Object.keys(G.allies).filter(id=>!G.party.includes(id));
+function partyRows(){ return partySlots().map((id,slot)=>({slot,id})).concat(partyReserves().map(id=>({res:id}))); }
+function partyPick(i){
+  const R=partyRows();
+  if(sys.held==null){ sys.held=i; blip(520,.04,.08,'triangle'); return; }
+  const a=R[sys.held], z=R[i]; sys.held=null;
+  if(a&&z&&a!==z&&!(a.res&&z.res&&a.res===z.res)) partySwap(a,z);
+}
+function partySwap(a,z){
+  const S=G.slots, nm=id=>PARTY_INFO[id].name, no=t=>{ say(t); blip(150,.08,.2); };
+  if(a.res&&z.res){ no("Pick a spot in the team for them."); return; }
+  if(a.res) [a,z]=[z,a];                         /* a is a spot from here on */
+  if(!z.res){ const i=a.slot, j=z.slot, x=S[i], y=S[j]; if(!x&&!y) return;
+    S[i]=y; S[j]=x;
+    say(x&&y?nm(x)+" and "+nm(y)+" swap places.":nm(x||y)+" moves to another spot."); }
+  else { const r=z.res, out=S[a.slot];
+    if(isHurt(r)){ no(nm(r)+" is still recovering at home."); return; }
+    if(out==='kaitlyn'){ no("Kaitlyn always leads the way."); return; }
+    S[a.slot]=r; say(nm(r)+" joins the team!"+(out?" "+nm(out)+" will wait at home.":"")); }
+  G.party=S.filter(Boolean); partySlots(); blip(620,.06,.1,'triangle'); autoSave();
+}
+/* which row is at x,y on the page (-1 for none) */
+function partyAt(x,y){
+  const P=SYSW.page, j=Math.floor((y-P.y-PTY.top)/PTY.row);
+  if(x>P.x+4&&x<P.x+P.w-4&&j>=0&&j<PARTY_MAX) return j;
+  const ry=P.y+PTY.resY+24; if(y<ry||y>ry+PTY.res) return -1;
+  const k=Math.floor((x-P.x-14)/PTY.resStep);
+  return k>=0&&k<partyReserves().length&&x-P.x-14-k*PTY.resStep<=PTY.res?PARTY_MAX+k:-1;
+}
+function partyKey(k){
+  const n=partyRows().length, S=PARTY_MAX;
+  if(isUp(k)) sys.idx=sys.idx>=S?S-1:(sys.idx+S-1)%S;
+  else if(isDown(k)) sys.idx=sys.idx<S-1?sys.idx+1:sys.idx===S-1&&n>S?S:sys.idx>=S?sys.idx:0;
+  else if(isLeft(k)&&sys.idx>S) sys.idx--;
+  else if(isRight(k)&&sys.idx>=S&&sys.idx<n-1) sys.idx++;
+  else if(isOk(k)) partyPick(sys.idx);
+  else if(isBack(k)){ if(sys.held!=null) sys.held=null; else sys.focus='tabs'; }
+  else if(k==='m') G.scene='world';
+}
+/* a portrait in a dark box */
+function portraitBox(id,x,y,w,h){
+  b.fillStyle='#0a0f2a'; b.fillRect(x,y,w,h);
+  const im=portraitImg(id); if(!im) return;
+  const ph=h-2, pw=ph*im.naturalWidth/im.naturalHeight;
+  b.save(); b.beginPath(); b.rect(x+1,y+1,w-2,h-2); b.clip(); b.imageSmoothingEnabled=true;
+  b.drawImage(im,x+w/2-pw/2,y+1,pw,ph); b.restore();
+}
+/* the row picked first glows gold; the highlighted one is lit blue */
+function partyLit(x,y,w,h,i){
+  const sel=sys.focus==='list'&&sys.idx===i, held=sys.held===i;
+  b.fillStyle=held?'rgba(255,214,110,.32)':sel?'rgba(150,180,255,.3)':'rgba(10,15,42,.25)';
+  b.beginPath(); b.roundRect(x,y,w,h,5); b.fill();
+  if(sel||held){ b.strokeStyle=held?'rgba(255,224,138,.95)':'rgba(255,224,138,.6)'; b.lineWidth=1.2; b.beginPath(); b.roundRect(x+0.5,y+0.5,w-1,h-1,5); b.stroke(); }
+}
+function drawPartyBack(P){
+  partySlots().forEach((id,i)=>{ const y=P.y+PTY.top+i*PTY.row;
+    partyLit(P.x+6,y,P.w-12,PTY.row-4,i);
+    if(!id){ b.strokeStyle='rgba(200,212,255,.25)'; b.setLineDash([3,3]); b.strokeRect(P.x+12.5,y+4.5,43,43); b.setLineDash([]); return; }
+    portraitBox(id,P.x+12,y+4,44,44); const M=member(id);
+    gauge(P.x+66,y+27,P.w-84,4,M.hp,M.maxhp,'#e8504a','#ffa8a0'); gauge(P.x+66,y+37,P.w-84,4,M.mp,memberMaxMp(id),'#4aa8f0','#b0e0ff'); });
+  b.fillStyle='rgba(255,224,138,.25)'; b.fillRect(P.x+12,P.y+PTY.resY+18,P.w-24,1);
+  partyReserves().forEach((id,k)=>{ const x=P.x+14+k*PTY.resStep, y=P.y+PTY.resY+24;
+    partyLit(x-3,y-3,PTY.res+6,PTY.res+6,PARTY_MAX+k); portraitBox(id,x,y,PTY.res,PTY.res);
+    if(isHurt(id)){ b.fillStyle='rgba(60,10,20,.5)'; b.fillRect(x,y,PTY.res,PTY.res); } });
+}
+function drawPartyText(P){
+  partySlots().forEach((id,i)=>{ const y=P.y+PTY.top+i*PTY.row;
+    if(!id){ TS("Empty spot",P.x+66,y+29,18,'#7c84b0'); return; }
+    const M=member(id);
+    TS(PARTY_INFO[id].name,P.x+66,y+18,20,'#f4f6ff',null,true); TS("Lv."+M.lv,P.x+P.w-12,y+18,16,'#ffe08a','right',true);
+    TS(M.hp+"/"+M.maxhp,P.x+P.w-80,y+18,13,'#ffb0a8','right');
+    TS(id==='kaitlyn'?"Leader":"In the party",P.x+66,y+50,13,id==='kaitlyn'?'#ffe08a':'#b8f0a0'); });
+  const res=partyReserves();
+  TS("Reserves",P.x+14,P.y+PTY.resY+12,20,'#ffe08a',null,true);
+  TS(res.length?"waiting at home":"no one waiting at home",P.x+P.w-12,P.y+PTY.resY+12,14,'#8a94c4','right');
+  res.forEach((id,k)=>{ const x=P.x+14+k*PTY.resStep+PTY.res/2, y=P.y+PTY.resY+24+PTY.res+13;
+    TS(isHurt(id)?"hurt "+(G.allies[id].hurtUntil-G.day)+"d":PARTY_INFO[id].name,x,y,13,isHurt(id)?'#ffb0a8':'#c8d4ff','center'); });
+  const R=partyRows(), h=sys.held!=null&&R[sys.held];
+  const hint=h?(h.res||h.id?"Now pick where "+PARTY_INFO[h.res||h.id].name+" goes.":"Now pick who goes in this spot."):
+    sys.focus!=='list'?"":IS_TOUCH?"Tap someone or a spot, then where it goes.":"J: pick someone or a spot, then where it goes.";
+  if(hint&&!(G.msgT>0)) TS(hint,P.x+P.w/2,P.y+P.h-12,14,h?'#ffe08a':'#8a94c4','center');
+}
+/* ---------- the Equip page's list: everything that fits a slot (sys.eq) ---------- */
+const EQW={x:24,y:44,w:312,row:32,head:40,foot:62};
+const eqFit=()=>Math.max(3,Math.floor((LH-EQW.y-EQW.head-EQW.foot-16)/EQW.row));
+function openEquipPick(id,slot){
+  const L=equipChoices(id,slot);
+  if(L.length<2&&!equipOf(id)[slot]){ say("Nothing to wear here yet."); blip(150,.08,.2); return; }
+  const i=Math.max(0,L.indexOf(equipOf(id)[slot]||null));
+  sys.eq={id,slot,list:L,idx:i,top:Math.max(0,i-eqFit()+1)}; blip(520,.04,.08,'triangle');
+}
+function eqSee(){ const E=sys.eq, n=eqFit(); if(E.idx<E.top) E.top=E.idx; if(E.idx>=E.top+n) E.top=E.idx-n+1; }
+function eqWear(){ const E=sys.eq; sys.eq=null; wearEquip(E.id,E.slot,E.list[E.idx]); }
+const eqH=()=>EQW.head+Math.min(sys.eq.list.length,eqFit())*EQW.row+EQW.foot;
+function drawEquipPickBack(){
+  const E=sys.eq, W={x:EQW.x,y:EQW.y,w:EQW.w,h:eqH()}; rpgWin(W,0.97);
+  E.list.slice(E.top,E.top+eqFit()).forEach((k,j)=>{ const y=W.y+EQW.head+j*EQW.row;
+    if(E.top+j===E.idx) winCursor(W.x+6,y,W.w-12,EQW.row-2);
+    if(k) drawShopPic(EQUIP[k].name.toLowerCase(),W.x+70,y+EQW.row/2-1,24,24); });
+  b.fillStyle='rgba(200,212,255,.3)'; b.fillRect(W.x+10,W.y+W.h-EQW.foot,W.w-20,1);
+}
+function drawEquipPickText(){
+  const E=sys.eq, W={x:EQW.x,y:EQW.y,w:EQW.w,h:eqH()}, cur=equipOf(E.id)[E.slot]||null;
+  TS(PARTY_INFO[E.id].name+" · "+EQUIP_SLOTS.find(s=>s[0]===E.slot)[1],W.x+14,W.y+26,20,'#f4f6ff',null,true);
+  E.list.slice(E.top,E.top+eqFit()).forEach((k,j)=>{ const i=E.top+j, y=W.y+EQW.head+j*EQW.row+21;
+    TS(k?EQUIP[k].name:"Nothing",W.x+90,y,18,k?'#f4f6ff':'#aab6e8',null,i===E.idx);
+    TS(k===cur?"worn":equipStats(k),W.x+W.w-12,y,14,k===cur?'#b8f0a0':'#ffe08a','right'); });
+  if(E.top>0) TS("▲",W.x+W.w-20,W.y+EQW.head-4,13,'#c8d4ff','center');
+  if(E.top+eqFit()<E.list.length) TS("▼",W.x+W.w-20,W.y+W.h-EQW.foot-2,13,'#c8d4ff','center');
+  const k=E.list[E.idx];
+  wrapLines(k?EQUIP[k].desc:"Take off what's in this slot.",15,W.w-28).slice(0,2).forEach((ln,i)=>TS(ln,W.x+14,W.y+W.h-EQW.foot+20+i*16,15,'#c8d4ff'));
+  TS(IS_TOUCH?"tap again to wear · tap outside to close":"J wear · H back",W.x+W.w/2,W.y+W.h-8,13,'#8a94c4','center');
+}
 /* the rows of the open page: [{label,...}] plus how tall each is */
 function sysRows(){
   const t=SYSTABS[sys.tab];
-  if(t==='Party'){ const res=Object.keys(G.allies).filter(id=>!G.party.includes(id));
-    return {h:68,rows:G.party.map(id=>({id})).concat([{head:"Reserves"}],res.map(id=>({id})))}; }
+  if(t==='Party') return {h:PTY.row,rows:partyRows()};        /* (its own page: drawPartyBack) */
   if(t==='Status') return {h:28,rows:STATS.map(k=>({stat:k})).concat([{rename:true}])};
   if(t==='Skills') return {h:34,rows:skillBook(whoId()).map(s=>({skill:s}))};
   if(t==='Items') return {h:34,rows:cropList().map(sp=>({crop:sp})).concat(goodsList().map(k=>({good:k}))).concat(
@@ -242,16 +361,11 @@ function sysRows(){
 const footH=()=>['Status','Skills','Items','Equip','Settings'].includes(SYSTABS[sys.tab])||(SYSTABS[sys.tab]==='Lore'&&sys.lore&&!sys.loreSel)?78:0;
 const rowsFit=()=>{ const R=sysRows(); return Math.max(1,Math.floor((SYSW.page.h-pageRowsY()-footH()-8)/R.h)); };
 function sysSee(i){ const n=rowsFit(); if(i<sys.top) sys.top=i; if(i>=sys.top+n) sys.top=i-n+1; }
-function sysSetTab(t){ sys.tab=(t+SYSTABS.length)%SYSTABS.length; sys.idx=0; sys.top=0; sys.lore=null; sys.loreSel=null; }
+function sysSetTab(t){ sys.tab=(t+SYSTABS.length)%SYSTABS.length; sys.idx=0; sys.top=0; sys.lore=null; sys.loreSel=null; sys.held=null; sys.eq=null; }
 function sysActivate(i){
   const R=sysRows().rows[i], t=SYSTABS[sys.tab]; if(!R) return;
-  if(t==='Party'){
-    if(R.id==='kaitlyn'){ say("Kaitlyn always leads the way."); return; }
-    if(isHurt(R.id)){ say(PARTY_INFO[R.id].name+" is still recovering at home."); blip(150,.08,.2); return; }
-    const was=G.party.includes(R.id);
-    if(toggleParty(R.id)){ say(PARTY_INFO[R.id].name+(was?" will wait at home.":" joins you!")); blip(was?400:620,.06,.1,'triangle'); autoSave(); }
-    else { say("The party is full ("+PARTY_MAX+" at most)."); blip(150,.08,.2); }
-  } else if(t==='Status'){ if(R.rename) renameMember(whoId());
+  if(t==='Party') partyPick(i);
+  else if(t==='Status'){ if(R.rename) renameMember(whoId());
   } else if(t==='Skills'){
     const s=R.skill, id=whoId();
     if(member(id).lv<s.lv){ blip(150,.08,.2); return; }
@@ -268,7 +382,7 @@ function sysActivate(i){
   else if(t==='Settings') stepSetting(R.set,1);
   else if(t==='Lore') loreActivate(R);
   else if(t==='Equip'){
-    if(R.slot){ cycleEquip(whoId(),R.slot); return; }
+    if(R.slot){ openEquipPick(whoId(),R.slot); return; }
     if(R.head) return;
     if(R.gear){ const id=R.gear.id; G.gearOff[id]=!G.gearOff[id];
       say(R.gear.name+(G.gearOff[id]?" switched off.":" switched on.")); blip(G.gearOff[id]?400:620,.05,.1,'triangle'); autoSave(); }
@@ -290,13 +404,19 @@ function oneTarget(k){
 }
 function feed(k,id){ sys.pick=null; sys.ask=null; if(isGoodKey(k)) eatGood(k.slice(2),id); else eatCrop(k,id); }
 /* a window over the page (who has it, or are you sure) */
-const modal=()=>sys.pick||sys.ask;
+const modal=()=>sys.pick||sys.ask||sys.eq;
 /* move the highlight, stepping over section headings */
 function sysStep(d){ const L=sysRows().rows, n=L.length; if(!n) return;
   for(let g=0;g<n;g++){ sys.idx=(sys.idx+d+n)%n; if(!L[sys.idx].head) break; }
   sysSee(sys.idx); }
 function sysKey(k){
   const n=sysRows().rows.length;
+  if(sys.eq){ const E=sys.eq, m=E.list.length;
+    if(isUp(k)){ E.idx=(E.idx+m-1)%m; eqSee(); }
+    else if(isDown(k)){ E.idx=(E.idx+1)%m; eqSee(); }
+    else if(isOk(k)) eqWear();
+    else if(isBack(k)) sys.eq=null;
+    return; }
   if(sys.pick){ const P=G.party, m=P.length;
     if(isUp(k)) sys.pick.idx=(sys.pick.idx+m-1)%m;
     else if(isDown(k)) sys.pick.idx=(sys.pick.idx+1)%m;
@@ -312,11 +432,13 @@ function sysKey(k){
   if(sys.focus==='tabs'){
     if(isUp(k)) sysSetTab(sys.tab-1);
     else if(isDown(k)) sysSetTab(sys.tab+1);
+    else if((isOk(k)||isRight(k))&&SYSTABS[sys.tab]==='Party'){ sys.focus='list'; sys.idx=Math.max(0,partySlots().indexOf('kaitlyn')); }
     else if((isOk(k)||isRight(k))&&n){ sys.focus='list'; if(sysRows().rows[sys.idx].head) sysStep(1); sysSee(sys.idx); }
     else if(isLeft(k)&&pagesWho()){ sys.who--; sys.idx=0; sys.top=0; }
     else if(isBack(k)||k==='m') G.scene='world';
     return;
   }
+  if(SYSTABS[sys.tab]==='Party'){ partyKey(k); return; }
   if(isUp(k)&&n) sysStep(-1);
   else if(isDown(k)&&n) sysStep(1);
   else if((isLeft(k)||isRight(k))&&pagesWho()){ sys.who+=isLeft(k)?-1:1; sys.idx=0; sys.top=0; }
@@ -328,6 +450,10 @@ function sysKey(k){
 const PICK={x:40,y:150,w:280,row:40};
 function sysTouch(x,y){
   const T=SYSW.tab, P=SYSW.page;
+  if(sys.eq){ const E=sys.eq, j=Math.floor((y-EQW.y-EQW.head)/EQW.row), i=E.top+j;
+    if(x<EQW.x||x>EQW.x+EQW.w||y<EQW.y||y>EQW.y+eqH()){ sys.eq=null; return; }
+    if(j>=0&&j<eqFit()&&i<E.list.length){ if(E.idx===i) eqWear(); else E.idx=i; }
+    return; }
   if(sys.pick){ const j=Math.floor((y-PICK.y-40)/PICK.row);
     if(x>PICK.x&&x<PICK.x+PICK.w&&j>=0&&j<G.party.length){ if(sys.pick.idx===j) feed(sys.pick.k,G.party[j]); else sys.pick.idx=j; }
     else sys.pick=null;
@@ -338,6 +464,9 @@ function sysTouch(x,y){
     return; }
   if(x>=T.x&&x<=T.x+T.w&&y>=T.y&&y<T.y+SYSTABS.length*T.step){ sysSetTab(Math.floor((y-T.y)/T.step)); sys.focus='tabs'; return; }
   if(x<P.x||x>P.x+P.w||y<P.y||y>P.y+P.h) return;
+  /* Party: a tap picks someone (or a spot), the next tap where it goes */
+  if(SYSTABS[sys.tab]==='Party'){ const i=partyAt(x,y); if(i<0){ sys.held=null; return; }
+    sys.focus='list'; sys.idx=i; partyPick(i); return; }
   /* Lore: a tap on a page, or on a list's title, goes back a level */
   if(SYSTABS[sys.tab]==='Lore'&&(sys.loreSel||(sys.lore&&y<P.y+pageRowsY()-6))){ loreBack(); return; }
   if(pagesWho()&&y<P.y+pageRowsY()-6){ sys.who+=x<P.x+P.w/2?-1:1; sys.idx=0; sys.top=0; return; }
@@ -381,19 +510,15 @@ function drawSys(){
   rpgWin(P); rpgWin(I);
   SYSTABS.forEach((n,i)=>{ const y=T.y+i*T.step, on=i===sys.tab; rpgWin({x:T.x,y,w:T.w,h:T.h});
     if(on){ b.fillStyle=sys.focus==='tabs'?'rgba(255,214,110,.35)':'rgba(150,180,255,.25)'; b.beginPath(); b.roundRect(T.x+3,y+3,T.w-6,T.h-6,4); b.fill(); } });
-  const rowY=i=>P.y+pageRowsY()+(i-sys.top)*R.h, vis=R.rows.slice(sys.top,sys.top+fit);
+  const rowY=i=>P.y+pageRowsY()+(i-sys.top)*R.h, vis=t==='Party'?[]:R.rows.slice(sys.top,sys.top+fit);
   /* Status and Skills: whose page it is, with their portrait */
   if(pagesWho()){ b.fillStyle='#0a0f2a'; b.fillRect(P.x+12,P.y+10,64,76);
     const im=portraitImg(whoId()); if(im){ const ph=74, pw=ph*im.naturalWidth/im.naturalHeight;
       b.save(); b.beginPath(); b.rect(P.x+13,P.y+11,62,74); b.clip(); b.imageSmoothingEnabled=true; b.drawImage(im,P.x+44-pw/2,P.y+11,pw,ph); b.restore(); } }
-  if(sys.focus==='list'&&R.rows.length) winCursor(P.x+6,rowY(sys.idx),P.w-12,R.h-2);
+  if(t==='Party') drawPartyBack(P);
+  else if(sys.focus==='list'&&R.rows.length) winCursor(P.x+6,rowY(sys.idx),P.w-12,R.h-2);
   /* pictures and bars for the visible rows */
   vis.forEach((r,j)=>{ const i=sys.top+j, y=rowY(i);
-    if(t==='Party'&&r.head){ b.fillStyle='rgba(255,224,138,.25)'; b.fillRect(P.x+12,y+R.h/2+4,P.w-24,1); }
-    else if(t==='Party'){ const M=member(r.id); b.fillStyle='#0a0f2a'; b.fillRect(P.x+30,y+6,46,R.h-14);
-      const im=portraitImg(r.id); if(im){ const ph=R.h-16, pw=ph*im.naturalWidth/im.naturalHeight;
-        b.save(); b.beginPath(); b.rect(P.x+31,y+7,44,R.h-16); b.clip(); b.imageSmoothingEnabled=true; b.drawImage(im,P.x+53-pw/2,y+7,pw,ph); b.restore(); }
-      gauge(P.x+86,y+32,150,5,M.hp,M.maxhp,'#e8504a','#ffa8a0'); gauge(P.x+86,y+46,150,5,M.mp,memberMaxMp(r.id),'#4aa8f0','#b0e0ff'); }
     if(t==='Status'&&r.stat){ const v=statOf(whoId(),r.stat), mx={hp:300,mp:120}[r.stat]||80; gauge(P.x+150,y+12,90,5,v,mx,'#f0c84a','#fff0b0'); }
     if(t==='Items'&&r.crop) drawCropIcon(b,r.crop,P.x+46,y+R.h/2-1,24);
     if(t==='Items'&&r.good) drawGoodIcon(b,r.good,P.x+46,y+R.h/2-1,22);
@@ -413,6 +538,7 @@ function drawSys(){
     winCursor(PICK.x+6,PICK.y+40+sys.pick.idx*PICK.row,PICK.w-12,PICK.row-2);
     G.party.forEach((id,i)=>{ const M=member(id), y=PICK.y+40+i*PICK.row;
       gauge(PICK.x+150,y+12,110,5,M.hp,M.maxhp,'#e8504a','#ffa8a0'); gauge(PICK.x+150,y+26,110,5,M.mp,memberMaxMp(id),'#4aa8f0','#b0e0ff'); }); }
+  if(sys.eq) drawEquipPickBack();
   if(t==='Lore'&&sys.loreSel) loreDetailBack(P);
   if(footH()&&!modal()) rpgWin({x:P.x+6,y:P.y+P.h-footH()-4,w:P.w-12,h:footH()});
   blit();
@@ -437,17 +563,9 @@ function drawSys(){
   else if(t==='Lore'){ TS(loreTitle(),P.x+14,P.y+26,sys.loreSel?22:24,'#f4f6ff',null,true);
     if(sys.lore&&!sys.loreSel) TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right'); }
   else TS(t,P.x+14,P.y+26,24,'#f4f6ff',null,true);
+  if(t==='Party') drawPartyText(P);
   vis.forEach((r,j)=>{ const i=sys.top+j, y=rowY(i), sel=sys.focus==='list'&&i===sys.idx;
-    if(t==='Party'&&r.head){ TS(r.head,P.x+14,y+R.h/2,22,'#ffe08a',null,true);
-      if(i===R.rows.length-1) TS("no one waiting at home",P.x+P.w-12,y+R.h/2,15,'#8a94c4','right');
-      else TS("tap twice to bring along",P.x+P.w-12,y+R.h/2,14,'#8a94c4','right'); }
-    else if(t==='Party'){ const M=member(r.id), I2=PARTY_INFO[r.id];
-      TS(I2.name,P.x+86,y+20,21,'#f4f6ff',null,true); TS("Lv."+M.lv,P.x+P.w-12,y+20,17,'#ffe08a','right',true);
-      TS(M.hp+"/"+M.maxhp,P.x+P.w-12,y+30,13,'#ffb0a8','right');
-      const where=r.id==='kaitlyn'?"Leader":isHurt(r.id)?"Hurt · back in "+(G.allies[r.id].hurtUntil-G.day)+" day(s)"
-        :G.party.includes(r.id)?"In the party":"Waiting at home";
-      TS(where,P.x+86,y+62,15,G.party.includes(r.id)?'#b8f0a0':isHurt(r.id)?'#ffb0a8':'#aab6e8'); }
-    else if(t==='Status'&&r.rename) TS("✎  Rename "+PARTY_INFO[whoId()].name,P.x+38,y+17,18,'#ffe08a',null,sel);
+    if(t==='Status'&&r.rename) TS("✎  Rename "+PARTY_INFO[whoId()].name,P.x+38,y+17,18,'#ffe08a',null,sel);
     else if(t==='Status'){ const id=whoId(), v=statOf(id,r.stat), eb=equipBonus(id,r.stat);
       TS(STAT_NAME[r.stat],P.x+38,y+17,19,'#e4e8ff',null,sel);
       TS(r.stat==='hp'?member(id).hp+"/"+v:r.stat==='mp'?member(id).mp+"/"+v:String(v),P.x+142,y+17,19,'#ffffff','right',true);
@@ -479,8 +597,8 @@ function drawSys(){
   if(t==='Save') TS("Slot "+G.slot+" · Lv."+G.player.lv+" · "+G.coins+"c · "+SEASON_NAME[season()]+" Day "+G.day,P.x+P.w/2,P.y+250,17,'#c8d4ff','center');
   if(t==='Status'){ const id=whoId(), M=member(id), y=P.y+pageRowsY()+(STATS.length+1)*R.h+8;
     TS("EXP "+M.xp+" / "+M.next+" to Lv."+(M.lv+1),P.x+20,y,17,'#ffe08a',null,true); }
-  if(sys.top>0) TS("▲",P.x+P.w-20,P.y+pageRowsY()-4,14,'#c8d4ff','center');
-  if(sys.top+fit<R.rows.length) TS("▼",P.x+P.w-20,P.y+P.h-footH()-10,14,'#c8d4ff','center');
+  if(t!=='Party'&&sys.top>0) TS("▲",P.x+P.w-20,P.y+pageRowsY()-4,14,'#c8d4ff','center');
+  if(t!=='Party'&&sys.top+fit<R.rows.length) TS("▼",P.x+P.w-20,P.y+P.h-footH()-10,14,'#c8d4ff','center');
   const f=footH()&&(sys.focus==='list'?sysFoot():null);
   if(footH()){ const fy=P.y+P.h-footH()-4;
     if(f){ TS(f[0],P.x+16,fy+22,18,'#f4f6ff',null,true);
@@ -490,6 +608,7 @@ function drawSys(){
 }
 /* the words of the window over the page */
 function drawModalWords(){
+  if(sys.eq){ drawEquipPickText(); return; }
   if(sys.ask){ const k=sys.ask.k, e=isGoodKey(k)?goodEffect(k.slice(2)):EAT[k];
     TS((isGoodKey(k)&&GOODS[k.slice(2)].kind==='food'?"Use the ":"Eat the ")+itemName(k)+"?",PICK.x+PICK.w/2,PICK.y+26,20,'#f4f6ff','center',true);
     ["Yes","No"].forEach((t,i)=>TS(t,PICK.x+48,PICK.y+40+i*PICK.row+25,21,'#f4f6ff',null,i===sys.ask.idx));

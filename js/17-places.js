@@ -568,97 +568,61 @@ function drawPlace(){
 }
 
 /* ---------- town shops ----------
-   Placeholders to fill in later: each shop is a list of {name,cost,desc,buy} where
-   buy() does the buying (return false to refuse), or for the market, things to sell.
-   They open after the shopkeeper's lines, in a blue window like the menu. */
+   They open after the shopkeeper's lines, in the same window as the garden stall
+   (09-menu-shop.js), with the keeper's portrait. Each has tabs: {name, items(), empty}
+   where an item is {name,cost,desc,buy, sell?, all?, count?, art?}: buy() does the
+   buying or selling (return false to refuse; a sale adds its own coins), all asks first
+   (Sell everything), count shows how many you have, art picks its picture (see
+   drawShopArt). startTab: which tab it opens on. */
 const TOWN_SHOPS={
-  cafe:{title:"Mabel's Café", items:()=>[
-    {name:"Coffee",cost:30,desc:"Walk 50% faster for 2 minutes. Goes in your bag.",buy:()=>addGood('coffee')},
-    {name:"Herbal Tea",cost:24,desc:"Restores 10 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('tea')},
-    {name:"Honey Bun",cost:28,desc:"Restores 20 HP to everyone in the party. Goes in your bag.",buy:()=>addGood('bun')}]},
-  /* Rosa's music shop: sheet music for new songs to practice at the music stand */
-  music:{title:"Rosa's Music Shop", empty:"Nothing new in yet. Check back soon!", items:()=>
-    gearRows(['fife','silver','dizi','muramatsu','reedwhistle','polish','cloth']).concat(
-    PRACTICE_SONGS.filter(s=>!songKnown(s)).map(s=>({name:"Sheet music: "+s.name,cost:s.cost,
-      desc:"A new song to practice at home: up to "+practiceXp(1,s)+" EXP a day.",buy:()=>{ G.sheets.push(s.id); }})))},
+  cafe:{title:"Mabel's Café", tabs:[{name:"Menu", items:()=>[
+    {name:"Coffee",cost:30,art:{good:'coffee'},desc:"Walk 50% faster for 2 minutes. Goes in your bag.",buy:()=>addGood('coffee')},
+    {name:"Herbal Tea",cost:24,art:{good:'tea'},desc:"Restores 10 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('tea')},
+    {name:"Honey Bun",cost:28,art:{good:'bun'},desc:"Restores 20 HP to everyone in the party. Goes in your bag.",buy:()=>addGood('bun')}]}]},
+  /* Rosa's music shop: flutes and things for them, and sheet music for new songs to
+     practice at the music stand */
+  music:{title:"Rosa's Music Shop", tabs:[
+    {name:"Instruments", empty:"You have everything I sell!", items:()=>gearRows(['fife','silver','dizi','muramatsu','reedwhistle','polish','cloth'])},
+    {name:"Sheet music", empty:"Nothing new in yet. Check back soon!", items:()=>
+      PRACTICE_SONGS.filter(s=>!songKnown(s)).map(s=>({name:s.name,cost:s.cost,art:{shop:'sheet music'},
+        desc:"A new song to practice at home: up to "+practiceXp(1,s)+" EXP a day.",buy:()=>{ G.sheets.push(s.id); }}))}]},
   /* Mr. Hollis: the next rod and reel up, one set at a time */
-  fishing:{title:"Hollis Fishing Supply", empty:"You've got the best rod I sell!", items:()=>{
+  fishing:{title:"Hollis Fishing Supply", tabs:[{name:"Rods", empty:"You've got the best rod I sell!", items:()=>{
     const n=(G.rod||0)+1;
-    return n<RODS.length?[{name:RODS[n].name,cost:RODS[n].cost,desc:RODS[n].about+(n===1?" You need one to fish.":""),buy:()=>{ G.rod=n; }}]:[]; }},
-  /* Juniper buys forage, fish and what pests leave behind, and sells back anything she
-     bought from you (G.pawn) for half again as much */
-  junk:{title:"Juniper's Junk Shop", empty:"Nothing to sell — try foraging on the mountain!", items:()=>{
-    const L=sellGoods().map(k=>({sell:true,name:GOODS[k].name+"  x"+G.goods[k],cost:goodsPrice(k),desc:"Sell one for "+goodsPrice(k)+"c. You can buy it back later for "+buyBackPrice(k)+"c.",
-      buy:()=>{ G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k]; G.coins+=goodsPrice(k); pawn(k,1); }}));
-    if(L.length){ const tot=sellGoods().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0);
-      L.push({sell:true,name:"Sell everything",cost:tot,desc:"Sell all your forage, fish and pest finds for "+tot+"c.",
-        buy:()=>{ G.coins+=tot; sellGoods().forEach(k=>{ pawn(k,G.goods[k]); delete G.goods[k]; }); }}); }
-    return L.concat(gearRows(['charm','boots','can','basket','apron','overalls','mosswrap','acorncap','fangcaps',
-      'kickers','scalecharm','scarf','clover','fangpolish','bell']),
-      Object.keys(G.pawn).filter(k=>G.pawn[k]>0&&GOODS[k]).map(k=>({name:"Buy back: "+GOODS[k].name+"  x"+G.pawn[k],cost:buyBackPrice(k),
-      desc:GOODS[k].flavor+" Buy one back for "+buyBackPrice(k)+"c.",buy:()=>{ G.pawn[k]--; if(G.pawn[k]<=0) delete G.pawn[k]; addGood(k); }}))); }},
+    return n<RODS.length?[{name:RODS[n].name,cost:RODS[n].cost,desc:RODS[n].about+(n===1?" You need one to fish.":""),buy:()=>{ G.rod=n; }}]:[]; }}]},
+  /* Juniper sells gear, buys forage, fish and what pests leave behind, and sells back
+     anything she bought from you (G.pawn) for half again as much */
+  junk:{title:"Juniper's Junk Shop", startTab:()=>sellGoods().length?1:0, tabs:[
+    {name:"Buy", empty:"Sold out — you have it all!", items:()=>gearRows(['charm','boots','can','basket','apron','overalls','mosswrap','acorncap','fangcaps',
+      'kickers','scalecharm','scarf','clover','fangpolish','bell'])},
+    {name:"Sell", empty:"Nothing to sell — try foraging on the mountain!", items:()=>{
+      const L=sellGoods().map(k=>({sell:true,name:GOODS[k].name,count:G.goods[k],cost:goodsPrice(k),art:{good:k},
+        desc:(GOODS[k].flavor?GOODS[k].flavor+" ":"")+"You can buy it back later for "+buyBackPrice(k)+"c.",btn:"Sell 1  ·  "+goodsPrice(k)+"c",
+        buy:()=>{ G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k]; G.coins+=goodsPrice(k); pawn(k,1); }}));
+      if(L.length){ const tot=sellGoods().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0), n=sellGoods().reduce((a,k)=>a+G.goods[k],0);
+        L.unshift({sell:true,all:true,name:"Sell everything",cost:tot,art:{shop:'harvest basket'},desc:"Sell all "+n+" of your forage, fish and pest finds.",btn:"Sell all  ·  "+tot+"c",
+          buy:()=>{ G.coins+=tot; sellGoods().forEach(k=>{ pawn(k,G.goods[k]); delete G.goods[k]; }); }}); }
+      return L; }},
+    {name:"Buy back", empty:"Nothing of yours on my shelves.", items:()=>
+      Object.keys(G.pawn).filter(k=>G.pawn[k]>0&&GOODS[k]).map(k=>({name:GOODS[k].name,count:G.pawn[k],cost:buyBackPrice(k),art:{good:k},
+        desc:GOODS[k].flavor+" Buy one back.",buy:()=>{ G.pawn[k]--; if(G.pawn[k]<=0) delete G.pawn[k]; addGood(k); }}))}]},
   /* the Tipsy Toad, from 6 PM */
-  bar:{title:"The Tipsy Toad", items:()=>[
-    {name:"Mug of Cider",cost:40,desc:"Restores 15 HP and 5 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('cider')},
-    {name:"Hot Toddy",cost:45,desc:"Restores 15 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('toddy')}]},
+  bar:{title:"The Tipsy Toad", tabs:[{name:"Drinks", items:()=>[
+    {name:"Mug of Cider",cost:40,art:{good:'cider'},desc:"Restores 15 HP and 5 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('cider')},
+    {name:"Hot Toddy",cost:45,art:{good:'toddy'},desc:"Restores 15 MP to everyone in the party. Goes in your bag.",buy:()=>addGood('toddy')}]}]},
 };
 const buyBackPrice=k=>Math.ceil(goodsPrice(k)*1.5);
 /* shop rows for garden gear (GEAR) and equipment (EQUIP) not bought yet; G.gear[key] marks either */
 function gearRows(keys){
   return keys.filter(k=>!G.gear[k]).map(k=>{ const E=EQUIP[k], g=GEAR.find(x=>x.id===k), it=E||g;
-    const who=E&&E.who?" For "+E.who.map(id=>PARTY_INFO[id].name).join(" and ")+".":"";
-    return {name:it.name,cost:it.cost,desc:cap(it.desc)+(E?({weapon:" A weapon",clothes:" Clothes"}[E.slot]||" An accessory")+" (Equip tab)."+who:" Garden gear."),
+    const who=E&&E.who?" For "+E.who.map(id=>PARTY_INFO[id].name).join(" and ")+".":E?" For anyone.":"";
+    return {name:it.name,cost:it.cost,desc:cap(it.desc)+(/\.$/.test(it.desc)?"":".")+(E?who:" Garden gear."),
       buy:()=>{ G.gear[k]=1;
         /* a better flute goes straight into her hands */
         const r=FLUTE_RANK.indexOf(k);
         if(r>=0&&r>FLUTE_RANK.indexOf(equipOf('kaitlyn').weapon||'recorder')){ equipOf('kaitlyn').weapon=k; refitMember('kaitlyn'); } }}; });
 }
 const pawn=(k,n)=>{ G.pawn[k]=(G.pawn[k]||0)+n; };
-let tshop=null;
-function openTownShop(kind,who){ tshop={kind,who,idx:0,top:0}; G.scene='tshop'; }
-function tshopBuy(i){
-  const S=TOWN_SHOPS[tshop.kind], it=S.items()[i]; if(!it) return;
-  if(!it.sell&&G.coins<it.cost){ say("Not enough coins."); blip(150,.08,.2); return; }
-  if(it.buy()===false) return;
-  if(!it.sell) G.coins-=it.cost;
-  say(it.sell?"Sold!":"Bought "+it.name.replace(/^Buy back: /,'').replace(/  x\d+$/,'')+"."); blip(660,0.05,0.1,'triangle');
-  tshop.idx=Math.min(tshop.idx,Math.max(0,S.items().length-1)); autoSave();
-}
-const TSHOP={x:14,y:40,w:332,h:400,row:30,top:62};
-const tshopFit=()=>Math.floor((TSHOP.h-TSHOP.top-80)/TSHOP.row);
-function tshopKey(k){
-  const n=TOWN_SHOPS[tshop.kind].items().length, fit=tshopFit();
-  if(isUp(k)&&n) tshop.idx=(tshop.idx+n-1)%n;
-  else if(isDown(k)&&n) tshop.idx=(tshop.idx+1)%n;
-  else if(isOk(k)&&n) tshopBuy(tshop.idx);
-  else if(isBack(k)){ G.scene='world'; tshop=null; return; }
-  if(tshop.idx<tshop.top) tshop.top=tshop.idx; if(tshop.idx>=tshop.top+fit) tshop.top=tshop.idx-fit+1;
-}
-function tshopTouch(x,y){
-  const W=TSHOP, j=Math.floor((y-W.y-W.top)/W.row), i=tshop.top+j;
-  if(x<W.x||x>W.x+W.w||y<W.y||y>W.y+W.h){ G.scene='world'; tshop=null; return; }
-  if(j>=0&&j<tshopFit()&&i<TOWN_SHOPS[tshop.kind].items().length){ if(tshop.idx===i) tshopBuy(i); tshop.idx=i; }
-}
-function drawTownShop(){
-  const S=TOWN_SHOPS[tshop.kind], L=S.items(), W=TSHOP, fit=tshopFit();
-  const g=b.createLinearGradient(0,BAND_TOP(),0,BAND_BOT()); g.addColorStop(0,'#141c4a'); g.addColorStop(1,'#070b22');
-  b.fillStyle=g; b.fillRect(0,BAND_TOP(),LW,BAND_BOT()-BAND_TOP());
-  rpgWin(W); rpgWin({x:W.x+8,y:W.y+W.h-74,w:W.w-16,h:66});
-  if(L.length) winCursor(W.x+6,W.y+W.top+(tshop.idx-tshop.top)*W.row,W.w-12,W.row-2);
-  blit();
-  TS(S.title,W.x+14,W.y+28,24,'#f4f6ff',null,true);
-  TS(G.coins+"c",W.x+W.w-14,W.y+28,22,'#ffe08a','right',true);
-  if(!L.length) TS(S.empty||"Sold out!",W.x+W.w/2,W.y+120,17,'#aab6e8','center');
-  L.slice(tshop.top,tshop.top+fit).forEach((it,j)=>{ const i=tshop.top+j, y=W.y+W.top+j*W.row+20, ok=it.sell||G.coins>=it.cost;
-    TS(it.name,W.x+40,y,19,ok?(it.sell?'#f4f6ff':'#e4e8ff'):'#7c84b0',null,i===tshop.idx);
-    TS((it.sell?"+":"")+it.cost+"c",W.x+W.w-14,y,18,ok?(it.sell?'#b8f0a0':'#ffe08a'):'#7c84b0','right'); });
-  const it=L[tshop.idx];
-  if(it) wrapLines(it.desc,16,W.w-44).slice(0,2).forEach((ln,i)=>TS(ln,W.x+20,W.y+W.h-48+i*17,16,'#c8d4ff'));
-  const verb=it&&it.sell?"sell":"buy";
-  TS(IS_TOUCH?"tap twice to "+verb+" · B to leave":"J "+verb+" · H leave",W.x+W.w/2,W.y+W.h+18,16,'#8a94c4','center');
-  if(G.msgT>0) TS(G.msg,W.x+W.w/2,W.y+W.h-82,16,'#ffe08a','center');
-}
-
 /* a small drawn picture of a good (until they have art): a fish shape, or a sprig */
 function drawGoodIcon(c,k,cx,cy,box){
   const g=GOODS[k], s=box/24;

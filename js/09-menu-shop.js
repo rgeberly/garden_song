@@ -1,20 +1,30 @@
 /* ================================================================
    SHOP  (paged list of names and prices; the highlighted item's
-   picture and details pop up beside it; opaque confirm). The Sell
-   tab buys back harvested crops.
+   picture and details pop up beside it; opaque confirm). The garden
+   stall (Seeds, Yard, and Sell, which buys harvested crops), and the
+   town shops in the same window (shop.town: a TOWN_SHOPS key, with
+   their own tabs and the keeper's portrait; 17-places.js).
    ================================================================ */
 const TABS=['Seeds','Yard','Sell'];
 const TAB_W=104, TAB_STEP=106;
 const TAB_YARD=1, TAB_SELL=2;     /* (gear is sold in town now: Rosa's and Juniper's) */
 const PER_PAGE=8;
-let shop={tab:0,idx:0,page:0,confirm:null};
+let shop={tab:0,idx:0,page:0,confirm:null,town:null,who:null};
 /* opens on Sell when she is carrying a harvest */
 function openShop(){
   shopArtImg();
-  shop={tab:cropList().length?TAB_SELL:0,idx:0,page:0,confirm:null}; G.scene='shop';
+  shop={tab:cropList().length?TAB_SELL:0,idx:0,page:0,confirm:null,town:null,who:null}; G.scene='shop';
 }
+/* a town shop, after its keeper's lines (who: the keeper) */
+function openTownShop(kind,who){
+  shopArtImg(); const S=TOWN_SHOPS[kind];
+  shop={tab:S.startTab?S.startTab():0,idx:0,page:0,confirm:null,town:kind,who}; G.scene='shop';
+}
+const shopTabs=()=>shop.town?TOWN_SHOPS[shop.town].tabs.map(t=>t.name):TABS;
+const shopTab=()=>shop.town?TOWN_SHOPS[shop.town].tabs[shop.tab]:null;
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function shopItems(){
+  if(shop.town) return shopTab().items().map(it=>({...it,type:'town'}));
   if(shop.tab===0) return bySeason(UNLOCK_ORDER.filter(s=>G.unlocked.includes(s))).map(s=>{ const S=SPECIES[s];
     return {type:'seed',id:s,name:seedName(s),cost:S.cost,
       desc:S.flavor+" "+(S.kind==='raised'?"Raised beds only. ":S.kind==='ground'?"Ground plots only. ":S.kind==='tree'?"Grows in a stone ring. ":"")+
@@ -53,6 +63,8 @@ const pageCount=()=>Math.max(1,Math.ceil(shopItems().length/PER_PAGE));
 function pageItems(){ return shopItems().slice(shop.page*PER_PAGE,(shop.page+1)*PER_PAGE); }
 function askBuy(i){
   const it=pageItems()[i]; if(!it) return;
+  if(it.type==='town'&&it.sell&&!it.all){ townDeal(it); return; }       /* selling one: no need to ask */
+  if(it.type==='town'&&it.all){ shop.confirm=it; shop.cIdx=0; return; }
   if(it.type==='good'){ G.goods[it.id]--; if(G.goods[it.id]<=0) delete G.goods[it.id]; G.coins+=it.cost;
     say("Sold a "+it.name+" for "+it.cost+"c."); coinChime(); shopClampIdx(); autoSave(); return; }
   if(it.type==='crop'){ sellCrop(it.id,1); say("Sold a "+it.name+" for "+it.cost+"c.");
@@ -61,8 +73,18 @@ function askBuy(i){
   if(G.coins<it.cost){ say("Not enough coins."); blip(150,0.08,0.2); return; }
   shop.confirm=it; shop.cIdx=0;
 }
+/* a town shop's buy or sell (its buy() does it; a sale adds its own coins) */
+function townDeal(it){
+  if(!it.sell&&G.coins<it.cost){ say("Not enough coins."); blip(150,0.08,0.2); return; }
+  if(it.buy()===false) return;
+  if(!it.sell) G.coins-=it.cost;
+  if(it.sell){ say(it.all?"Sold everything for "+it.cost+"c!":"Sold a "+it.name+" for "+it.cost+"c."); coinChime(); }
+  else { say("Bought "+(it.count!==undefined?"back ":"")+it.name+"."); if(AC) flute(11,AC.currentTime,.3,.5); }
+  shopClampIdx(); autoSave();
+}
 function doBuy(){
   const it=shop.confirm; shop.confirm=null;
+  if(it&&it.type==='town'){ townDeal(it); return; }
   if(it&&it.type==='sellall'){ sellAll(); shopClampIdx(); return; }
   if(!it||G.coins<it.cost) return;
   G.coins-=it.cost;
@@ -77,7 +99,7 @@ function doBuy(){
   if(AC) flute(11,AC.currentTime,.3,.5);
   shopClampIdx(); autoSave();
 }
-function shopSetTab(t){ shop.tab=(t+TABS.length)%TABS.length; shop.idx=0; shop.page=0; }
+function shopSetTab(t){ const n=shopTabs().length; shop.tab=(t+n)%n; shop.idx=0; shop.page=0; }
 function shopKey(k){
   if(shop.confirm){
     if(isLeft(k)||isRight(k)||isUp(k)||isDown(k)) shop.cIdx=1-shop.cIdx;
@@ -104,7 +126,7 @@ function shopTouch(x,y){
     return;
   }
   if(y>444){ G.scene='world'; autoSave(); return; }
-  if(y>162&&y<189){ shopSetTab(clamp(Math.floor((x-21)/TAB_STEP),0,TABS.length-1)); return; }
+  if(y>162&&y<189){ shopSetTab(clamp(Math.floor((x-21)/TAB_STEP),0,shopTabs().length-1)); return; }
   if(y>414&&y<440){
     if(x<90){ shop.page=(shop.page+pageCount()-1)%pageCount(); shop.idx=0; return; }
     if(x>270){ shop.page=(shop.page+1)%pageCount(); shop.idx=0; return; }
@@ -137,10 +159,13 @@ function drawShopArt(it,cx,y,bw,bh){
   else { px(b,cx-18,y+bh/2-14,36,28,'#8a6a2e'); px(b,cx-18,y+bh/2-14,36,4,'#a8865a'); }
 }
 function drawShop(){
-  drawWorldStatic(); dim();
+  if(shop.town){ const g=b.createLinearGradient(0,BAND_TOP(),0,BAND_BOT()); g.addColorStop(0,'#141c4a'); g.addColorStop(1,'#070b22');
+    b.fillStyle=g; b.fillRect(0,BAND_TOP(),LW,BAND_BOT()-BAND_TOP()); }
+  else { drawWorldStatic(); dim(); }
   panel(12,30,336,432);
-  portrait(b,24,42,1);
-  TABS.forEach((t,i)=>tabPill(21+i*TAB_STEP,162,TAB_W,27,i===shop.tab));
+  /* Kaitlyn at her stall; in town, the shopkeeper */
+  if(shop.town&&shop.who) portraitBox(shop.who.name.toLowerCase(),24,42,100,104); else portrait(b,24,42,1);
+  shopTabs().forEach((t,i)=>tabPill(21+i*TAB_STEP,162,TAB_W,27,i===shop.tab));
   const items=pageItems(), L=SHOP_LIST, C=SHOP_CARD, sel=items[shop.idx];
   const can=it=>it.sell||G.coins>=it.cost;
   items.forEach((it,i)=>menuRow(L.x,L.y+i*L.step,L.w,L.h,i===shop.idx,!can(it)));
@@ -164,7 +189,7 @@ function drawShop(){
   }
   blit();
   if(shop.confirm){
-    const sellAllAsk=shop.confirm.type==='sellall';
+    const sellAllAsk=shop.confirm.type==='sellall'||!!shop.confirm.all;
     TS(sellAllAsk?"Sell everything?":"Confirm purchase",180,216,26,WIN_TXT.title,'center',true);
     TS(sellAllAsk?shop.confirm.desc:shop.confirm.name,180,256,sellAllAsk?19:22,WIN_TXT.body,'center',true);
     TS((sellAllAsk?"You get ":"Cost ")+shop.confirm.cost+"c",180,282,20,WIN_TXT.gold,'center',true);
@@ -174,15 +199,18 @@ function drawShop(){
     keyHint("A/D choose  ·  J confirm  ·  H back",180,375);
     return;
   }
-  TS("Garden Stall",228,78,28,WIN_TXT.title,'center',true);
+  const title=shop.town?TOWN_SHOPS[shop.town].title:"Garden Stall";
+  TS(title,228,78,TW(title,28,true)>212?22:28,WIN_TXT.title,'center',true);
   TS("you have",228,104,17,WIN_TXT.note,'center');
   TS(G.coins+"c",228,134,30,WIN_TXT.gold,'center',true);
-  TABS.forEach((t,i)=>TS(t,21+i*TAB_STEP+TAB_W/2,181,20,i===shop.tab?WIN_TXT.gold:WIN_TXT.body,'center',i===shop.tab));
+  shopTabs().forEach((t,i)=>TS(t,21+i*TAB_STEP+TAB_W/2,181,TW(t,20)>TAB_W-10?17:20,i===shop.tab?WIN_TXT.gold:WIN_TXT.body,'center',i===shop.tab));
   items.forEach((it,i)=>{ const y=L.y+i*L.step, afford=can(it);
-    TS(it.name+(it.type==='crop'?" x"+G.crops[it.id]:it.type==='good'?" x"+G.goods[it.id]:""),L.x+ROW_PAD+1,y+17,19,afford?WIN_TXT.title:WIN_TXT.off,null,i===shop.idx||it.type==='sellall');
+    const label=it.name+(it.type==='crop'?" x"+G.crops[it.id]:it.type==='good'?" x"+G.goods[it.id]:it.count!==undefined?" x"+it.count:"");
+    TS(label,L.x+ROW_PAD+1,y+17,TW(label,19)>L.w-ROW_PAD-48?16:19,afford?WIN_TXT.title:WIN_TXT.off,null,i===shop.idx||it.type==='sellall'||it.all);
     TS((it.sell?"+":"")+it.cost+"c",L.x+L.w-6,y+17,18,it.sell?WIN_TXT.good:afford?WIN_TXT.gold:WIN_TXT.off,'right',true); });
-  if(!items.length) TS(shop.tab===TAB_SELL?"Nothing to sell yet.":"Sold out — you have it all!",104,230,20,WIN_TXT.note,'center');
-  if(!items.length&&shop.tab===TAB_SELL) TS("Harvest crops to sell them here.",104,248,17,WIN_TXT.dim,'center');
+  if(!items.length&&shop.town) wrapLines(shopTab().empty||"Sold out!",18,300).forEach((ln,i)=>TS(ln,180,230+i*18,18,WIN_TXT.note,'center'));
+  else if(!items.length) TS(shop.tab===TAB_SELL?"Nothing to sell yet.":"Sold out — you have it all!",104,230,20,WIN_TXT.note,'center');
+  if(!items.length&&!shop.town&&shop.tab===TAB_SELL) TS("Harvest crops to sell them here.",104,248,17,WIN_TXT.dim,'center');
   if(sel){
     const cx=C.x+C.w/2;
     wrapLines(sel.name,20,C.w-14).slice(0,2).forEach((ln,i)=>TS(ln,cx,C.y+114+i*15,20,WIN_TXT.title,'center',true));
@@ -197,6 +225,6 @@ function drawShop(){
     TS(IS_TOUCH?"next >":"E  next >",304,432,18,WIN_TXT.title,'center',true);
     TS("page "+(shop.page+1)+" / "+pageCount(),180,432,17,WIN_TXT.note,'center');
   }
-  keyHint("W/S choose  ·  A/D tabs  ·  J "+(shop.tab===TAB_SELL?"sell":"buy")+"  ·  H leave  (or tap here)",180,456,
+  keyHint("W/S choose  ·  A/D tabs  ·  J "+(sel&&sel.sell?"sell":"buy")+"  ·  H leave  (or tap here)",180,456,
     "tap an item, then tap it again or the button  ·  tap here to leave");
 }

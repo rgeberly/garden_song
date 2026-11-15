@@ -68,7 +68,6 @@ function onTouch(x,y,id,hy){
   if(G.scene==='ask'){ askTouch(x,y); return; }
   if(G.scene==='story'){ storyTap(); return; }
   if(G.scene==='levelup'){ levelUpTap(); return; }
-  if(G.scene==='tshop'){ tshopTouch(x,y); return; }
   if(G.scene==='fishing'){ fishTouch(x,y,id); return; }
   if(G.scene==='world'&&x>SYS.x&&x<SYS.x+SYS.w&&hy>SYS.y&&hy<SYS.y+SYS.h) openSys();
 }
@@ -104,6 +103,5 @@ function onPress(k){
   else if(G.scene==='ask') askKey(k);
   else if(G.scene==='story'&&(isOk(k)||k==='e')) storyTap();
   else if(G.scene==='levelup'&&isOk(k)) levelUpTap();
-  else if(G.scene==='tshop') tshopKey(k);
   else if(G.scene==='fishing') fishKey(k);
 }

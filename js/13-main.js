@@ -217,7 +217,7 @@ function drawTitleMenuWords(bot){
   TS("Back",TSLOT.x+40,Y+TSLOT.top+SAVE_SLOTS*TSLOT.row+28,21,'#c8d4ff',null,TM.idx===SAVE_SLOTS);
   if(TM.err) TS(TM.err,180,Y-10,17,'#ff9a8a','center');
 }
-const AREA_SCENES=['world','sys','shop','menu','tshop','ask','fishing','story','levelup'];
+const AREA_SCENES=['world','sys','shop','menu','ask','fishing','story','levelup'];
 let last=performance.now();
 function loop(now){
   const dt=Math.min(50,now-last); last=now; G.t+=dt;
@@ -249,7 +249,6 @@ function loop(now){
   else if(G.scene==='ask') drawAsk();
   else if(G.scene==='story') drawStory();
   else if(G.scene==='levelup') drawLevelUp(dt);
-  else if(G.scene==='tshop') drawTownShop();
   else if(G.scene==='fishing') drawFishing(dt);
   /* the garden's HUD draws the deck itself; everywhere else it goes on top */
   if(deckShown()&&G.scene!=='world'&&G.scene!=='ask') drawDeck();

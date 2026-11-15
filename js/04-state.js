@@ -14,7 +14,8 @@ const G={
   pests:[], pestTimer:9000, mtnPests:[],   /* pests in the garden, and on the mountain trail */
   msg:'', msgT:0, frogT:0, t:0, code:'',
   clock:6*60, day:1, indoors:false,      /* game minutes since midnight; see 14-daytime.js */
-  party:['kaitlyn'], allies:{},          /* who fights (up to PARTY_MAX); allies' own stats */
+  party:['kaitlyn'], allies:{},          /* who fights (up to PARTY_MAX), in spot order; allies' own stats */
+  slots:null,                            /* the five spots they stand in, top to bottom (see partySlots) */
   story:{},                              /* how far each story has got; see 16-story.js */
   daily:{},                              /* once-a-day things: the day each was last done */
   area:'garden', goods:{}, gearOff:{},              /* where she is (17-places.js); things gathered and caught */
@@ -103,13 +104,28 @@ function joinParty(id,lv){
   lv=lv||Math.max(1,G.player.lv-2);
   if(!G.allies[id]){ const hp=statOf(id,'hp',lv); G.allies[id]={lv,xp:0,next:xpNeed(lv),hp,maxhp:hp,mp:statOf(id,'mp',lv),hurtUntil:0}; }
   if(!G.party.includes(id)&&G.party.length<PARTY_MAX) G.party.push(id);
+  partySlots();
 }
 /* send a friend out with Kaitlyn, or back home (returns false if they can't go) */
 function toggleParty(id){
   if(id==='kaitlyn') return false;
-  if(G.party.includes(id)){ G.party=G.party.filter(x=>x!==id); return true; }
+  if(G.party.includes(id)){ G.party=G.party.filter(x=>x!==id); partySlots(); return true; }
   if(isHurt(id)||G.party.length>=PARTY_MAX) return false;
-  G.party.push(id); return true;
+  G.party.push(id); partySlots(); return true;
+}
+/* The five spots the party stands in, top to bottom, in battle and on the Party page:
+   G.slots, an id or null each. G.party is who's out, in spot order. Anything that
+   changes G.party (joining, getting hurt, the tests) is caught up here: whoever left
+   leaves their spot empty, whoever's new takes the free spot nearest the middle
+   (SLOT_FILL), which is Kaitlyn's to begin with. */
+const SLOT_FILL=[2,1,3,0,4];
+function partySlots(){
+  const seen=new Set();
+  const S=(Array.isArray(G.slots)&&G.slots.length===PARTY_MAX?G.slots:Array(PARTY_MAX).fill(null))
+    .map(id=>id&&G.party.includes(id)&&!seen.has(id)&&seen.add(id)?id:null);
+  G.party.forEach(id=>{ if(S.includes(id)) return; const i=SLOT_FILL.find(j=>!S[j]); if(i!==undefined) S[i]=id; });
+  G.slots=S; G.party=S.filter(Boolean);
+  return S;
 }
 /* EXP needed to go from level lv to the next */
 const xpNeed=lv=>Math.round(60*Math.pow(1.45,lv-1));
@@ -157,7 +173,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,
+    pa:G.party,ps:partySlots(),al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0,p.deadDay||0])};
 }
@@ -171,6 +187,7 @@ function applySave(o){
   G.flute=o.fl||'recorder';
   /* (members the game doesn't know, like an old id, are left behind) */
   G.allies=Object.fromEntries(Object.entries(o.al||{}).filter(([id])=>PARTY_INFO[id])); G.party=(o.pa||['kaitlyn']).filter(id=>id==='kaitlyn'||G.allies[id]);
+  G.slots=o.ps||null; partySlots();
   for(const id in G.allies){ const A=G.allies[id];          /* older saves had no EXP for friends */
     if(A.xp===undefined) A.xp=0; A.next=xpNeed(A.lv); A.hurtUntil=A.hurtUntil||0; }
   G.runMode=o.jm||'hold';

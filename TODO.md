@@ -30,9 +30,9 @@ Kaitlyn's battle songs have no recordings yet (each plays a stand-in tune). Save
 - [ ] Front layers for the rooms (what Kaitlyn walks behind: counters, tables), like the house's
 
 ## From the Nov 15 list, still to do
-- [ ] Party screen: five slots with Kaitlyn in the middle, empty slots selectable, swap with reserves or other slots; the order matches where they stand in battle (#3, #4)
-- [ ] Equip screen: pick from a list of what she can wear in each slot (#5)
-- [ ] Town shops laid out like the garden stall, with Buy and Sell tabs (#6)
+- [x] Party screen: five slots with Kaitlyn in the middle, empty slots selectable, swap with reserves or other slots; the order matches where they stand in battle (#3, #4)
+- [x] Equip screen: pick from a list of what she can wear in each slot (#5)
+- [x] Town shops laid out like the garden stall, with Buy and Sell tabs (#6)
 - [ ] Choose everyone's commands first, then all act by Agility (Dragon Quest style) (#7.4)
 - [ ] Pep Rally: a meter filled by hits, and rally songs as an in-battle rhythm game, learned along the story (#7.7, #7.8)
 - [ ] Shorter map shadows, better cloud shadows and pool ripples, stronger morning/evening/night tints, sunset by season (7 PM summer, 6 PM spring/fall, 5 PM winter), night-strong moves from 7 PM (#10)
