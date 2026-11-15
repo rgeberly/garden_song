@@ -151,7 +151,7 @@ function startStemPlayback(chart,leadMs){
   const bg=AC.createGain(); bg.gain.value=0.8;
   bs.connect(bg); bg.connect(master);
   const fs=AC.createBufferSource(); fs.buffer=SB.flute;
-  const fg=AC.createGain(); fg.gain.value=0.0001;
+  const fg=AC.createGain(); fg.gain.value=1;
   fs.connect(fg); fg.connect(master);
   bs.start(t0,chart.offset); fs.start(t0,chart.offset);
   return {t0,bs,fs,fg};
@@ -161,17 +161,24 @@ function stopStemPlayback(){
   try{ R_.play.bs.stop(); R_.play.fs.stop(); }catch(e){}
   R_.play=null;
 }
-/* open the flute up for exactly this note, then close it again */
-function fluteOn(n){
+/* The flute plays along by default, and a missed note (or a hold let go) is muted until
+   it's over. (Opening the flute up on a hit instead clipped the start of every note: a
+   phone plays sound a little after the clock says, so a hit in time with what you hear
+   comes after the note has begun.) */
+function fluteMute(n){
+  if(!R_||!R_.play||!AC) return;
+  const g=R_.play.fg, now=AC.currentTime, e=R_.play.t0+(n.aEnd-R_.chart.offset);
+  if(e<=now+0.02) return;                  /* already over */
+  g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value,now);
+  g.gain.linearRampToValueAtTime(0.0001,now+0.04);
+  g.gain.setValueAtTime(0.0001,e); g.gain.linearRampToValueAtTime(1,e+0.02);
+}
+/* back on straight away (a hold taken up again) */
+function fluteOn(){
   if(!R_||!R_.play||!AC) return;
   const g=R_.play.fg, now=AC.currentTime;
-  const s=Math.max(now, R_.play.t0+(n.aStart-R_.chart.offset));
-  const e=Math.max(s+0.05, R_.play.t0+(n.aEnd-R_.chart.offset));
-  g.gain.cancelScheduledValues(now);
-  g.gain.setValueAtTime(Math.max(0.0001,g.gain.value),now);
-  g.gain.linearRampToValueAtTime(1,s+0.008);
-  g.gain.setValueAtTime(1,Math.max(s+0.012,e-0.03));
-  g.gain.linearRampToValueAtTime(0.0001,e+0.10);
+  g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value,now);
+  g.gain.linearRampToValueAtTime(1,now+0.02);
 }
 /* The notes always come from the flute part (STEM_PHRASES). If the recordings are
    still loading, wait a moment for them; if they can't load, the same flute notes
@@ -232,10 +239,8 @@ function laneDown(lane){
       R_.combo++; R_.maxcombo=Math.max(R_.maxcombo,R_.combo);
       R_.pop.push({t:650,txt:perfect?'PERFECT':'GOOD',x:LANE_X0+lane*LANE_W+LANE_W/2,
         c:perfect?'#ffe08a':'#a8e0ff'});
-      if(R_.chart.stem) fluteOn(best);
-      else if(AC) flute(best.semi,AC.currentTime,.5,.85);
-    } else if(R_.chart.stem) fluteOn(best);
-      else if(AC) flute(best.semi,AC.currentTime,Math.min(2.4,best.dur/1000),.7);
+      if(!R_.chart.stem&&AC) flute(best.semi,AC.currentTime,.5,.85);   /* (the recorded flute is already playing) */
+    } else if(!R_.chart.stem&&AC) flute(best.semi,AC.currentTime,Math.min(2.4,best.dur/1000),.7);
   } else if(bd>400&&countBeat()>=COUNT_BEATS) blip(150,0.05,0.1);   /* free practice during the count-in */
 }
 function laneUp(l){ if(R_) R_.press[l]=0; }
@@ -297,7 +302,7 @@ function updateRhythm(dt){
   for(const n of R_.chart.notes){
     if(n.done)continue;
     if(n.type==='tap'){
-      if(R_.time-n.t>170){ n.done=true; R_.miss++; R_.combo=0;
+      if(R_.time-n.t>170){ n.done=true; R_.miss++; R_.combo=0; if(R_.chart.stem) fluteMute(n);
         R_.pop.push({t:520,txt:'MISS',x:LANE_X0+n.lane*LANE_W+LANE_W/2,c:'#ff8a8a'}); }
     } else {
       if(R_.time>=n.t&&R_.time<=n.t+n.dur){
@@ -313,8 +318,11 @@ function updateRhythm(dt){
         /* each bend (a trill's turn) has to be reached: its lane held within 150 ms of it */
         holdPath(n).forEach((q,j)=>{ if(j&&j<n.path.length-1&&Math.abs(ms-q[0])<=150&&R_.press[q[1]]) (n.bent=n.bent||{})[j]=1; });
         n.holding=ok;
-        if(ok){ n.score+=dt; if(Math.random()<dt/90) spawnFx(n.reqLane,'spark');
-                if(R_.chart.stem&&!n.sounding){ n.sounding=true; fluteOn(n); } }
+        if(ok){ n.score+=dt; if(Math.random()<dt/90) spawnFx(n.reqLane,'spark'); }
+        /* not held (a moment's grace to get there): the flute goes quiet until it's held again */
+        if(R_.chart.stem){
+          if(!ok&&ms>170&&!n.muted){ n.muted=true; fluteMute(n); }
+          else if(ok&&n.muted){ n.muted=false; fluteOn(); } }
       }
       if(R_.time>n.t+n.dur){
         n.done=true; if(n.autoL!=null){ R_.press[n.autoL]=0; n.autoL=null; }
@@ -361,14 +369,15 @@ const SONG_MINUTES=10;              /* singing to a plant takes this long (game 
 function noteGlyph(c,x,y,col,a){
   c.globalAlpha=a; px(c,x+3,y,3,11,col); px(c,x,y+9,5,5,col); px(c,x+6,y-2,3,5,col); c.globalAlpha=1;
 }
-/* a little potted plant at the foot of each lane, growing with the combo: the crop
-   being sung to (its sprout, young and mature pictures), or a drawn sprout */
+/* at the foot of each lane, when she's singing to a plant: the crop in a patch of soil
+   (the garden's), growing with the combo (its sprout, young and mature pictures, or a
+   drawn sprout). Nothing there for other songs. */
 function rhythmPlant(c,x,base,grow,pulse){
-  const h=9+Math.round(grow*26)+(pulse?2:0);
-  px(c,x-9,base,18,11,'#2b1c12'); px(c,x-8,base+2,16,8,'#a8653a');
-  px(c,x-8,base+2,16,2,'#c9865a');
   const sp=R_&&R_.plot&&R_.plot.sp;
-  if(sp&&cropsReady()){
+  if(!sp) return;
+  const h=9+Math.round(grow*26)+(pulse?2:0);
+  drawSoil(c,x,base+3);
+  if(cropsReady()){
     const key=grow<0.34?'sprout':(grow<0.7?'baby ':'mature ')+SPECIES[sp].name.toLowerCase(), a=CROP_ART[key];
     if(a){ const tall=(grow<0.34?18:grow<0.7?30:40)+(pulse?2:0);
       if(drawCropArt(c,key,x,base+3,tall*SC/a.ay)) return; } }

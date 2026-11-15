@@ -160,8 +160,7 @@ function trackFor(k){
   }catch(e){} }
   return TRACKS[k];
 }
-/* The battle theme picks up where it left off from fight to fight, but starts over after
-   travelling somewhere new or a night's sleep; boss themes always start from the top. */
+/* The battle and boss themes start from the top with every fight. */
 function restartTrack(k){ const a=TRACKS[k]; if(a&&curTrack!==k){ try{ a.currentTime=0; }catch(e){} } }
 /* jump a track to its starting point (once it knows its length) */
 function cueTrack(a,k){
@@ -192,6 +191,6 @@ function setMusic(mode){
   if(old) fadeTo(old,0,()=>{ try{old.pause();}catch(e){} });
   curTrack=mode;
   const a=trackFor(mode);
-  if(a){ try{ a.volume=0; if(mode==='victory'||mode==='boss'||mode==='boss2') a.currentTime=0; cueTrack(a,mode); const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+  if(a){ try{ a.volume=0; if(mode==='victory'||mode==='battle'||mode==='boss'||mode==='boss2') a.currentTime=0; cueTrack(a,mode); const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
          fadeTo(a,TRACK_VOL[mode]||0.45); }
 }

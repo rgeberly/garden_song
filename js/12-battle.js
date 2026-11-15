@@ -23,13 +23,13 @@ const BATTLE_LAYOUTS={
          foes: {4:[[240,262],[222,204],[228,318],[306,262]],
                 5:[[240,262],[222,204],[228,318],[306,232],[312,292]]}},
   /* an arrowhead: Kaitlyn at the tip, the others fanning out behind her */
-  arrow:{party:{4:[[132,262],[88,214],[88,310],[44,262]],
-                5:[[132,262],[88,214],[88,310],[44,238],[42,288]]},
+  arrow:{party:{4:[[132,262],[88,210],[88,314],[44,262]],
+                5:[[132,262],[88,204],[88,320],[44,233],[42,291]]},
          foes: {4:[[232,262],[276,214],[276,310],[320,262]],
                 5:[[232,262],[276,214],[276,310],[318,238],[320,288]]}},
   /* the party as an arrowhead, the pests three in front and two behind */
-  mix:  {party:{4:[[132,262],[88,214],[88,310],[44,262]],
-                5:[[132,262],[88,214],[88,310],[44,238],[42,288]]},
+  mix:  {party:{4:[[132,262],[88,210],[88,314],[44,262]],
+                5:[[132,262],[88,204],[88,320],[44,233],[42,291]]},
          foes: {4:[[240,262],[222,204],[228,318],[306,262]],
                 5:[[240,262],[222,204],[228,318],[306,232],[312,292]]}},
   /* the party in one staggered line, Kaitlyn in the middle (the pests as in rows) */
@@ -45,10 +45,20 @@ const FOE_SCALE={1:1,2:0.9,3:0.8,4:0.74,5:0.68}, FLY_LIFT=30;   /* flyers hover 
    anyone nearer a little bigger, all the same at Kaitlyn's usual spot */
 const DEPTH_Y=262, DEPTH_K=0.0013;
 const depthScale=y=>clamp(1+(y-DEPTH_Y)*DEPTH_K,0.8,1.1);
+/* The spots above are for a screen of LH. On a taller one (the windows sit lower) the
+   field stretches down to fill the space: everyone spreads out top to bottom, keeping the
+   size their spot gives them. The same on every backdrop. */
+const FIELD_TOP=196, FIELD_BOT=330;
+function fieldY(y){
+  const dn=Math.max(0,BAND_BOT()-LH), top=FIELD_TOP+dn*0.15, bot=FIELD_BOT+dn*0.9;
+  return top+(y-FIELD_TOP)*(bot-top)/(FIELD_BOT-FIELD_TOP);
+}
 const CMDS=['attack','skills','meditate','focus','items','flee'];
 const CMD_VIS=5;                     /* rows the commands window shows; it scrolls to the rest (Flee) */
 const KILL_CHANCE=0.10;              /* Ivy's venom can finish a (non-boss) foe outright */
 const EXTRA_FOE=0.7;                 /* the chance of one more pest for each friend along */
+/* how many pests a full party of five meets: n pests, w the chance in 100 */
+const FULL_PARTY_FOES=[{n:1,w:10},{n:2,w:20},{n:3,w:40},{n:4,w:20},{n:5,w:10}];
 const KARATE_SHOUTS=["Hi-YAH!","KIAI!","Hwaa-CHA!","Tatsumaki senpukyaku!","Aboykiblooken!"];
 let B=null;
 const listAnd=L=>L.length<2?L.join(''):L.slice(0,-1).join(", ")+" and "+L[L.length-1];
@@ -56,9 +66,12 @@ const listAnd=L=>L.length<2?L.join(''):L.slice(0,-1).join(", ")+" and "+L[L.leng
 function startBattle(pest,kinds){
   padVec={x:0,y:0}; padId=null; btnHeld=false;        /* a held pad must not scroll the menu */
   const party=G.party.filter(id=>!isHurt(id)), boss=!!PESTS[pest.species].boss;
-  /* one more for each extra member, most of the time */
+  /* one more for each extra member, most of the time; a full party of five meets 1-5
+     (FULL_PARTY_FOES) */
   if(!kinds){ kinds=[pest.species];
-    if(!boss) for(let i=1;i<party.length;i++) if(Math.random()<EXTRA_FOE){ const pool=pestPool(); kinds.push(pool[ri(0,pool.length-1)]); } }
+    const more=boss?0:party.length===5?pickWeighted(FULL_PARTY_FOES).n-1
+      :Array.from({length:party.length-1}).filter(()=>Math.random()<EXTRA_FOE).length;
+    for(let i=0;i<more;i++){ const pool=pestPool(); kinds.push(pool[ri(0,pool.length-1)]); } }
   const D=diff();                      /* the Settings tab's difficulty */
   const foes=kinds.map((sp,i)=>{ const lv=i?pestLevel(sp):(pest.lv||PESTS[sp].lv), S=pestStats(sp,lv);
     S.hp=Math.round(S.hp*D.hp); S.atk*=D.atk;
@@ -94,10 +107,14 @@ const allDown=()=>!B.foes.some(f=>f.hp>0);
 /* just over a member's head, for numbers that pop up */
 const headOf=id=>{ const s=slotOf(id); return s.y-(id==='kaitlyn'?110:36*(MEMBER_SIZE[id]||1))*s.s; };
 /* where a member stands (feet) and how big they're drawn there */
-function slotOf(id){ const [x,y]=formation(B.party.length)[Math.max(0,B.party.indexOf(id))]; return {x,y,s:depthScale(y)}; }
+function slotOf(id){ const [x,y]=formation(B.party.length)[Math.max(0,B.party.indexOf(id))]; return {x,y:fieldY(y),s:depthScale(y)}; }
 /* where a foe stands: feet, size and how high it hovers */
 function foeSpot(f){ const n=B.foes.length, [x,y]=foeForm(n)[f.slot];
-  return {x,y,s:FOE_SCALE[n]*(PESTS[f.sp].size||1)*depthScale(y),lift:PESTS[f.sp].fly?FLY_LIFT:0}; }
+  return {x,y:fieldY(y),s:FOE_SCALE[n]*(PESTS[f.sp].size||1)*depthScale(y),lift:PESTS[f.sp].fly?FLY_LIFT:0}; }
+/* each side numbered top to bottom on the screen: the order Up and Down step through */
+/* (a flyer counts where it's drawn, up in the air) */
+const shownY=x=>{ if(typeof x!=='object') return slotOf(x).y; const p=foeSpot(x); return p.y-p.lift; };
+const topDown=L=>L.slice().sort((a,z)=>shownY(a)-shownY(z));
 /* point EX,EY (where hits and effects land) at a foe */
 function focus(f){ if(!f) return; const p=foeSpot(f); EX=p.x; EY=p.y-p.lift-52*p.s; }
 /* a foe's picture, as a box (taps, tags and the target pointer) */
@@ -238,19 +255,29 @@ function subInfo(x){
 /* ---------- picking who a move is for ----------
    With more than one to choose from the menu waits (B.menu 'target', B.tgt) for a
    pick: arrows and A, or a tap on them; back returns to where it came from. */
+/* Always a pick, even with only one to choose (so the foe's HP shows, and no misfires).
+   The lists run top to bottom on the screen. */
 function chooseFoe(then){
-  const L=liveFoes(); if(L.length===1){ then(L[0]); return; }
+  const L=topDown(liveFoes());
   B.tgt={kind:'foe',list:L,i:Math.max(0,L.indexOf(B.lastFoe)),then,back:B.menu}; B.menu='target';
   blip(520,0.04,0.08,'triangle');
 }
-function chooseAlly(then){
-  const L=B.party.filter(standing); if(L.length===1){ then(L[0]); return; }
-  B.tgt={kind:'ally',list:L,i:Math.max(0,L.indexOf(actor())),then,back:B.menu}; B.menu='target';
+/* a friend: anyone standing, or those in `list`; the pointer starts on `start` (or whoever's turn it is) */
+function chooseAlly(then,list,start){
+  const L=topDown(list||B.party.filter(standing));
+  B.tgt={kind:'ally',list:L,i:Math.max(0,L.indexOf(start||actor())),then,back:B.menu}; B.menu='target';
+  blip(520,0.04,0.08,'triangle');
+}
+/* a move on every foe (or every friend, or those in `list`): all of them are pointed at,
+   and one press lets it go */
+function chooseAll(kind,then,list){
+  const L=topDown(list||(kind==='foe'?liveFoes():B.party.filter(standing)));
+  B.tgt={kind,all:true,list:L,i:0,then:()=>then(),back:B.menu}; B.menu='target';
   blip(520,0.04,0.08,'triangle');
 }
 function pickTarget(i){
   const t=B.tgt, x=t.list[i]; B.tgt=null; B.menu='cmd';
-  if(t.kind==='foe') B.lastFoe=x;
+  if(t.kind==='foe'&&!t.all) B.lastFoe=x;
   t.then(x);
 }
 function cancelTarget(){ B.menu=B.tgt.back; B.tgt=null; blip(330,0.04,0.08,'triangle'); }
@@ -322,7 +349,7 @@ function battleTouch(x,y){
   }
 }
 function pickCmd(c){
-  if(c==='attack'){ if(PARTY_INFO[actor()].tweet) doTweet(); else chooseFoe(doAttack); }
+  if(c==='attack'){ if(PARTY_INFO[actor()].tweet) chooseAll('ally',doTweet); else chooseFoe(doAttack); }
   else if(c==='skills') openSub('skills');
   else if(c==='meditate') doMeditate();
   else if(c==='focus') doFocus();
@@ -334,25 +361,26 @@ function useSub(x){
   const id=actor();
   if(B.menu==='items'){
     const e=isGoodKey(x)?goodEffect(x.slice(2)):null;
-    if(e&&(e.hpAll||e.mpAll)) eatInBattle(x,id); else chooseAlly(to=>eatInBattle(x,to));
+    if(e&&(e.hpAll||e.mpAll)) chooseAll('ally',()=>eatInBattle(x,id)); else chooseAlly(to=>eatInBattle(x,to));
     return;
   }
   if(!canPay(x,id)){ B.log=x.hpCost?"Too worn out for that!":id==='kaitlyn'?"Not enough Music Points!":"Not enough MP!"; blip(150,0.08,0.2); return; }
+  const others=B.party.filter(m=>m!==id&&standing(m));
   if(x.hpCost) chooseFoe(f=>useKarate(x,f));
-  else if(x.notes){ if(x.pow>0&&!x.all&&!x.hits) chooseFoe(f=>useSong(x,f)); else useSong(x,x.all||x.hits?liveFoes()[0]:null); }
+  else if(x.notes){ if(x.pow>0&&!x.all&&!x.hits) chooseFoe(f=>useSong(x,f));
+    else if(x.pow>0) chooseAll('foe',()=>useSong(x,liveFoes()[0]));
+    else chooseAll('ally',()=>useSong(x,null)); }
   else if(x.mend||x.clear) chooseAlly(to=>useSkill(x,null,to));
-  else if(x.cover){
-    /* a friend still standing, not Tex himself */
-    const L=B.party.filter(m=>m!==id&&standing(m));
-    if(!L.length){ B.log="There's no one to cover!"; blip(150,0.08,0.2); return; }
-    if(L.length===1) useSkill(x,null,L[0]);
-    else { B.tgt={kind:'ally',list:L,i:0,then:to=>useSkill(x,null,to),back:B.menu}; B.menu='target'; blip(520,0.04,0.08,'triangle'); } }
-  else if(x.revive){
-    /* anyone: a friend who's down gets back up, one who's up is filled to full HP (the
-       pointer starts on the first one who's down) */
-    const L=B.party.slice(), down=L.findIndex(m=>!standing(m));
-    B.tgt={kind:'ally',list:L,i:Math.max(0,down),then:to=>useSkill(x,null,to),back:B.menu}; B.menu='target'; blip(520,0.04,0.08,'triangle'); }
-  else if(x.heal||x.mendAll||x.cureAll||x.guardAll||x.all||x.pecks||x.shell||x.weakAll||x.scareAll||x.graze||x.coverAll) useSkill(x,null);
+  else if(x.cover||x.coverAll){
+    /* friends still standing, not Tex himself */
+    if(!others.length){ B.log="There's no one to cover!"; blip(150,0.08,0.2); return; }
+    if(x.cover) chooseAlly(to=>useSkill(x,null,to),others,others[0]);
+    else chooseAll('ally',()=>useSkill(x,null),others); }
+  /* Wake-Up Call: anyone, down or up (the pointer starts on the first one who's down) */
+  else if(x.revive) chooseAlly(to=>useSkill(x,null,to),B.party,B.party.find(m=>!standing(m)));
+  else if(x.heal||x.shell||x.graze) chooseAlly(()=>useSkill(x,null),[id]);        /* on themselves */
+  else if(x.mendAll||x.cureAll||x.guardAll) chooseAll('ally',()=>useSkill(x,null));
+  else if(x.all||x.pecks||x.weakAll||x.scareAll) chooseAll('foe',()=>useSkill(x,null));
   else chooseFoe(f=>useSkill(x,f));
 }
 
@@ -383,10 +411,10 @@ const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(wears('
 /* Focus: a member's next hit (every hit of that one move) is twice as hard; this uses it up */
 function useCharge(id){ const m=B.charged[id]?2:1; B.charged[id]=false; return m; }
 const KICK_SHOUT=0.25;               /* how often a kick comes with a shout */
-function kick(f,pow,name,row,shouts,shout){
+function kick(f,pow,name,row,shouts,shout,dur){
   if(Math.random()<(shout===undefined?1:shout)) B.shout={txt:shouts[ri(0,shouts.length-1)],t:1500};
   B.kickVar=row; playOne('kick',0.55);
-  anim('kick',1100,()=>{
+  anim('kick',dur||1100,()=>{
     if(missed('kaitlyn')) return;
     focus(f); const cm=useCharge('kaitlyn'), dmg=soften(kickPower(pow)*rnd(0.85,1.15)*cm,foeDef(f));
     burst(EX-20,EY+16,'#ffe6a0',16,0.19); burst(EX-30,EY+34,'#d8c49a',12,0.13);
@@ -418,19 +446,23 @@ function useKarate(mv,f){
   const id=actor(), M=member(id), c=hpCostOf(mv,id), s=slotOf(id);
   M.hp=Math.max(1,M.hp-c); pop("-"+c,s.x,headOf(id),'#ffb0a8');
   B.turn='busy'; B.menu='cmd';
-  kick(f,mv.pow,mv.name,BROW.karate!==undefined?'karate':'kick',KARATE_SHOUTS,KICK_SHOUT);
+  kick(f,mv.pow,mv.name,BROW.karate!==undefined?'karate':'kick',KARATE_SHOUTS,KICK_SHOUT,1500);
 }
 const songPower=()=>statOf('kaitlyn','int')*1.3*(wears('kaitlyn','polish')?1.3:1)*weakMul('kaitlyn');
 /* Tiny One's healing, with the Silver Bell on */
 const healMul=id=>wears(id,'bell')?1.2:1;
+/* Kaitlyn's songs play out on their own like anyone's skill (no rhythm game): as strong
+   as a song played at SONG_ACC */
+const SONG_ACC=0.82;
 function useSong(mv,f){
-  G.player.mp-=mv.mp; B.turn='busy';
-  startRhythm(null,{notes:mv.notes,name:mv.name,mp:mv.mp,song:BATTLE_SONG[mv.id],cb:(acc)=>{
-    G.scene='battle'; B.menu='cmd'; playOne('flute',0.5);
+  G.player.mp-=mv.mp; B.turn='busy'; B.menu='cmd';
+  const acc=SONG_ACC; playOne('flute',0.5);
+  B.log="Kaitlyn plays "+mv.name+"!";
+  {
     anim(mv.fx,1500,()=>{
       /* healing songs reach the whole party: a share of each one's max HP */
       if(mv.heal) B.party.filter(standing).forEach(id=>mendMember(id,member(id).maxhp*mv.heal));
-      const pc="  ("+Math.round(acc*100)+"%)", healed=mv.heal?"  Everyone heals!":"";
+      const pc="", healed=mv.heal?"  Everyone heals!":"";
       const songHit=(t,cm)=>soften(songPower()*mv.pow*(0.35+acc*1.1)*cm,foeDef(t),true);
       if(mv.pow>0&&mv.hits){
         /* hits at whoever's still there, a moment apart */
@@ -454,7 +486,7 @@ function useSong(mv,f){
         B.log+=gotLog(by)+healed+(cm>1?"  A focused blow!":"");
       } else B.log=mv.name+" heals the party.";
     },{tgt:f});
-  }});
+  }
 }
 /* healing: +h HP to member id, with a pop and a few sparkles */
 function mendMember(id,h){
@@ -705,7 +737,7 @@ function foeHits(f,sk,targets,charged,cover){
 }
 
 /* ---------- victory: rewards are given at once, the screen then shows them ---------- */
-/* A win: everyone strikes their victory pose for POSE_MS, then the results fade in over
+/* A win: everyone strikes their victory pose until a press (winSkip), then the results fade in over
    the whole screen and each EXP bar fills (WIN_FILL ms, ticking as it goes). */
 const SEED_LOOT=0.10, POSE_MS=2500, RESULTS_FADE=400, WIN_DELAY=POSE_MS+RESULTS_FADE+150, WIN_FILL=1400, WIN_GUARD=WIN_DELAY+300;
 /* the victory window, along the bottom under the party: the rewards, then a row (name,
@@ -739,8 +771,14 @@ function winRewards(){
 }
 /* a moment's pause so the key that won the fight doesn't also close the screen */
 const winGuard=()=>B.over==='win'&&B.win&&B.win.t<WIN_GUARD;
-/* a key or tap during the poses skips ahead to the results */
-function winSkip(){ if(B.over==='win'&&B.win&&B.win.t<POSE_MS){ B.win.t=POSE_MS; return true; } return false; }
+/* the poses hold until a key or tap (after a moment, so the press that won the fight
+   doesn't count); then the results come in */
+const POSE_GUARD=700;
+function winSkip(){
+  if(B.over!=='win'||!B.win||B.win.posed) return false;
+  if(B.win.t>=POSE_GUARD){ B.win.posed=true; B.win.t=POSE_MS; }
+  return true;
+}
 /* a member's EXP bar as it fills, levelling up the same way addXpTo does */
 function xpShown(id){
   const w=B.win, k=clamp((w.t-WIN_DELAY)/WIN_FILL,0,1), f=w.from[id||'kaitlyn'];
@@ -1270,7 +1308,8 @@ function drawBattle(dt){
     if(!B.anim.hit&&k>=0.55){ B.anim.hit=true; if(B.anim.onHit) B.anim.onHit(); }
     if(k>=1){ B.anim=null; afterAction(); }
   }
-  if(B.win) B.win.t+=dt;
+  /* the victory poses hold until a press (winSkip), then the results come in */
+  if(B.win) B.win.t=B.win.posed?B.win.t+dt:Math.min(B.win.t+dt,POSE_MS-1);
   if(B.prep) B.prep.t+=dt;
   if(B.banner){ B.banner.t-=dt; if(B.banner.t<=0) B.banner=null; }
   if(B.inspect&&typeof B.inspect==='object'&&B.inspect.hp<=0) B.inspect=null;
@@ -1315,14 +1354,16 @@ function drawBattle(dt){
   else if(B.anim&&who&&!behind){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
   drawStatusTags();
   /* picking a target: a bouncing pointer over whoever is picked */
-  const picking=B.turn==='player'&&B.menu==='target'&&B.tgt, tg=picking?B.tgt.list[B.tgt.i]:null;
-  if(picking){
-    let tx,ty; if(B.tgt.kind==='foe'){ const r=foeBox(tg); tx=r.x+r.w/2; ty=Math.max(BAND_TOP()+14,r.y-4); }
-    else { tx=slotOf(tg).x; ty=headOf(tg)-14; }
-    ty+=Math.sin(G.t/140)*3;
-    b.fillStyle='#0a0f2a'; b.beginPath(); b.moveTo(tx-9,ty-13); b.lineTo(tx+9,ty-13); b.lineTo(tx,ty+1); b.fill();
-    b.fillStyle='#ffe08a'; b.beginPath(); b.moveTo(tx-7,ty-12); b.lineTo(tx+7,ty-12); b.lineTo(tx,ty-1.5); b.fill();
-  }
+  const picking=B.turn==='player'&&B.menu==='target'&&B.tgt, tg=picking&&!B.tgt.all?B.tgt.list[B.tgt.i]:null;
+  /* a pointer over a head: gold for who it's aimed at, a smaller white one over whoever's
+     turn it is */
+  const pointer=(tx,ty,big,col)=>{ const w=big?9:6, h=big?13:9;
+    b.fillStyle='#0a0f2a'; b.beginPath(); b.moveTo(tx-w,ty-h); b.lineTo(tx+w,ty-h); b.lineTo(tx,ty+1); b.fill();
+    b.fillStyle=col; b.beginPath(); b.moveTo(tx-w+2,ty-h+1); b.lineTo(tx+w-2,ty-h+1); b.lineTo(tx,ty-1.5); b.fill(); };
+  const overHead=x=>typeof x==='object'?(r=>({x:r.x+r.w/2,y:Math.max(BAND_TOP()+14,r.y-4)}))(foeBox(x)):{x:slotOf(x).x,y:headOf(x)-14};
+  if(B.turn==='player'&&!B.over&&!(picking&&B.tgt.kind==='ally'&&B.tgt.list.includes(actor()))){
+    const p=overHead(actor()); pointer(p.x,p.y+Math.sin(G.t/200)*2,false,'#f4f6ff'); }
+  if(picking) (B.tgt.all?B.tgt.list:[tg]).forEach(x=>{ const p=overHead(x); pointer(p.x,p.y+Math.sin(G.t/140)*3,true,'#ffe08a'); });
   if(B.shout){ B.shout.t-=dt; if(B.shout.t<=0) B.shout=null; }
   const won=B.over==='win'&&B.win, xs=won?xpShown(B.win.who[0]):null;
   /* victory sparkles */
@@ -1336,7 +1377,7 @@ function drawBattle(dt){
   const list=(B.menu==='skills'||B.menu==='items')&&pick, L=list?subList():null;
   const PR=partyRow(), compact=PR<PARTY_ROW; let msgA=0;
   /* the pests' window shows only while picking one: its name, HP and level */
-  const FW=picking&&B.tgt.kind==='foe'?{x:W.foe.x,y:W.foe.y,w:W.foe.w,h:8+FOE_ROW}:null, FB=FW?FW.y+FW.h:W.foe.y;
+  const FW=tg&&B.tgt.kind==='foe'?{x:W.foe.x,y:W.foe.y,w:W.foe.w,h:8+FOE_ROW}:null, FB=FW?FW.y+FW.h:W.foe.y;
   /* Kaitlyn's shout, a special move's name: little windows by whoever it is */
   let shoutAt=null, bannerAt=null;
   if(B.shout){ const s=slotOf('kaitlyn'), kx=who&&who.id==='kaitlyn'?who.x:s.x, w=TW(B.shout.txt,24,true)+20;
@@ -1354,8 +1395,8 @@ function drawBattle(dt){
       if(L.length) winCursor(W.list.x+6,W.list.y+SUB_Y0+(B.sub-B.top)*SUB_ROW,W.list.w-12,SUB_ROW-1);
     } else {
       rpgWin(W.cmd); rpgWin(W.party); rpgWin(W.info);
-      B.party.forEach((m,i)=>{ const y=W.party.y+3+i*PR, M=member(m);
-        const lit=pick&&(picking&&B.tgt.kind==='ally'?m===tg:m===id);
+      topDown(B.party).forEach((m,i)=>{ const y=W.party.y+3+i*PR, M=member(m);     /* top to bottom, as they stand */
+        const lit=pick&&(picking&&B.tgt.kind==='ally'?(B.tgt.all?B.tgt.list.includes(m):m===tg):m===id);
         if(lit){ b.fillStyle='rgba(150,180,255,.22)'; b.beginPath(); b.roundRect(W.party.x+5,y,W.party.w-10,PR-(compact?1:2),4); b.fill(); }
         gauge(W.party.x+82,y+(compact?11:17),58,compact?3:5,M.hp,M.maxhp,'#e8504a','#ffa8a0');
         gauge(W.party.x+150,y+(compact?11:17),50,compact?3:5,M.mp,memberMaxMp(m),'#4aa8f0','#b0e0ff'); });
@@ -1409,7 +1450,7 @@ function drawBattle(dt){
         TS(cmdName(c,id),W.cmd.x+40,y,27,!pick||picking?'#9aa4d0':ok?'#f4f6ff':'#7c84b0',null,pick&&!picking&&i===B.idx); });
       if(ct>0) TS("▲",W.cmd.x+W.cmd.w-14,W.cmd.y+12,13,'#c8d4ff','center');
       if(ct+CMD_VIS<CMDS.length) TS("▼",W.cmd.x+W.cmd.w-14,W.cmd.y+W.cmd.h-5,13,'#c8d4ff','center');
-      B.party.forEach((m,i)=>{ const y=W.party.y+3+i*PR, M=member(m), mx=memberMaxMp(m);
+      topDown(B.party).forEach((m,i)=>{ const y=W.party.y+3+i*PR, M=member(m), mx=memberMaxMp(m);
         if(compact){     /* one line: name, then HP and MP over thin gauges (level on a tap) */
           TS(PARTY_INFO[m].name,W.party.x+9,y+11.5,20,standing(m)?"#f4f6ff":"#8a90b8",null,true);
           TS(M.hp+"/"+M.maxhp,W.party.x+141,y+9.5,17,'#ffd0c8','right');
@@ -1421,7 +1462,9 @@ function drawBattle(dt){
         TS("MP",W.party.x+148,y+12,17,'#a8d8ff',null,true);
         TS(M.mp+"/"+mx,W.party.x+201,y+12,19,'#f4f6ff','right'); });
       const ac=B.anim&&B.anim.kind==='enemy'?B.anim.foe:B.prep?B.prep.f:null;
-      const [t1,t2]=picking?(B.tgt.kind==='foe'?[tg.name,"HP "+tg.hp+"/"+tg.maxhp+" · Lv."+tg.lv]:[PARTY_INFO[tg].name,"HP "+member(tg).hp+"/"+member(tg).maxhp])
+      const allOf=L=>L.length===1?(typeof L[0]==='object'?L[0].name:PARTY_INFO[L[0]].name):B.tgt.kind==='foe'?"Every foe":L.length===B.party.filter(standing).length?"Everyone":listAnd(L.map(m=>PARTY_INFO[m].name));
+      const [t1,t2]=picking&&B.tgt.all?[allOf(B.tgt.list),"Press again to go"]
+        :picking?(B.tgt.kind==='foe'?[tg.name,"HP "+tg.hp+"/"+tg.maxhp+" · Lv."+tg.lv]:[PARTY_INFO[tg].name,"HP "+member(tg).hp+"/"+member(tg).maxhp])
         :pick?cmdInfo(CMDS[B.idx],id):[B.turn==='enemy'&&ac?"The "+ac.name+"'s turn":"…",""];
       TS(t1,W.info.x+10,W.info.y+14,21,'#f4f6ff',null,true);
       wrapLines(t2,18,W.info.w-16).slice(0,1).forEach(ln=>TS(ln,W.info.x+10,W.info.y+28,18,'#c8d4ff'));

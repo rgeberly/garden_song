@@ -43,6 +43,8 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Kaitlyn's flutes (`flutes.png` in her hand, `flutes_big.png` as the menu cursor) are built from the `shop items/` pictures listed in `FLUTES` in `build_art.py`, with mouthpieces at the top.
 - Front layers (what she walks behind, drawn over everyone) are see-through pictures showing only the parts of the painting that overlap her: `maps/<season>_front.png` (garden), `maps/house_front.png`, and `maps/<place>_<season>_front.png` (town, mountain). The user edits these by hand and prefers this picture format over masks. Never overwrite them.
 - Party art: loose `party/<Name>-<kind>-spritesheet.png`, or a folder `party/<Name>/` with `<Name> - <kind> - spritesheet.png` (Tiny One's). `PARTY_IDS` maps folder names to ids (`tiny one` is `tiny`). Crops' `harvest <Crop>` pictures are the bag icons; `<Tree> sapling` shop pictures replace the trees' seeds.
+- Kaitlyn's battle sheet: `python tools/build_battle.py` builds `assets/sprites/battle.png` and `BATL_META` (in `js/assets.js`) from `party/Kaitlyn/battle.png` (kick, kick2, flute and victory rows) and her `karate kick` spritesheet (the `karate` row).
+- Portraits: a member's `portrait2` (or `portrait 2`) picture wins over `portrait` and keeps its whole square, so the animal looks smaller. Ivy, Tituba and Tiny One (and his baby portrait) use theirs.
 - Running animation: `python tools/build_run.py` produces `assets/sprites/run.png` and `js/data/run.js`.
 - Perchance prompts are in `tools/perchance-prompts.md`. Save full-resolution images with the heart icon, then "save to your device". Downloads arrive as `<uuid>.tmp` in Downloads, and the save windows are dialogs titled `data:image/...`.
 

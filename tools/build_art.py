@@ -734,9 +734,12 @@ def main():
             ex0, ey0, ex1, ey1 = bbox(fr[0]); hsc = HATCH_H / (ey1 - ey0)
             for i, x in enumerate(fr): pframes.append((name + ' hatch %d' % i, shrink(x, hsc)))
             pmeta[name]['hatch'] = {'n': len(fr), 'ax': round((ex0 + ex1) / 2 * hsc), 'ay': round(ey1 * hsc) - 1, 'eh': HATCH_H}
+        # a "portrait 2" wins over the first one, and keeps its whole square (the animal sits
+        # smaller in it on purpose), where the first is trimmed to the animal
         for pk, out in (('portrait', name), ('babyportrait', name + '-baby')):
-            if not F.get(pk): continue
-            im = trim(remove_white(load(F[pk])), 0)
+            if F.get(pk + '2'): im = remove_white(load(F[pk + '2']))
+            elif F.get(pk): im = trim(remove_white(load(F[pk])), 0)
+            else: continue
             cv2.imwrite(os.path.join(OUT, 'portrait_' + out + '.png'), shrink(im, PORTRAIT_H / im.shape[0]),
                         [cv2.IMWRITE_PNG_COMPRESSION, 9])
             pfaces.append(out)
