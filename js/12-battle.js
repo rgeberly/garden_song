@@ -1603,6 +1603,24 @@ function partyTestSetup(){
   const P=G.player; P.lv=lv; P.maxhp=statOf('kaitlyn','hp',lv); P.hp=P.maxhp; P.mp=maxMp();
   G.day=1;                                   /* spring, for its roomy backdrop */
 }
+/* ?alltest (nothing is saved): Kaitlyn and all four friends at Lv.lv (12), all of them out
+   with her and their stories done, and every item: all gear, flutes and things to wear,
+   the yard all built, every seed (10) and crop (5), five of every good, the best rod,
+   all the sheet music, and 50,000 coins. */
+function everythingTest(lv){
+  lv=lv||12; const P=G.player, S=G.story;
+  P.lv=lv; P.xp=0; P.next=xpNeed(lv); P.maxhp=statOf('kaitlyn','hp',lv); P.hp=P.maxhp;
+  ['ivy','tiny','tituba','tex'].forEach(id=>{ const hp=statOf(id,'hp',lv);
+    G.allies[id]={lv,xp:0,next:xpNeed(lv),hp,maxhp:hp,mp:statOf(id,'mp',lv),hurtUntil:0}; });
+  Object.assign(S,{ivy:'joined',ivyDay:G.day-10,tiny:'joined',titu:'joined',tituHint:true,tex:'joined'});
+  G.party=['kaitlyn','ivy','tiny','tituba','tex'];
+  Object.keys(EQUIP).forEach(k=>G.gear[k]=true); GEAR.forEach(g=>G.gear[g.id]=true);
+  YARD.forEach(y=>(y.gear?G.gear:G.yard)[y.id]=true); buildWorld();
+  G.unlocked=Object.keys(SPECIES); G.unlocked.forEach(sp=>{ G.seeds[sp]=10; G.crops[sp]=5; });
+  Object.keys(GOODS).filter(k=>k!=='egg').forEach(k=>G.goods[k]=5);     /* (not Tiny One's egg) */
+  G.rod=RODS.length-1; G.sheets=PRACTICE_SONGS.filter(s=>s.cost).map(s=>s.id);
+  G.coins=Math.max(G.coins,50000); P.mp=maxMp();
+}
 function partyTestFight(n,layout){
   if(!PARTY_TEST) return "Open the game with ?partytest first.";
   partyTestSetup(); if(layout) BATTLE_LAYOUT=layout;

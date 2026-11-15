@@ -17,6 +17,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - `python serve.py` serves the game at http://localhost:8000. It's also the "game" preview in `.claude/launch.json`. Its POST API (localhost only) saves song edits.
 - Add `?songtest` to the URL to list every recorded song at the music stand, with autoplay, no EXP and no time passing.
 - Add `?partytest` to try big fights: nothing is saved, Kaitlyn (Lv.6) has four Ivys, and it's spring. In the console, `partyTestFight(5,'rows')` starts a fight with that many pests in that layout (`BATTLE_LAYOUTS` in `js/12-battle.js`).
+- Add `?alltest` to play with everything: nothing is saved, and any game started or loaded gets Kaitlyn and all four friends at Lv.12 in the party, every item, gear and yard upgrade, the best rod, all sheet music and 50,000 coins (`everythingTest` in `js/12-battle.js`). The `?partytest` console helpers work there too.
 - In `?partytest`, `ivyTest('hurt'|'recover'|'better'|'released'|'home')` jumps to a step of Ivy's story (she first appears on day 5).
 - In `?partytest`, `tinyTest('egg'|'nest'|'hatch'|'worms'|'grown'|'fight')` in the console jumps to a step of Tiny One's quest.
 - In `?partytest`, `tituTest('stray'|'aloof'|'fish'|'home'|'fight')` and `texTest('stuck'|'home'|'fight')` jump to steps of meeting Tituba (outside the Tipsy Toad from 6 PM, from day 11) and Tex (on the garden pool's ice in winter, from day 31). Both are in `js/20-friends.js`.

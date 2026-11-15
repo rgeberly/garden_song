@@ -204,7 +204,10 @@ function storeGet(k){
   try{ return Promise.resolve(localStorage.getItem(k)); }catch(e){ return Promise.resolve(null); }
 }
 /* the party test (?partytest, see 12-battle.js) never saves anything */
-const NO_SAVE=/[?&]partytest\b/.test(location.search);
+const NO_SAVE=/[?&](partytest|alltest)\b/.test(location.search);
+/* ?alltest: the same, and any game started or loaded has everyone at Lv.12 and every item
+   (everythingTest, 12-battle.js) */
+const ALL_TEST=/[?&]alltest\b/.test(location.search);
 function storeSet(k,v){
   if(NO_SAVE) return;
   try{ if(window.storage){ window.storage.set(k,v).catch(()=>{}); return; } }catch(e){}

@@ -3,6 +3,7 @@
    ================================================================ */
 /* into the garden with whatever game is loaded (see the title's menu in 13-main.js) */
 function startGame(){ G.scene='world'; initMusic(); setMusic(areaMusic());
+  if(ALL_TEST) everythingTest();
   say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); partyImg(); }
 /* "near" checks take a reach factor: 1 for what A/J acts on, PROMPT_REACH for when the
    overhead prompt shows, so prompts only appear once she is right beside something */
