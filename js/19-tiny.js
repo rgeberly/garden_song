@@ -49,7 +49,7 @@ const tinyEggFound=()=>[
   {say:'kaitlyn',text:"Oh no! This egg must have fallen out of its nest. I can't believe it didn't break."},
   {say:'kaitlyn',text:"Maybe I need to...rehabilitate it. I'll need to build a nest."},
   {run:()=>{ G.story.tiny='egg'; addGood('egg');
-    say("Got the Tiny Egg! Gather "+TINY_NEED+" Twigs and "+TINY_NEED+" Pinestraw on the trail."); }},
+    say("Got the Tiny Egg! Gather "+TINY_NEED+" Twigs and "+TINY_NEED+" Pinestraw on the trail."); sfx('get_key_item'); }},
 ];
 /* Twigs and pinestraw among the trail's gathering spots, while she still needs them:
    about one spot in five (three or four a day) (s: the spot's number for the day, from gatherAt) */
@@ -201,7 +201,7 @@ function wormIn(p){
 function pickWorm(p){
   if(G.daily.wormDay!==G.day){ G.daily.wormDay=G.day; G.daily.wormed=[]; }
   G.daily.wormed.push(plots.indexOf(p)); addGood('worm');
-  say("Picked up an Earthworm! You have "+have('worm')+"."); blip(700,0.05,0.1,'sine'); autoSave();
+  say("Picked up an Earthworm! You have "+have('worm')+"."); sfx('pickup'); autoSave();
 }
 /* two worms wriggling in and out of the rotten plant (garden px, inside the garden's zoom) */
 function drawWorms(c,p,x,y){

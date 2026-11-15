@@ -19,9 +19,9 @@ function bonusLines(){
 const CAST_MS=2400, CAST_HIT=1300, REPRISE_SHARE=0.2;
 const fieldUsable=f=>f.id!=='reprise'||G.daily.reprise!==G.day;
 function castField(f){
-  if(G.indoors){ say("Play field songs out in the garden."); blip(150,.08,.2); return; }
-  if(!fieldUsable(f)){ say("Growth Reprise is spent for today. Try again tomorrow!"); blip(150,.08,.2); return; }
-  if(G.player.mp<f.mp){ say("Not enough Music Points."); blip(150,.08,.2); return; }
+  if(G.indoors){ say("Play field songs out in the garden."); sfx('cant_do_that'); return; }
+  if(!fieldUsable(f)){ say("Growth Reprise is spent for today. Try again tomorrow!"); sfx('cant_do_that'); return; }
+  if(G.player.mp<f.mp){ say("Not enough Music Points."); sfx('cant_do_that'); return; }
   G.player.mp-=f.mp;
   if(f.id==='reprise') G.daily.reprise=G.day;
   G.cast={id:f.id,t:0,hit:false}; G.scene='world'; padVec={x:0,y:0};
@@ -132,7 +132,7 @@ const SETTINGS=[{id:'diff',name:"Difficulty",opts:DIFF_ORDER,label:v=>DIFFICULTY
    about:v=>v==='on'?"Music and sound effects play.":"Silent in this browser tab, even after a reload. Other tabs and windows keep their sound.",
    get:()=>MUTED?'muted':'on',set:v=>setMuted(v==='muted')}];
 function stepSetting(S,d){ const o=S.opts, i=o.indexOf(S.get());
-  S.set(o[(i+d+o.length)%o.length]); blip(520+o.indexOf(S.get())*80,.05,.1,'triangle'); autoSave(); }
+  S.set(o[(i+d+o.length)%o.length]); sfx('menu_toggle'); autoSave(); }
 const allMembers=()=>['kaitlyn'].concat(Object.keys(G.allies));
 const whoId=()=>{ const L=allMembers(); return L[((sys.who%L.length)+L.length)%L.length]; };
 /* ---------- Lore: what she's learned about the pests and the fish ----------
@@ -151,10 +151,10 @@ function loreRows(){
   return {h:56,rows:LORE_KINDS.map(L=>({lore:L}))};
 }
 function loreActivate(R){
-  if(R.lore){ sys.lore=R.lore.id; sys.idx=0; sys.top=0; blip(520,0.04,0.08,'triangle'); return; }
+  if(R.lore){ sys.lore=R.lore.id; sys.idx=0; sys.top=0; sfx('menu_confirm'); return; }
   const k=R.beast||R.fish;
-  if(!(R.beast?knowBeast(k):knowFish(k))){ blip(150,.08,.2); return; }
-  sys.loreSel={kind:R.beast?'beast':'fish',k}; blip(620,0.04,0.08,'triangle');
+  if(!(R.beast?knowBeast(k):knowFish(k))){ sfx('cant_do_that'); return; }
+  sys.loreSel={kind:R.beast?'beast':'fish',k}; sfx('menu_confirm');
 }
 /* B: from a page back to its list, from a list back to the two choices (false at the top) */
 function loreBack(){
@@ -233,12 +233,12 @@ const partyReserves=()=>Object.keys(G.allies).filter(id=>!G.party.includes(id));
 function partyRows(){ return partySlots().map((id,slot)=>({slot,id})).concat(partyReserves().map(id=>({res:id}))); }
 function partyPick(i){
   const R=partyRows();
-  if(sys.held==null){ sys.held=i; blip(520,.04,.08,'triangle'); return; }
+  if(sys.held==null){ sys.held=i; sfx('menu_confirm'); return; }
   const a=R[sys.held], z=R[i]; sys.held=null;
   if(a&&z&&a!==z&&!(a.res&&z.res&&a.res===z.res)) partySwap(a,z);
 }
 function partySwap(a,z){
-  const S=G.slots, nm=id=>PARTY_INFO[id].name, no=t=>{ say(t); blip(150,.08,.2); };
+  const S=G.slots, nm=id=>PARTY_INFO[id].name, no=t=>{ say(t); sfx('cant_do_that'); };
   if(a.res&&z.res){ no("Pick a spot in the team for them."); return; }
   if(a.res) [a,z]=[z,a];                         /* a is a spot from here on */
   if(!z.res){ const i=a.slot, j=z.slot, x=S[i], y=S[j]; if(!x&&!y) return;
@@ -248,7 +248,7 @@ function partySwap(a,z){
     if(isHurt(r)){ no(nm(r)+" is still recovering at home."); return; }
     if(out==='kaitlyn'){ no("Kaitlyn always leads the way."); return; }
     S[a.slot]=r; say(nm(r)+" joins the team!"+(out?" "+nm(out)+" will wait at home.":"")); }
-  G.party=S.filter(Boolean); partySlots(); blip(620,.06,.1,'triangle'); autoSave();
+  G.party=S.filter(Boolean); partySlots(); sfx('menu_confirm'); autoSave();
 }
 /* which row is at x,y on the page (-1 for none) */
 function partyAt(x,y){
@@ -316,9 +316,9 @@ const EQW={x:24,y:44,w:312,row:32,head:40,foot:62};
 const eqFit=()=>Math.max(3,Math.floor((LH-EQW.y-EQW.head-EQW.foot-16)/EQW.row));
 function openEquipPick(id,slot){
   const L=equipChoices(id,slot);
-  if(L.length<2&&!equipOf(id)[slot]){ say("Nothing to wear here yet."); blip(150,.08,.2); return; }
+  if(L.length<2&&!equipOf(id)[slot]){ say("Nothing to wear here yet."); sfx('cant_do_that'); return; }
   const i=Math.max(0,L.indexOf(equipOf(id)[slot]||null));
-  sys.eq={id,slot,list:L,idx:i,top:Math.max(0,i-eqFit()+1)}; blip(520,.04,.08,'triangle');
+  sys.eq={id,slot,list:L,idx:i,top:Math.max(0,i-eqFit()+1)}; sfx('menu_confirm');
 }
 function eqSee(){ const E=sys.eq, n=eqFit(); if(E.idx<E.top) E.top=E.idx; if(E.idx>=E.top+n) E.top=E.idx-n+1; }
 function eqWear(){ const E=sys.eq; sys.eq=null; wearEquip(E.id,E.slot,E.list[E.idx]); }
@@ -368,7 +368,7 @@ function sysActivate(i){
   else if(t==='Status'){ if(R.rename) renameMember(whoId());
   } else if(t==='Skills'){
     const s=R.skill, id=whoId();
-    if(member(id).lv<s.lv){ blip(150,.08,.2); return; }
+    if(member(id).lv<s.lv){ sfx('cant_do_that'); return; }
     if(s.field) castField(s);
     else say(s.name+" is used in battle.");
   } else if(t==='Items'){
@@ -385,7 +385,7 @@ function sysActivate(i){
     if(R.slot){ openEquipPick(whoId(),R.slot); return; }
     if(R.head) return;
     if(R.gear){ const id=R.gear.id; G.gearOff[id]=!G.gearOff[id];
-      say(R.gear.name+(G.gearOff[id]?" switched off.":" switched on.")); blip(G.gearOff[id]?400:620,.05,.1,'triangle'); autoSave(); }
+      say(R.gear.name+(G.gearOff[id]?" switched off.":" switched on.")); sfx('menu_toggle'); autoSave(); }
   } else if(t==='Save'){
     if(i===0){ try{navigator.clipboard.writeText(G.code);}catch(e){}
       say("Save code copied to clipboard."); G.scene='world'; }

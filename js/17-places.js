@@ -71,11 +71,11 @@ const GOODS={
   koi:        {name:"Golden Koi",       value:180,kind:'fish', col:'#ffb02a', power:2.1, w:0.4, flavor:"A living treasure. Rumored to grant wishes (it doesn't)."},
   /* food and drink bought in town or at the stall: kept until used (not sold back).
      use: hp/mp for whoever has it, hpAll/mpAll for the whole party, coffee: ms of speed */
-  coffee:     {name:"Coffee",           value:0,  kind:'food', col:'#6a3a1a', use:{coffee:120000}, flavor:"Liquid motivation."},
-  tea:        {name:"Herbal Tea",       value:0,  kind:'food', col:'#8ac86a', use:{mpAll:10}, flavor:"Calming herbs, steeped with care."},
+  coffee:     {name:"Coffee",           value:0,  kind:'food', drink:true, col:'#6a3a1a', use:{coffee:120000}, flavor:"Liquid motivation."},
+  tea:        {name:"Herbal Tea",       value:0,  kind:'food', drink:true, col:'#8ac86a', use:{mpAll:10}, flavor:"Calming herbs, steeped with care."},
   bun:        {name:"Honey Bun",        value:0,  kind:'food', col:'#e8b04a', use:{hpAll:20}, flavor:"Sticky, sweet and a little bit glazed. Just like Mabel."},
-  cider:      {name:"Mug of Cider",     value:0,  kind:'food', col:'#d8902a', use:{hpAll:15,mpAll:5}, flavor:"Hot spiced apple cider from the Tipsy Toad. Warms you right down to your boots."},
-  toddy:      {name:"Hot Toddy",        value:0,  kind:'food', col:'#c86a2a', use:{mpAll:15}, flavor:"Honey, lemon and a little something. Gus swears it cures everything."},
+  cider:      {name:"Mug of Cider",     value:0,  kind:'food', drink:true, col:'#d8902a', use:{hpAll:15,mpAll:5}, flavor:"Hot spiced apple cider from the Tipsy Toad. Warms you right down to your boots."},
+  toddy:      {name:"Hot Toddy",        value:0,  kind:'food', drink:true, col:'#c86a2a', use:{mpAll:15}, flavor:"Honey, lemon and a little something. Gus swears it cures everything."},
 };
 const goodsList=()=>Object.keys(GOODS).filter(k=>G.goods[k]>0);
 const sellGoods=()=>goodsList().filter(k=>GOODS[k].kind!=='food'&&GOODS[k].kind!=='quest');   /* quest things are kept */
@@ -281,7 +281,7 @@ function goTo(area){
     const a=z?{x:z.x,y:z.y-9,dir:z.dir}:area==='garden'?GARDEN_ARRIVE[from]:PLACES[area].arrive[from]||PLACES[area].arrive.garden;
     G.player.x=a.x; G.player.y=a.y; G.player.dir=a.dir; G.player.moving=false; exitArmed=false;
     if(area==='mountain') gatherToday();
-  });
+  },!!(PLACES[area]&&PLACES[area].room||PLACES[G.area]&&PLACES[G.area].room));     /* a shop's door */
 }
 const nearGardenExit=(f=1)=>GARDEN_EXITS.find(e=>Math.hypot(G.player.x-e.x,G.player.y-e.y)<e.r*f);
 /* is x,y blocked by a place's painted walls? */
@@ -390,14 +390,14 @@ function placeInteract(){
   const fr=nearFriend(); if(fr){ talkFriend(fr); return; }       /* Tituba by the Tipsy Toad (before its door) */
   const dr=nearTownDoor();
   if(dr){ if(doorOpen(dr)){ goTo(dr.to); return; }
-    say(dr.to==='bar'?PLACES.bar.name+" opens at 6 PM.":PLACES[dr.to].name+" is closed. Open 8 AM to 6 PM."); blip(150,.08,.2); return; }
+    say(dr.to==='bar'?PLACES.bar.name+" opens at 6 PM.":PLACES[dr.to].name+" is closed. Open 8 AM to 6 PM."); sfx('knock_on_door'); return; }
   if(nearTinyEgg()){ playStory(tinyEggFound()); return; }
   if(who){ const lines=personLines(who).map(t=>({say:'npc',who,text:t}));
     if(who.shop) lines.push({run:()=>openTownShop(who.shop,who)});
     playStory(lines); return; }
   const g=nearGather();
   if(g>=0){ const k=gatherAt(g); G.daily.picked.push(g); G.goods[k]=(G.goods[k]||0)+1;
-    say("Found "+GOODS[k].name+"!"+tinyFoundText(k)); blip(700,0.05,0.1,'sine'); passTime(5); autoSave(); return; }
+    say("Found "+GOODS[k].name+"!"+tinyFoundText(k)); sfx('pickup'); passTime(5); autoSave(); return; }
   if(nearPond()){ if(!G.rod) say("You'll need a rod and reel. Mr. Hollis sells them in town."); else startFishing(); return; }
   say("The mountain air is lovely.".replace("The mountain air is lovely.",G.area==='town'?"Willowbrook is bustling today.":"The mountain air is lovely."));
 }
@@ -660,9 +660,9 @@ function useGood(k,id){
   return effText(e);
 }
 function eatGood(k,id){
-  const g=GOODS[k]; if(!goodEffect(k)){ say(g.kind==='quest'?g.flavor:"Better to sell the "+g.name+"."); blip(150,.08,.2); return; }
+  const g=GOODS[k]; if(!goodEffect(k)){ say(g.kind==='quest'?g.flavor:"Better to sell the "+g.name+"."); sfx('cant_do_that'); return; }
   id=id||'kaitlyn';
-  say(PARTY_INFO[id].name+(g.kind==='food'?" had the ":" ate the ")+g.name+": "+useGood(k,id)+"."); blip(620,0.06,0.1,'sine'); autoSave();
+  say(PARTY_INFO[id].name+(g.kind==='food'?" had the ":" ate the ")+g.name+": "+useGood(k,id)+"."); if(g.drink) sfx('drink'); else blip(620,0.06,0.1,'sine'); autoSave();
 }
 /* what can be eaten or drunk in battle: crops (by species) and goods ('g:'+key) that heal */
 function battleItems(){
@@ -672,5 +672,6 @@ function battleItems(){
 const isGoodKey=k=>k.startsWith('g:');
 const itemName=k=>isGoodKey(k)?GOODS[k.slice(2)].name:SPECIES[k].name;
 const itemCount=k=>isGoodKey(k)?G.goods[k.slice(2)]:G.crops[k];
+const isDrink=k=>isGoodKey(k)&&!!GOODS[k.slice(2)].drink;          /* coffee, tea, cider, toddy */
 const itemText=k=>isGoodKey(k)?effText(goodEffect(k.slice(2))):eatText(k);
 const useItem=(k,id)=>isGoodKey(k)?useGood(k.slice(2),id):applyFood(k,id);

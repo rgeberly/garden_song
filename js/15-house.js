@@ -138,7 +138,7 @@ function houseInteract(){
   const fr=nearFriend(); if(fr){ talkFriend(fr); return; }       /* Tituba and Tex at home */
   if(nearStand()){ askStand(); return; }
   if(nearBed()){ askSleep(); return; }
-  if(nearHouseDoor()){ travel(leaveHouse); return; }
+  if(nearHouseDoor()){ travel(leaveHouse,true); return; }
   say("Home sweet home.");
 }
 function updateHouse(dt){

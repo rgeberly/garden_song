@@ -174,7 +174,7 @@ function setSfx(key){
   if(a){ try{ a.currentTime=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} }
 }
 const ONESHOT={};
-function playOne(key,vol){
+function playOne(key,vol){ sndN++;
   if(!ASSET_SFX[key]) return;
   try{
     let a=ONESHOT[key];

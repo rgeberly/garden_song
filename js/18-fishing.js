@@ -95,7 +95,7 @@ function fishCast(power){
 }
 /* pulling the rod: sets the hook on a bite, scares the fish off before one */
 function fishPull(){
-  if(FS.phase==='bite'){ FS.phase='reel'; FS.t=0; FS.lift=1; FS.leaps=leapsFor(FS.fish); FS.leapAt=rnd(500,1300); blip(520,0.06,0.15,'square'); fishSplash(0.6); return; }
+  if(FS.phase==='bite'){ FS.phase='reel'; FS.t=0; FS.lift=1; FS.leaps=leapsFor(FS.fish); FS.leapAt=rnd(500,1300); blip(520,0.06,0.15,'square'); fishSplash(0.6,'fish_churnin'); return; }
   if(FS.phase==='wait'){ FS.phase='lost'; FS.t=0; FS.msg="Too soon — you scared it off."; }
 }
 function fishHook(){
@@ -136,19 +136,19 @@ function fishUp(id){
     if(FS.phase==='ready'){ if(FS.charge>0.15) fishCast(0.3+FS.charge*0.7); else FS.charge=0; } }
   if(FS&&FS.reelId===id){ FS.reelId=null; FS.lastA=null; } if(FS&&FS.rodId===id){ FS.rodId=null; FS.liftWant=0; } }
 /* a splash where the line meets the water (k: how big, 0..1+): rings, droplets, a sound */
-function fishSplash(k){
+function fishSplash(k,snd){
   const p=waterPt(lineNear(),FS.side);
   for(let i=0;i<2+Math.round(k*2);i++) FS.rings.push({x:p.x,y:p.y,t:0,dur:600+i*180,r:(8+k*14)*p.s,delay:i*90});
   for(let i=0;i<Math.round(6+k*14);i++){ const a=-Math.PI*rnd(0.1,0.9);
     FS.drops.push({x:p.x+rnd(-4,4)*p.s,y:p.y,vx:Math.cos(a)*rnd(0.02,0.07)*p.s,vy:Math.sin(a)*rnd(0.06,0.14)*(0.6+k*0.5)*p.s,t:0,g:0.0004*p.s}); }
-  splashSound(0.25+k*0.35);
+  if(snd===undefined) splashSound(0.25+k*0.35); else if(snd) sfx(snd,Math.min(1,0.6+k*0.4));
 }
 function updateFishing(dt){
   FS.t+=dt;
   FS.splash.forEach(s=>s.t-=dt); FS.splash=FS.splash.filter(s=>s.t>0);
   FS.rings.forEach(r=>r.t+=dt); FS.rings=FS.rings.filter(r=>r.t<r.dur+r.delay);
   FS.drops.forEach(d=>{ d.t+=dt; d.x+=d.vx*dt; d.y+=d.vy*dt; d.vy+=d.g*dt; }); FS.drops=FS.drops.filter(d=>d.t<900);
-  if(FS.leap){ FS.leap.t+=dt; if(FS.leap.t>=FS.leap.dur){ FS.leap=null; fishSplash(1); } }
+  if(FS.leap){ FS.leap.t+=dt; if(FS.leap.t>=FS.leap.dur){ FS.leap=null; fishSplash(1,null); } }
   /* the line's end drifts across the water: a hooked fish roams, darting in its bursts */
   const roam=FS.phase==='reel'?(FS.burst>0?1.4:0.35):0.08;
   if(Math.abs(FS.sideTo-FS.side)<0.05) FS.sideTo=FS.phase==='reel'?rnd(-0.85,0.85):rnd(-0.3,0.3);
@@ -158,7 +158,7 @@ function updateFishing(dt){
     const key=keys['j']||keys[' ']||keys['enter'];
     if(key){ FS.held=(FS.held||0)+dt; FS.charge=0.5-0.5*Math.cos(FS.held/700*Math.PI); }
     else if(FS.held){ FS.held=0; fishCast(0.3+FS.charge*0.7); } }
-  if(FS.phase==='cast'&&FS.t>THROW_MS){ FS.phase='wait'; FS.t=0; fishSplash(0.3); }
+  if(FS.phase==='cast'&&FS.t>THROW_MS){ FS.phase='wait'; FS.t=0; fishSplash(0.3,'droplet'); }
   else if(FS.phase==='wait'&&FS.t>FS.wait){ FS.phase='bite'; FS.t=0; FS.fish=pickFish();
     for(let i=0;i<8;i++) FS.splash.push({a:i*0.8,t:500}); blip(880,0.05,0.15,'sine'); fishBuzz(); }
   else if(FS.phase==='bite'&&FS.t>HOOK_MS){ FS.phase='lost'; FS.t=0; FS.msg="It nibbled the bait and swam off."; }
@@ -179,9 +179,9 @@ function updateFishing(dt){
     if(FS.burst<=-ri(900,2400)/g.power){ FS.burst=ri(500,1100);
       /* a new burst: it dashes off somewhere else with a splash, or leaps right out */
       FS.sideTo=clamp(FS.side+rnd(0.5,1.1)*(Math.random()<0.5?-1:1),-0.9,0.9);
-      fishSplash(0.35+g.power*0.25); }
+      fishSplash(0.35+g.power*0.25,'fish_churnin'); }
     /* a leap clear of the water: the first soon after the hook, the rest spread out */
-    if(!FS.leap&&FS.leaps>0&&FS.t>=FS.leapAt){ FS.leaps--; FS.leap={t:0,dur:700,dir:Math.random()<0.5?-1:1}; fishSplash(0.8);
+    if(!FS.leap&&FS.leaps>0&&FS.t>=FS.leapAt){ FS.leaps--; FS.leap={t:0,dur:700,dir:Math.random()<0.5?-1:1}; fishSplash(0.8,'fish_jump');
       FS.leapAt=FS.t+(FISH_LEAPS[FS.fish]==='many'?rnd(1200,2600):rnd(2000,4000)); }
     FS.pull=g.power*(FS.burst>0?0.9:0.3+0.15*Math.sin(FS.t/300));
     /* the fish runs (harder in a burst), reeling and pulling the rod bring it in */
@@ -197,7 +197,7 @@ function updateFishing(dt){
     FS.slackT=FS.tension<0.12?FS.slackT+dt:0;
     if(FS.snapT>SNAP_MS){ FS.phase='lost'; FS.t=0; FS.msg="Snap! The line broke."; blip(120,0.1,0.25,'sawtooth'); }
     else if(FS.slackT>SLACK_MS||FS.dist>=1.3){ FS.phase='lost'; FS.t=0; FS.msg="The line went slack and it got away."; }
-    else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; const L0=fishLength(FS.fish); FS.size=L0.len; FS.lunker=L0.big; fishSplash(1.2);
+    else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; const L0=fishLength(FS.fish); FS.size=L0.len; FS.lunker=L0.big; fishSplash(1.2,'fish_jump');
       G.goods[FS.fish]=(G.goods[FS.fish]||0)+1;
       const L=G.lore.fish[FS.fish]||(G.lore.fish[FS.fish]={n:0,best:0}); L.n++; L.best=Math.max(L.best,FS.size);
       if(AC){ flute(9,AC.currentTime,.3,.6); flute(13,AC.currentTime+.12,.3,.6); flute(16,AC.currentTime+.24,.6,.6); } }

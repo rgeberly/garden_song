@@ -22,7 +22,14 @@ function nextStep(){
   if(s.run){ s.run(); if(G.scene!=='story'&&story.i>=story.steps.length-1){ story=null; return; } nextStep(); return; }
   if(s.pic!==undefined){ story.pic=s.pic; if(s.pic) sceneImg(s.pic); nextStep(); return; }
   if(s.fade){ story.from=story.fade; story.to=s.fade==='out'?1:0; }
-  if(s.popup&&AC){ flute(9,AC.currentTime,.3,.6); flute(13,AC.currentTime+.12,.3,.6); flute(16,AC.currentTime+.24,.6,.6); }
+  if(s.popup&&!sfx('get_key_item')&&AC){ flute(9,AC.currentTime,.3,.6); flute(13,AC.currentTime+.12,.3,.6); flute(16,AC.currentTime+.24,.6,.6); }
+  if(s.say) storyVoice(s);
+}
+/* the friends' recorded voices, on their lines that are just sounds: Tituba's "Mrrp",
+   Tiny One's "Tweet!" */
+function storyVoice(s){
+  if(s.say==='tituba'&&/^m+r+/i.test(s.text)) sfx('tituba_meow');
+  else if(s.say==='tiny'&&/^tweet/i.test(s.text)) sfx('tiny_tweet',0.8);
 }
 function updateStory(dt){
   const s=story.steps[story.i]; story.t+=dt;
@@ -33,7 +40,7 @@ const typed=s=>Math.min(s.text.length,Math.floor(story.t/TALK_MS));
 /* a tap first finishes the line being typed, then moves on */
 function storyTap(){
   const s=story&&story.steps[story.i]; if(!s) return;
-  if(s.say){ if(typed(s)<s.text.length) story.t=1e9; else { blip(520,0.03,0.06,'triangle'); nextStep(); } }
+  if(s.say){ if(typed(s)<s.text.length) story.t=1e9; else { sfx('menu_talkbox_advance'); nextStep(); } }
   else if(s.popup&&story.t>450) nextStep();
 }
 /* pictures for story scenes load on first use */
@@ -102,8 +109,10 @@ function drawPopup(text,who){
 }
 /* going from one place to another: footsteps over a fade to black and back (~2 s) */
 const TRAVEL_MS=1000;
-function travel(arrive){
-  playStory([{run:()=>playOne('walk_down',0.55)},{fade:'out',ms:TRAVEL_MS},{run:()=>{ arrive(); restartTrack('battle'); }},
+/* door: through a door (the house, a shop), so it opens, and shuts behind her on the far side */
+function travel(arrive,door){
+  playStory([{run:()=>{ playOne('walk_down',0.55); if(door) sfx('open_door'); }},{fade:'out',ms:TRAVEL_MS},
+             {run:()=>{ arrive(); restartTrack('battle'); if(door) setTimeout(()=>sfx('close_door'),250); }},
              {fade:'in',ms:TRAVEL_MS},{run:()=>stopOne('walk_down')}]);
 }
 function place(x,y,dir){ const P=G.player; P.x=x; P.y=y; P.dir=dir; P.moving=false; P.walkT=0; G.swim=false; }

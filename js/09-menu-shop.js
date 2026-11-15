@@ -53,7 +53,7 @@ function sellAll(){
   let got=0, n=0; cropList().forEach(sp=>{ n+=G.crops[sp]; got+=sellCrop(sp,G.crops[sp]); });
   say("Sold "+n+" things for "+got+"c!"); coinChime(); autoSave();
 }
-function coinChime(){ if(AC){ flute(14,AC.currentTime,.18,.5); flute(19,AC.currentTime+.08,.3,.5); } }
+function coinChime(){ sfx('sell'); }
 /* keep the highlight on a real row after the list shrinks */
 function shopClampIdx(){
   shop.page=Math.min(shop.page,pageCount()-1);
@@ -70,16 +70,16 @@ function askBuy(i){
   if(it.type==='crop'){ sellCrop(it.id,1); say("Sold a "+it.name+" for "+it.cost+"c.");
     coinChime(); shopClampIdx(); autoSave(); return; }
   if(it.type==='sellall'){ shop.confirm=it; shop.cIdx=0; return; }
-  if(G.coins<it.cost){ say("Not enough coins."); blip(150,0.08,0.2); return; }
+  if(G.coins<it.cost){ say("Not enough coins."); sfx('cant_do_that'); return; }
   shop.confirm=it; shop.cIdx=0;
 }
 /* a town shop's buy or sell (its buy() does it; a sale adds its own coins) */
 function townDeal(it){
-  if(!it.sell&&G.coins<it.cost){ say("Not enough coins."); blip(150,0.08,0.2); return; }
+  if(!it.sell&&G.coins<it.cost){ say("Not enough coins."); sfx('cant_do_that'); return; }
   if(it.buy()===false) return;
   if(!it.sell) G.coins-=it.cost;
   if(it.sell){ say(it.all?"Sold everything for "+it.cost+"c!":"Sold a "+it.name+" for "+it.cost+"c."); coinChime(); }
-  else { say("Bought "+(it.count!==undefined?"back ":"")+it.name+"."); if(AC) flute(11,AC.currentTime,.3,.5); }
+  else { say("Bought "+(it.count!==undefined?"back ":"")+it.name+"."); sfx('buy'); }
   shopClampIdx(); autoSave();
 }
 function doBuy(){
@@ -96,7 +96,7 @@ function doBuy(){
     if(it.id==='dizi') G.flute='dizi'; }
   else if(it.type==='yard'&&it.gear){ G.gear[it.id]=true; say(it.name+" — "+it.desc+"."); }
   else if(it.type==='yard'){ G.yard[it.id]=true; buildWorld(); say(it.name+" installed!"); }
-  if(AC) flute(11,AC.currentTime,.3,.5);
+  sfx('buy');
   shopClampIdx(); autoSave();
 }
 function shopSetTab(t){ const n=shopTabs().length; shop.tab=(t+n)%n; shop.idx=0; shop.page=0; }

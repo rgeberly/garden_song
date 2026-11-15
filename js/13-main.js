@@ -152,14 +152,14 @@ function titleTouch(x,y){
 function titlePick(i){
   TM.err=null;
   if(TM.mode==='main'){ const it=titleItems()[i]; if(!it) return;
-    blip(520,0.04,0.08,'triangle');
+    sfx('menu_confirm');
     if(it.id==='continue'){ beginSlot(lastSlot,'load'); return; }
     const empty=SLOTS.findIndex(s=>!s), used=SLOTS.findIndex(s=>s);
     TM={mode:'slots',for:it.id,ask:null,idx:it.id==='load'?Math.max(0,used):Math.max(0,empty)};
     return; }
   if(i===SAVE_SLOTS){ TM={mode:'main',idx:0,ask:null}; return; }          /* Back */
   const n=i+1, used=!!SLOTS[i];
-  if(TM.for==='load'){ if(used) beginSlot(n,'load'); else blip(150,.08,.2); return; }
+  if(TM.for==='load'){ if(used) beginSlot(n,'load'); else sfx('cant_do_that'); return; }
   if(used){ TM.ask={n,idx:1}; return; }                                    /* start over in a used slot? */
   slotChosen(n);
 }
@@ -167,7 +167,7 @@ function titlePick(i){
 function slotChosen(n){
   if(TM.for==='new'){ beginSlot(n,'fresh'); return; }
   const s=prompt("Paste your save code:"); if(!s) return;
-  if(importCode(s)) beginSlot(n,'have'); else { TM.err="That code didn't work."; blip(150,.08,.2); }
+  if(importCode(s)) beginSlot(n,'have'); else { TM.err="That code didn't work."; sfx('cant_do_that'); }
 }
 /* play slot n: load it, start it fresh, or keep the game just pasted in */
 function beginSlot(n,how){

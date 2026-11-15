@@ -57,7 +57,41 @@ function padRepeat(dt){
   if(d!==padDir){ padDir=d; padRep=PAD_DELAY; if(d) onPress(d); }
   else if(d&&(padRep-=dt)<=0){ padRep=PAD_EVERY; onPress(d); }
 }
-function onTouch(x,y,id,hy){
+/* ---- the menus' own clicks ----
+   Each key or tap is looked at before and after. If it played no sound of its own but
+   changed a menu's tab, opened or closed something, or moved the cursor, the matching
+   click plays (menu_tab, menu_confirm, menu_cancel, menu_move). */
+const MENU_SCENES=['title','menu','shop','sys','battle','ask','levelup'];
+function menuState(){
+  const s=G.scene, J=JSON.stringify; let tab='',cur='',depth=0,step=0;     /* step: a battle's member picking */
+  if(s==='sys'){ tab=J([sys.tab,sys.who]); cur=J([sys.idx,sys.top,sys.eq&&sys.eq.idx,sys.pick&&sys.pick.idx,sys.ask&&sys.ask.idx]);
+    depth=(sys.focus==='tabs'?0:1)+!!sys.lore+!!sys.loreSel+(sys.held!=null)+!!sys.eq+!!sys.pick+!!sys.ask; }
+  else if(s==='shop'){ tab=J(shop.tab); cur=J([shop.idx,shop.page,shop.cIdx]); depth=shop.confirm?1:0; }
+  else if(s==='menu') cur=J(menu.idx);
+  else if(s==='title'){ cur=J(TM.idx); depth=(TM.mode==='main'?0:1)+!!TM.ask; }
+  else if(s==='ask'&&ask) cur=J(ask.idx);
+  else if(s==='battle'&&B){ cur=J([B.idx,B.sub,B.tgt&&B.tgt.i]); depth=(B.menu==='cmd'?0:1)+!!B.tgt+!!B.inspect; step=B.inputAt+(B.turn==='player'?0:99); }
+  return {scene:s,tab,cur,depth,step};
+}
+function menuClick(k,run){
+  const n=sndN, a=menuState(); run();
+  if(sndN!==n) return;                       /* it made its own sound */
+  const b=menuState(), menuish=s=>MENU_SCENES.includes(s);
+  if(a.scene!==b.scene){
+    if(a.scene==='title') sfx('menu_confirm');                /* into the game */
+    else if(a.scene==='world'&&(b.scene==='sys'||b.scene==='shop'||b.scene==='menu')) sfx('menu_confirm');
+    else if(b.scene==='world'&&(a.scene==='sys'||a.scene==='shop'||a.scene==='menu'||a.scene==='ask')) sfx(k&&isOk(k)?'menu_confirm':'menu_cancel');
+    return; }
+  if(!menuish(b.scene)) return;
+  if(a.tab!==b.tab) sfx('menu_tab');
+  else if(b.step>a.step) sfx('menu_confirm');               /* a move picked: on to the next one */
+  else if(b.depth>a.depth) sfx('menu_confirm');
+  else if(b.depth<a.depth) sfx('menu_cancel');
+  else if(a.cur!==b.cur) sfx('menu_move');
+}
+const onPress=k=>menuClick(k,()=>pressKey(k));
+const onTouch=(x,y,id,hy)=>menuClick(null,()=>touchAt(x,y,id,hy));
+function touchAt(x,y,id,hy){
   if(G.scene==='title'){ if(!titleWoken){ titleMusic(); return; } titleTouch(x,y); return; }
   if(G.scene==='rhythm'){ rhythmTouch(x,y,id); return; }
   if(G.scene==='battle'){ battleTouch(x,y); return; }
@@ -88,7 +122,7 @@ let padAmp=0;
 function setPad(x,y){ const dx=x-PAD.cx,dy=y-PAD.cy,mm=Math.hypot(dx,dy)||1;
   padVec = mm>7?{x:dx/mm,y:dy/mm}:{x:0,y:0};
   padAmp = clamp((mm-7)/(PAD.r*0.8-7),0,1); }
-function onPress(k){
+function pressKey(k){
   if(G.scene==='title'&&!titleWoken){ initAudio(); titleMusic(); }    /* the first press wakes the music */
   else if(G.scene==='title') titleKey(k);
   else if(G.scene==='world'&&(isOk(k)||k==='e')) interact();

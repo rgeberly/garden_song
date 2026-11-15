@@ -25,7 +25,7 @@ function initAudio(){
     const n=AC.sampleRate*0.5; noiseBuf=AC.createBuffer(1,n,AC.sampleRate);
     const d=noiseBuf.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
   }catch(e){ AC=null; }
-  loadStems();               /* a key press counts too, not just a tap */
+  loadStems(); loadSounds();   /* a key press counts too, not just a tap */
 }
 addEventListener('pointerdown',()=>{initAudio(); initSfx(); initMusic(); loadStems();
   if(AC&&AC.state==='suspended')AC.resume();},{passive:true});
@@ -120,14 +120,51 @@ function perc(t,type,vol){ if(!AC)return;
   g.gain.setValueAtTime((type==='hat'?0.09:0.16)*vol,t);
   g.gain.exponentialRampToValueAtTime(0.001,t+(type==='hat'?0.045:0.12));
   nz.connect(f); f.connect(g); g.connect(musicGain); nz.start(t); nz.stop(t+0.2); }
-function blip(f,dur,vol,type){ if(!AC)return;
+/* ---- recorded sound effects (SOUNDS, js/data/sounds.js, made by tools/build_sfx.py) ----
+   All of them are fetched once sound is allowed, and kept decoded so they play at once.
+   sndN counts every sound played: a key or tap that played none gets the menu's own
+   click (menuSound). */
+let sndN=0;
+const SND_BUF={}, SND_DIR='assets/audio/sfx/';
+/* how loud each one plays (they're all built to about the same loudness) */
+const SOUND_VOL={menu_move:0.45,menu_tab:0.5,menu_confirm:0.55,menu_cancel:0.55,menu_toggle:0.5,menu_talkbox_advance:0.45,
+  cant_do_that:0.6,buy:0.7,sell:0.7,pickup:0.65,drink:0.7,droplet:0.5,knock_on_door:0.8,open_door:0.6,close_door:0.6,
+  battle_start:0.8,get_key_item:0.75,fish_jump:0.75,fish_churnin:0.6,tituba_meow:0.8,
+  tiny_tweet:0.8,tiny_songs:0.8,tiny_peckpeckpeck:0.8,tiny_disarmingtrill:0.8,tiny_wakeupcall:0.8};
+function loadSounds(){
+  if(!AC||loadSounds.on||typeof SOUNDS==='undefined') return; loadSounds.on=true;
+  for(const k in SOUNDS) SOUNDS[k].files.forEach(file=>{
+    fetch(SND_DIR+file+'.m4a').then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); })
+      .then(bf=>new Promise((res,rej)=>AC.decodeAudioData(bf,res,rej)))
+      .then(buf=>{ /* skip the encoder's bit of silence at the very start */
+        const d=buf.getChannelData(0); let pk=0; for(let i=0;i<d.length;i++) pk=Math.max(pk,Math.abs(d[i]));
+        let s=0; while(s<d.length&&Math.abs(d[s])<pk*0.01) s++;
+        SND_BUF[file]={buf,off:Math.max(0,s-48)/buf.sampleRate}; })
+      .catch(()=>{}); });
+}
+/* play a sound (a random take, if it has several). vol: times its SOUND_VOL.
+   Returns how long it lasts in seconds (0 if it can't play yet). */
+const SND_LAST={};
+function sfx(key,vol=1){
+  sndN++;
+  const S=typeof SOUNDS!=='undefined'&&SOUNDS[key]; if(!AC||!S) return 0;
+  let takes=S.files.filter(f=>SND_BUF[f]);
+  if(takes.length>1) takes=takes.filter(f=>f!==SND_LAST[key]);       /* not the same take twice running */
+  const file=takes[Math.floor(Math.random()*takes.length)]; if(!file) return 0;
+  SND_LAST[key]=file;
+  const B=SND_BUF[file], src=AC.createBufferSource(), g=AC.createGain();
+  src.buffer=B.buf; g.gain.value=(SOUND_VOL[key]||0.6)*vol;
+  src.connect(g); g.connect(sfxGain); src.start(AC.currentTime,B.off);
+  return B.buf.duration-B.off;
+}
+function blip(f,dur,vol,type){ sndN++; if(!AC)return;
   const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();
   o.type=type||'square'; o.frequency.value=f;
   g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
   o.connect(g); g.connect(sfxGain); o.start(t); o.stop(t+dur); }
 /* water: a burst of filtered noise that falls away, over a little plop (vol 0..1) */
 function splashSound(vol){
-  if(!AC||!noiseBuf) return;
+  sndN++; if(!AC||!noiseBuf) return;
   const t=AC.currentTime, v=vol||0.4;
   const nz=AC.createBufferSource(); nz.buffer=noiseBuf;
   const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.setValueAtTime(1800,t); bp.frequency.exponentialRampToValueAtTime(700,t+0.35); bp.Q.value=0.8;
@@ -137,7 +174,7 @@ function splashSound(vol){
   const og=AC.createGain(); og.gain.setValueAtTime(0.25*v,t); og.gain.exponentialRampToValueAtTime(0.0001,t+0.15);
   o.connect(og); og.connect(sfxGain||master); o.start(t); o.stop(t+0.16);
 }
-function thud(){ if(!AC)return;
+function thud(){ sndN++; if(!AC)return;
   const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();
   o.type='sine'; o.frequency.setValueAtTime(200,t);
   o.frequency.exponentialRampToValueAtTime(60,t+0.13);

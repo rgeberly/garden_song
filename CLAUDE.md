@@ -52,6 +52,12 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Running animation: `python tools/build_run.py` produces `assets/sprites/run.png` and `js/data/run.js`.
 - Perchance prompts are in `tools/perchance-prompts.md`. Save full-resolution images with the heart icon, then "save to your device". Downloads arrive as `<uuid>.tmp` in Downloads, and the save windows are dialogs titled `data:image/...`.
 
+## Sound effects
+- Recordings are `sfx/<name>.wav` in the art folder. `python tools/build_sfx.py` cleans them up (DC offset, leading silence, fades, even loudness), writes `assets/audio/sfx/<key>.m4a` and lists them in `js/data/sounds.js` (`SOUNDS`). The key is the name in lower case with spaces and dashes as underscores. A name ending in a number ("close door 2") is another take, picked at random.
+- `sfx(key, vol)` in `js/03-audio.js` plays one (Web Audio, decoded at start-up). `SOUND_VOL` there sets how loud each plays.
+- Menu clicks are automatic: `menuClick` in `js/05-input.js` compares the menus before and after each key or tap. If nothing played a sound, it plays `menu_tab`, `menu_confirm`, `menu_cancel` or `menu_move`.
+- Tiny One's skill voices are in `SKILL_SOUND` (`js/12-battle.js`). A voice longer than the move holds the turn (`anim`'s `hold`) while his animation loops.
+
 ## Songs and the rhythm game
 - Recordings are `rhythm/songs/<name>_flute.wav` and `<name>_backing.wav` in the art folder. Crop songs are named by species key; practice songs are `practice_<Title>`.
 - `python tools/build_songs.py [names…]` converts them to `assets/audio/songs/*.m4a` and finds the notes in `js/data/songs.js`. Never chain it after other edits in the same command; it once wrote an empty song list.

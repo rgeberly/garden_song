@@ -27,7 +27,7 @@ function interact(){
   if(nearIvy()){ talkIvy(); return; }
   const fr=nearFriend(); if(fr){ talkFriend(fr); return; }       /* Tex, stuck on the ice */
   if(nearStall()){ openShop(); return; }
-  if(nearDoor()){ travel(enterHouse); return; }
+  if(nearDoor()){ travel(enterHouse,true); return; }
   const way=!ZONES&&nearGardenExit(); if(way){ goTo(way.to); return; }
   if(G.swim){ G.party.forEach(id=>member(id).mp=memberMaxMp(id)); say("Music Points fully restored!"); return; }
   const frog=nearestFrog();

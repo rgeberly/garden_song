@@ -82,7 +82,7 @@ function startBattle(pest,kinds){
      wane:null,                      /* the troubles to count down when the next one acts (see wane) */
      over:null,pops:[],fx:[],anim:null,shout:null};
   B.party.forEach(id=>B.st[id]={});
-  G.scene='battle'; setMusic(boss?'boss':'battle'); blip(220,0.1,0.2); partyImg(); backdropImg();
+  G.scene='battle'; setMusic(boss?'boss':'battle'); sfx('battle_start'); partyImg(); backdropImg();
   setTimeout(nextActor,900);
 }
 const standing=id=>member(id).hp>0;
@@ -113,7 +113,12 @@ function pop(txt,x,y,col,size){ B.pops.push({txt,x,y,t:1100,col,size}); }
 const CRIT_MUL=1.75, critChance=id=>0.03+statOf(id,'luk')*0.004+((PARTY_INFO[id]&&PARTY_INFO[id].crit)||0)+((B&&B.critUp)||0);
 function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++)
   B.fx.push({x,y,vx:rnd(-1,1)*(spd||0.13),vy:rnd(-0.19,0.03),t:520,col,g:0.001}); }
-function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:kind==='enemy'?null:actor(),...extra}; }
+/* hold (ms): a recorded voice that runs longer than the move; the move lands at its
+   usual time, and its animation loops until the voice is done */
+function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:kind==='enemy'?null:actor(),...extra};
+  if(B.anim.hold>dur){ B.anim.hitAt=dur*0.55; B.anim.loopMs=dur; B.anim.dur=B.anim.hold; } }
+/* friends' skills with a recorded voice of their own (other Tiny One songs: tiny_songs) */
+const SKILL_SOUND={peck:'tiny_peckpeckpeck',trill:'tiny_disarmingtrill',wake:'tiny_wakeupcall'};
 const has=(id,s)=>B.st[id]&&B.st[id][s]>0;
 function addStatus(id,s){ if(!B.st[id]) B.st[id]={}; B.st[id][s]=STATUS[s].turns+(s==='sleep'?ri(0,1):0); }
 /* a trouble on a pest: turns left, or for Venom {n turns left, dmg each turn} */
@@ -169,7 +174,7 @@ function plan(P){
 /* Back: the one before picks again (false if this is the first) */
 function unplan(){
   if(!B.inputAt) return false;
-  B.inputAt--; delete B.plan[B.inputs[B.inputAt]]; askInput(); blip(330,0.04,0.08,'triangle'); return true;
+  B.inputAt--; delete B.plan[B.inputs[B.inputAt]]; askInput(); sfx('menu_cancel'); return true;
 }
 const pepReady=()=>pepKnown()&&(G.pep||0)>=PEP_MAX&&standing('kaitlyn')&&!(B.st.kaitlyn&&B.st.kaitlyn.sleep>0)&&pepSongs().length>0;
 /* the moves are picked: guards go up, the order is set, a Pep Rally plays, and away */
@@ -313,27 +318,27 @@ function subInfo(x){
 function chooseFoe(then){
   const L=topDown(liveFoes());
   B.tgt={kind:'foe',list:L,i:Math.max(0,L.indexOf(B.lastFoe)),then,back:B.menu}; B.menu='target';
-  blip(520,0.04,0.08,'triangle');
+  sfx('menu_confirm');
 }
 /* a friend: anyone standing, or those in `list`; the pointer starts on `start` (or whoever's turn it is) */
 function chooseAlly(then,list,start){
   const L=topDown(list||B.party.filter(standing));
   B.tgt={kind:'ally',list:L,i:Math.max(0,L.indexOf(start||actor())),then,back:B.menu}; B.menu='target';
-  blip(520,0.04,0.08,'triangle');
+  sfx('menu_confirm');
 }
 /* a move on every foe (or every friend, or those in `list`): all of them are pointed at,
    and one press lets it go */
 function chooseAll(kind,then,list){
   const L=topDown(list||(kind==='foe'?liveFoes():B.party.filter(standing)));
   B.tgt={kind,all:true,list:L,i:0,then:()=>then(),back:B.menu}; B.menu='target';
-  blip(520,0.04,0.08,'triangle');
+  sfx('menu_confirm');
 }
 function pickTarget(i){
   const t=B.tgt, x=t.list[i]; B.tgt=null; B.menu='cmd';
   if(t.kind==='foe'&&!t.all) B.lastFoe=x;
   t.then(x);
 }
-function cancelTarget(){ B.menu=B.tgt.back; B.tgt=null; blip(330,0.04,0.08,'triangle'); }
+function cancelTarget(){ B.menu=B.tgt.back; B.tgt=null; sfx('menu_cancel'); }
 /* the foe or member drawn at x,y, if any */
 function whoAt(x,y){
   for(const f of liveFoes()){ const r=foeBox(f); if(x>=r.x-6&&x<=r.x+r.w+6&&y>=r.y-6&&y<=r.y+r.h+6) return f; }
@@ -345,7 +350,7 @@ function whoAt(x,y){
 /* ---------- input ---------- */
 const SUB_ROWS=3, SUB_ROW=21, SUB_Y0=20;
 function setSub(i){ B.sub=i; if(i<B.top) B.top=i; if(i>=B.top+SUB_ROWS) B.top=i-SUB_ROWS+1; }
-function openSub(kind){ B.menu=kind; B.sub=0; B.top=0; blip(520,0.04,0.08,'triangle'); }
+function openSub(kind){ B.menu=kind; B.sub=0; B.top=0; sfx('menu_confirm'); }
 function battleKey(k){
   if(!B)return;
   if(B.over){ if(!winSkip()&&!winGuard()) endBattle(); return; }
@@ -388,7 +393,7 @@ function battleTouch(x,y){
   const list=B.menu==='skills'||B.menu==='items'||B.menu==='pep';
   const onWin=B.turn==='player'&&(list?inRect(W.list,x,y)||inRect(W.linfo,x,y):inRect(W.cmd,x,y)||inRect(W.party,x,y)||inRect(W.info,x,y));
   /* a tap on anyone in the scene: what they're like and what's troubling them */
-  if(who&&!onWin){ B.inspect=who; blip(620,0.04,0.08,'triangle'); return; }
+  if(who&&!onWin){ B.inspect=who; sfx('menu_confirm'); return; }
   if(B.turn!=='player')return;
   if(!list){
     /* a tap on a command uses it straight away */
@@ -424,7 +429,7 @@ function useSub(x){
     if(e&&(e.hpAll||e.mpAll)) chooseAll('ally',()=>plan({kind:'item',x,to:id})); else chooseAlly(to=>plan({kind:'item',x,to}));
     return;
   }
-  if(!canPay(x,id)){ B.log=x.hpCost?"Too worn out for that!":id==='kaitlyn'?"Not enough Music Points!":"Not enough MP!"; blip(150,0.08,0.2); return; }
+  if(!canPay(x,id)){ B.log=x.hpCost?"Too worn out for that!":id==='kaitlyn'?"Not enough Music Points!":"Not enough MP!"; sfx('cant_do_that'); return; }
   const others=B.party.filter(m=>m!==id&&standing(m));
   const go=(f,to)=>plan({kind:x.hpCost?'karate':x.notes?'song':'skill',x,f,to});
   if(x.hpCost) chooseFoe(f=>go(f));
@@ -433,7 +438,7 @@ function useSub(x){
   else if(x.mend||x.clear) chooseAlly(to=>go(null,to));
   else if(x.cover||x.coverAll){
     /* friends still standing, not Tex himself */
-    if(!others.length){ B.log="There's no one to cover!"; blip(150,0.08,0.2); return; }
+    if(!others.length){ B.log="There's no one to cover!"; sfx('cant_do_that'); return; }
     if(x.cover) chooseAlly(to=>go(null,to),others,others[0]);
     else chooseAll('ally',()=>go(),others); }
   /* Wake-Up Call: anyone, down or up (the pointer starts on the first one who's down) */
@@ -448,7 +453,7 @@ function useSub(x){
 /* Flee: tried at once, for everyone. If it fails the party loses the round (the pests
    still get theirs). */
 function tryFlee(){
-  if(B.boss){ B.log="The HOA President blocks the gate!"; blip(150,0.08,0.2); return; }
+  if(B.boss){ B.log="The HOA President blocks the gate!"; sfx('cant_do_that'); return; }
   B.turn='busy';
   if(Math.random()<fleeChance()){ B.over='flee'; B.log="You slipped away."; return; }
   B.plan={}; B.skipParty=true; startActions(); B.log="Couldn't get away!";
@@ -606,11 +611,12 @@ function mendMember(id,h){
 function doTweet(){
   const id=actor(), I=PARTY_INFO[id];
   B.turn='busy';
+  const len=sfx('tiny_tweet');
   anim('sing',1100,()=>{
     B.party.filter(standing).forEach(m=>mendMember(m,member(m).maxhp*I.tweet*healMul(id)));
     B.log=I.name+" tweets! Everyone feels a little better.";
-    if(AC){ flute(19,AC.currentTime,.12,.3); flute(23,AC.currentTime+.1,.14,.3); }
-  },{heal:true});
+    if(!len&&AC){ flute(19,AC.currentTime,.12,.3); flute(23,AC.currentTime+.1,.14,.3); }
+  },{heal:true,hold:len*1000-200});
 }
 /* a friend's skill (ALLY_SKILLS); f is the foe it's aimed at, to the friend it's for */
 function useSkill(sk,f,to){
@@ -620,7 +626,11 @@ function useSkill(sk,f,to){
   const spell=PARTY_ART[id]&&PARTY_ART[id].spell;      /* their own spell animation, when they have one */
   const kind=sk.graze?'meditate':sk.steal&&!sk.pecks?'lunge':spell?'spell':sk.song?'sing':sk.heal?'meditate':'lunge';
   const kind_heal=!!(sk.heal||sk.mend||sk.mendAll||sk.cureAll||sk.guardAll||sk.clear||sk.revive||sk.shell||sk.cover||sk.coverAll||sk.graze);
+  /* their recorded voice: from the start, or (pecks) with the hits */
+  const voice=SKILL_SOUND[sk.id]||(id==='tiny'&&sk.song?'tiny_songs':null), atHit=voice&&sk.pecks;
+  const len=voice&&!atHit?sfx(voice):0;
   anim(kind,spell?1400:sk.song?1300:1000,()=>{
+    if(atHit) sfx(voice);
     /* Tiny One's songs */
     if(sk.mend){ const h=mendMember(to,member(to).maxhp*sk.mend*healMul(id));
       B.log=name+" sings "+sk.name+": "+PARTY_INFO[to].name+" +"+h+" HP."; return; }
@@ -720,7 +730,7 @@ function useSkill(sk,f,to){
     hitFoe(f,dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(bm>1?"  The venom bursts! (x"+bm+")":"")+(cm>1?"  A focused blow!":""));
     B.critUp=0;
     if(f.hp>0&&sk.bind&&Math.random()<sk.bind){ f.st.bound=1; B.log+="  It's held fast!"; }
-  },{heal:kind_heal,tgt:f});
+  },{heal:kind_heal,tgt:f,hold:len*1000-200});
 }
 /* Focus: braced like Meditate (half damage until their next turn), and the next hit they
    land is twice as hard */
@@ -753,7 +763,7 @@ function eatInBattle(sp,to){
     const before=member(to).hp, item=itemName(sp), text=useItem(sp,to), gain=member(to).hp-before, s=slotOf(to);
     if(gain>0) pop("+"+gain,s.x,headOf(to),'#8fe07a');
     B.log=(to===id?name+" has the ":name+" gives "+PARTY_INFO[to].name+" the ")+item+": "+text+".";
-    if(AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
+    if(isDrink(sp)) sfx('drink'); else if(AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
   },{eater:to});
 }
 
@@ -950,6 +960,7 @@ function drawMember(c,id,x,y,k){
 }
 function drawMemberAt(c,id,x,y,k){
   const mine=B.anim&&B.anim.who===id, kind=mine?B.anim.kind:null;
+  if(mine&&B.anim.loopMs) k=(B.anim.t%B.anim.loopMs)/B.anim.loopMs;     /* looping while their voice goes on */
   if(id==='kaitlyn'){
     if(B.over==='lose'||!standing(id)){ drawPose(c,1,x,y); return; }
     if(B.over==='win'){ const n=BRN[BROW.victory]||1; drawBattleRow(c,'victory',Math.floor(G.t/85)%n,x,y); return; }
@@ -1413,7 +1424,7 @@ function drawBattle(dt){
   let k=0;
   if(B.anim){
     B.anim.t+=dt; k=clamp(B.anim.t/B.anim.dur,0,1);
-    if(!B.anim.hit&&k>=0.55){ B.anim.hit=true; if(B.anim.onHit) B.anim.onHit(); }
+    if(!B.anim.hit&&(B.anim.hitAt!=null?B.anim.t>=B.anim.hitAt:k>=0.55)){ B.anim.hit=true; if(B.anim.onHit) B.anim.onHit(); }
     if(k>=1){ B.anim=null; afterAction(); }
   }
   /* the victory poses hold until a press (winSkip), then the results come in */
@@ -1668,7 +1679,7 @@ function drawResultsWords(){
    screen once she's back in the garden: who, the new level, every stat with what it
    rose by, and anything learned. A tap or A moves on. */
 let lvT=0;
-function levelUpTap(){ if(lvT<400) return; LV_UPS.shift(); lvT=0; if(!LV_UPS.length) G.scene='world'; blip(520,0.04,0.08,'triangle'); }
+function levelUpTap(){ if(lvT<400) return; LV_UPS.shift(); lvT=0; if(!LV_UPS.length) G.scene='world'; sfx('menu_confirm'); }
 function drawLevelUp(dt){
   lvT+=dt;
   const U=LV_UPS[0], I=PARTY_INFO[U.id], T0=BAND_TOP(), T1=BAND_BOT();

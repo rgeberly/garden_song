@@ -245,7 +245,7 @@ function equipChoices(id,slot){
 function wearEquip(id,slot,k){
   const cur=equipOf(id)[slot]||null; if(k===cur) return;
   equipOf(id)[slot]=k; refitMember(id);
-  say(k?PARTY_INFO[id].name+" puts on the "+EQUIP[k].name+".":PARTY_INFO[id].name+" takes off the "+EQUIP[cur].name+"."); blip(620,.05,.1,'triangle'); autoSave();
+  say(k?PARTY_INFO[id].name+" puts on the "+EQUIP[k].name+".":PARTY_INFO[id].name+" takes off the "+EQUIP[cur].name+"."); sfx('menu_confirm'); autoSave();
 }
 /* what a piece of equipment adds, in short: "+3 Int  +4 MP" */
 const equipStats=k=>{ const s=k&&EQUIP[k].stats||{}; return Object.keys(s).map(st=>(s[st]>0?"+":"")+s[st]+" "+(st==='hp'||st==='mp'?st.toUpperCase():STAT_NAME[st].slice(0,3))).join("  "); };
