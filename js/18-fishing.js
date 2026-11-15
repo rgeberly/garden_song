@@ -3,8 +3,9 @@
    Each trip takes FISH_MIN minutes and needs a rod and reel (RODS, sold at Hollis Tools).
    Cast by swiping up (or holding J and letting go: the longer, the further), wait for a
    bite, set the hook by pulling the rod (swipe up, or W / up), then reel it in: on a touch screen wind the reel at the bottom right by circling
-   your finger round it, and pull the rod back with the lever at the bottom left
-   (drag it up); with keys hold J or Space to reel and W / up to pull. Pulling the
+   your finger round it, and pull the rod back by dragging up over the bottom left (the
+   rod rises; nothing else is drawn or said there); with keys hold J or Space to reel and
+   W / up to pull. Pulling the
    rod back yanks the fish a good way closer (pump it: pull, ease down while
    reeling, pull again) but both tighten the line, and the fish fights back in
    bursts, running line out. Past DRAG the reel's drag lets line slip instead of
@@ -46,6 +47,10 @@ function waterPt(near,side){
 /* the fish whose pictures (shop items/<name>) face right; the rest face left (the crab and
    octopus face out at you). Update this when a fish's picture changes. */
 const FISH_FACES_RIGHT=['bass','catfish','flounder','salmon','dolphin'];
+/* How often a hooked fish leaps clear of the water: never (0), a lot ('many', 4-7 times),
+   or (anything not listed) once or twice. */
+const FISH_LEAPS={minnow:0,crab:0,octopus:0,tarpon:'many',dolphin:'many',bass:'many',mullet:'many'};
+const leapsFor=k=>{ const L=FISH_LEAPS[k]; return L===0?0:L==='many'?ri(4,7):ri(1,2); };
 const lineNear=()=>clamp(1-FS.dist,0,1)*0.95+0.05;
 /* the reel sits near the bottom right of the screen, where a thumb can reach it */
 const reelY=()=>Math.max(392,BAND_BOT()-98);
@@ -72,7 +77,7 @@ function fishCast(power){
 }
 /* pulling the rod: sets the hook on a bite, scares the fish off before one */
 function fishPull(){
-  if(FS.phase==='bite'){ FS.phase='reel'; FS.t=0; FS.lift=1; blip(520,0.06,0.15,'square'); fishSplash(0.6); return; }
+  if(FS.phase==='bite'){ FS.phase='reel'; FS.t=0; FS.lift=1; FS.leaps=leapsFor(FS.fish); FS.leapAt=rnd(500,1300); blip(520,0.06,0.15,'square'); fishSplash(0.6); return; }
   if(FS.phase==='wait'){ FS.phase='lost'; FS.t=0; FS.msg="Too soon — you scared it off."; }
 }
 function fishHook(){
@@ -85,9 +90,10 @@ function fishKey(k){
   else if(isOk(k)||k==='e') fishHook();
 }
 const inReel=(x,y)=>Math.hypot(x-REEL.x,y-reelY())<REEL.r+30;
-/* the rod lever: a slot at the bottom left; drag up to pull the rod back */
+/* pulling the rod back (touch): drag up anywhere over the bottom left, by the rod (nothing
+   drawn there: the rod itself rises as it's pulled) */
 const rodTop=()=>reelY()-ROD.h/2;
-const inRod=(x,y)=>Math.abs(x-ROD.x)<46&&y>rodTop()-30&&y<rodTop()+ROD.h+30;
+const inRod=(x,y)=>x<REEL.x-REEL.r-24&&y>rodTop()-90&&y<BAND_BOT();
 function fishTouch(x,y,id){
   if(!FS) return;
   if(x>FSTOP.x&&x<FSTOP.x+FSTOP.w&&y>FSTOP.y+BAND_TOP()&&y<FSTOP.y+FSTOP.h+BAND_TOP()){ endFishing("You reel in your line."); return; }
@@ -155,8 +161,10 @@ function updateFishing(dt){
     if(FS.burst<=-ri(900,2400)/g.power){ FS.burst=ri(500,1100);
       /* a new burst: it dashes off somewhere else with a splash, or leaps right out */
       FS.sideTo=clamp(FS.side+rnd(0.5,1.1)*(Math.random()<0.5?-1:1),-0.9,0.9);
-      if(!FS.leap&&g.power>=0.8&&Math.random()<0.3){ FS.leap={t:0,dur:700,dir:Math.random()<0.5?-1:1}; fishSplash(0.8); }
-      else fishSplash(0.35+g.power*0.25); }
+      fishSplash(0.35+g.power*0.25); }
+    /* a leap clear of the water: the first soon after the hook, the rest spread out */
+    if(!FS.leap&&FS.leaps>0&&FS.t>=FS.leapAt){ FS.leaps--; FS.leap={t:0,dur:700,dir:Math.random()<0.5?-1:1}; fishSplash(0.8);
+      FS.leapAt=FS.t+(FISH_LEAPS[FS.fish]==='many'?rnd(1200,2600):rnd(2000,4000)); }
     FS.pull=g.power*(FS.burst>0?0.9:0.3+0.15*Math.sin(FS.t/300));
     /* the fish runs (harder in a burst), reeling and pulling the rod bring it in */
     const RD=rodNow(), DRAG=dragAt(), strong=g.power>RD.max;
@@ -286,6 +294,37 @@ function rodEye(x0,y0,x1,y1){
 /* the pond picture for the season (scenes/fishing_<season>, or scenes/fishing; none for
    winter, when the pond is frozen and there's no fishing), once it has loaded; a drawn pond
    until then */
+/* a leaping fish: where it is, its tilt, and where its mouth is (the line stays on it) */
+function leapPose(fx,fy,ws){
+  const q=FS.leap.t/FS.leap.dur, g=GOODS[FS.fish], dir=FS.leap.dir, hgt=Math.sin(q*Math.PI)*(30+g.power*10)*ws;
+  const x=fx+dir*(q-0.5)*28*ws, y=fy-hgt, a=dir*(q-0.5)*2.2;
+  const r=typeof SHOP_ART!=='undefined'&&SHOP_ART[g.name.toLowerCase()];
+  const hw=r?(20+g.power*7)*ws*1.5*r[2]/Math.max(r[2],r[3])/2:(9+g.power*2)*ws*1.5;      /* half its length as drawn */
+  return {q,x,y,a,dir,mx:x+Math.cos(a)*dir*hw*0.9,my:y+Math.sin(a)*dir*hw*0.9};
+}
+/* The hooked fish's shadow under the water: its own picture (shop items/<name>) as a dark
+   silhouette, flattened, facing the way it swims; a drawn fish shape when it has none. */
+const FISH_SIL={};
+function fishSilhouette(k){
+  if(FISH_SIL[k]) return FISH_SIL[k];
+  const r=typeof SHOP_ART!=='undefined'&&SHOP_ART[GOODS[k].name.toLowerCase()], img=r&&shopArtImg();
+  if(!img||!img.complete||!img.naturalWidth) return null;
+  const [sx,sy,w,h]=r, c=document.createElement('canvas'); c.width=w; c.height=h;
+  const x=c.getContext('2d'); x.drawImage(img,sx,sy,w,h,0,0,w,h);
+  x.globalCompositeOperation='source-in'; x.fillStyle='#0a1a2a'; x.fillRect(0,0,w,h);
+  return FISH_SIL[k]={c,w,h};
+}
+function drawFishShadow(k,x,y,ws,dir){
+  const g=GOODS[k], S=fishSilhouette(k), L=(20+g.power*7)*ws*1.3;
+  b.save(); b.translate(x,y); b.rotate(Math.sin(G.t/300)*0.12); b.globalAlpha=0.42;
+  if(S){ const s=L/Math.max(S.w,S.h);
+    b.scale(dir*(FISH_FACES_RIGHT.includes(k)?1:-1),0.55); b.imageSmoothingEnabled=true;
+    b.drawImage(S.c,-S.w*s/2,-S.h*s/2,S.w*s,S.h*s); }
+  else { b.scale(dir*ws,ws*0.6); b.fillStyle='#0a1a2a';
+    b.beginPath(); b.ellipse(0,0,10+g.power*5,4+g.power*1.5,0,0,7); b.fill();
+    b.beginPath(); b.moveTo(-9-g.power*5,0); b.lineTo(-16-g.power*5,-5); b.lineTo(-16-g.power*5,5); b.fill(); }
+  b.restore();
+}
 const FISH_IMG={};
 const pondKey=()=>{ const k='fishing_'+season(); return typeof SCENES!=='undefined'&&SCENES.includes(k)?k:'fishing'; };
 function fishImg(){
@@ -312,6 +351,7 @@ function drawFishing(dt){
      wherever the fish has taken it across */
   const W=waterPt(lineNear(),FS.side);
   let fx=W.x, fy=W.y, ws=W.s;
+  const LP=FS.leap&&FS.fish?leapPose(fx,fy,ws):null;        /* a fish leaping clear, the line on its mouth */
   /* the rod, from the bottom left; its tip swings up as it is pulled back */
   const art=typeof FISH_ART!=='undefined'&&FISH_ART.rod;     /* the rod's picture is long and slim */
   const wind=FS.phase==='ready'?FS.charge:0;               /* winding up a cast tips the rod back */
@@ -329,7 +369,8 @@ function drawFishing(dt){
   const inWater=FS.phase!=='cast'&&FS.phase!=='ready';
   const bob=!inWater?0:(FS.phase==='bite'?Math.sin(G.t/40)*4:Math.sin(G.t/400)*1.5)*ws;
   b.strokeStyle='rgba(255,255,255,.5)'; b.lineWidth=1;
-  b.beginPath(); b.moveTo(eye.x,eye.y); b.quadraticCurveTo((eye.x+fx)/2,(eye.y+fy)/2+(1-FS.tension)*40,fx,fy+bob); b.stroke();
+  const ex=LP?LP.mx:fx, ey=LP?LP.my:fy+bob;
+  b.beginPath(); b.moveTo(eye.x,eye.y); b.quadraticCurveTo((eye.x+ex)/2,(eye.y+ey)/2+(1-FS.tension)*40,ex,ey); b.stroke();
   /* the lure: seen only while it flies out, then it sinks out of sight */
   if(FS.phase==='cast') drawLure(fx,fy,lureA,ws,1,0);
   else if(FS.phase==='wait'&&FS.t<LURE_SINK_MS){ const q=FS.t/LURE_SINK_MS; drawLure(fx,fy+q*5*ws,0.5*q,ws,1-q,q); }
@@ -337,9 +378,9 @@ function drawFishing(dt){
   if(FS.phase==='ready'&&FS.charge>0){ gauge(110,T1-150,140,8,FS.charge,1,'#f0c84a','#fff0b0'); }
   if(FS.phase!=='cast'&&FS.phase!=='ready'){
     if((FS.phase==='reel'||FS.phase==='caught')&&!FS.leap){       /* the fish's shadow under the line */
-      const g=GOODS[FS.fish], dart=FS.burst>0?Math.sin(G.t/60)*3:Math.sin(G.t/160)*2;
-      b.globalAlpha=.45; b.fillStyle='#0a1a2a';
-      b.beginPath(); b.ellipse(fx+dart*ws,fy+7*ws,(10+g.power*5)*ws,(3.5+g.power*1.5)*ws,Math.sin(G.t/300)*0.3,0,7); b.fill(); b.globalAlpha=1; }
+      const dart=FS.burst>0?Math.sin(G.t/60)*3:Math.sin(G.t/160)*2;
+      if(Math.abs(FS.sideTo-FS.side)>0.02) FS.swimDir=FS.sideTo>FS.side?1:-1;
+      drawFishShadow(FS.fish,fx+dart*ws,fy+7*ws,ws,FS.swimDir||1); }
     FS.rings.forEach(r=>{ const q=clamp((r.t-r.delay)/r.dur,0,1); if(q<=0) return;
       b.globalAlpha=(1-q)*0.8; b.strokeStyle='#ffffff'; b.lineWidth=1.4;
       b.beginPath(); b.ellipse(r.x,r.y+2,r.r*(0.4+q*1.6),r.r*(0.4+q*1.6)*0.32,0,0,7); b.stroke(); });
@@ -347,9 +388,8 @@ function drawFishing(dt){
     FS.splash.forEach(s=>{ const r=(500-s.t)/500*22*ws; b.globalAlpha=s.t/500; b.strokeStyle='#ffffff'; b.lineWidth=1.5;
       b.beginPath(); b.ellipse(fx,fy+3,r,r*0.35,0,0,7); b.stroke(); b.globalAlpha=1; });
     /* a leap: the fish arcs out of the water and back in */
-    if(FS.leap){ const q=FS.leap.t/FS.leap.dur, g=GOODS[FS.fish], hgt=Math.sin(q*Math.PI)*(30+g.power*10)*ws;
-      const lx=fx+FS.leap.dir*(q-0.5)*28*ws, ly=fy-hgt;
-      b.save(); b.translate(lx,ly); b.rotate(FS.leap.dir*(q-0.5)*2.2);
+    if(LP){ const q=LP.q, g=GOODS[FS.fish];
+      b.save(); b.translate(LP.x,LP.y); b.rotate(LP.a);
       /* its own picture (shop items/<name>), nose first; a drawn fish when there's none */
       const pk=g.name.toLowerCase(), r=typeof SHOP_ART!=='undefined'&&SHOP_ART[pk], img=r&&shopArtImg();
       if(img){ const [sx,sy,w,h]=r, L=(20+g.power*7)*ws*1.5, s=L/Math.max(w,h);
@@ -394,14 +434,6 @@ function drawFishing(dt){
     const kg=b.createRadialGradient(hx-kr*0.35,hy-kr*0.35,kr*0.1,hx,hy,kr*0.9); kg.addColorStop(0,'#5a5d66'); kg.addColorStop(1,'#141519');
     b.fillStyle=kg; b.beginPath(); b.arc(hx,hy,kr*0.82,0,7); b.fill();
   }
-  /* the rod lever (touch): a slot with a grip that rides up as it's pulled */
-  if(IS_TOUCH&&FS.phase==='reel'){
-    const top=rodTop(), gy=top+ROD.h-FS.lift*ROD.h;
-    b.fillStyle='rgba(0,0,0,.35)'; b.beginPath(); b.roundRect(ROD.x-13,top-11,26,ROD.h+24,13); b.fill();
-    b.fillStyle='#2a2e38'; b.beginPath(); b.roundRect(ROD.x-5,top,10,ROD.h,5); b.fill();
-    b.fillStyle='#a8784a'; b.beginPath(); b.roundRect(ROD.x-20,gy-9,40,18,8); b.fill();
-    b.fillStyle='#d8a870'; b.beginPath(); b.roundRect(ROD.x-16,gy-7,32,6,3); b.fill();
-  }
   rpgWin({x:FSTOP.x,y:FSTOP.y+T0,w:FSTOP.w,h:FSTOP.h});
   if(FS.phase==='lost') rpgWin({x:40,y:150,w:280,h:90});
   if(FS.phase==='caught'){ const key=GOODS[FS.fish].name.toLowerCase(), pic=typeof SHOP_ART!=='undefined'&&SHOP_ART[key];
@@ -418,8 +450,6 @@ function drawFishing(dt){
   else if(FS.phase==='bite'){ TO("!",fx,fy-18,64,'#ffe04a','center',true,2); say2(IS_TOUCH?"Swipe up — pull the rod!":"W / ↑ — pull the rod!",T0+40,24,'#ffe08a'); }
   else if(FS.phase==='reel'){
     TS("Line",LINE_METER.x+LINE_METER.w/2,LINE_METER.y-18,15,'#f4f6ff','center',true); TS("Reel it in!",180,T0+48,20,'#f4f6ff','center',true);
-    TS(IS_TOUCH?"wind the reel":"hold J / Space to reel",REEL.x,reelY()+REEL.r+22,15,'#e8eef8','center');
-    TS(IS_TOUCH?"pull the rod ▲":"W / ↑ to pull the rod",IS_TOUCH?ROD.x:ROD.x+40,reelY()+REEL.r+22,15,'#e8eef8','center');
     if(FS.tension>1) say2("Too tight — ease off!",T0+90,20,'#ff8a7a');
     else if(FS.slipping) say2("Zzzz! The drag gives — keep reeling!",T0+90,20,'#ffe08a');
     else if(FS.tension<0.15) say2("The line's slack — reel!",T0+90,20,'#ffe08a'); }
