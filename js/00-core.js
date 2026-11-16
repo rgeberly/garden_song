@@ -158,11 +158,11 @@ IMG_RUN.src='assets/sprites/run.png';
 const RUN_CYCLE=1400, RUN_ROW={}; RUN_META.rows.forEach((r,i)=>{ RUN_ROW[r.dir]=i; });
 
 /* --- footstep / breathing loops that ride along with the animation --- */
-const SFX={}; let sfxKey=null, sfxAnim=null, sfxOn=false;
+const SFX={}, SFX_LOOP_VOL=0.22; let sfxKey=null, sfxAnim=null, sfxOn=false;
 function initSfx(){
   if(sfxOn) return; sfxOn=true;
   for(const k in ASSET_SFX){
-    try{ const a=muteEl(new Audio(ASSET_SFX[k])); a.loop=true; a.volume=0.22; a.preload='auto'; SFX[k]=a; }
+    try{ const a=new Audio(ASSET_SFX[k]); a.loop=true; a.volume=SFX_LOOP_VOL*volK('sfx'); a.preload='auto'; SFX[k]=a; }
     catch(e){}
   }
 }
@@ -178,8 +178,8 @@ function playOne(key,vol){ sndN++;
   if(!ASSET_SFX[key]) return;
   try{
     let a=ONESHOT[key];
-    if(!a){ a=muteEl(new Audio(ASSET_SFX[key])); ONESHOT[key]=a; }
-    a.volume=vol===undefined?0.5:vol; a.currentTime=0;
+    if(!a){ a=new Audio(ASSET_SFX[key]); ONESHOT[key]=a; }
+    a.volume=(vol===undefined?0.5:vol)*volK('sfx'); a.currentTime=0;
     const p=a.play(); if(p&&p.catch) p.catch(()=>{});
   }catch(e){}
 }

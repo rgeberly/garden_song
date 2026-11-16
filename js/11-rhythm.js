@@ -149,10 +149,10 @@ function startStemPlayback(chart,leadMs){
   const t0=AC.currentTime+leadMs/1000;     /* song time 0 lands after the count-in */
   const bs=AC.createBufferSource(); bs.buffer=SB.backing;
   const bg=AC.createGain(); bg.gain.value=0.8;
-  bs.connect(bg); bg.connect(master);
+  bs.connect(bg); bg.connect(songGain);
   const fs=AC.createBufferSource(); fs.buffer=SB.flute;
   const fg=AC.createGain(); fg.gain.value=1;
-  fs.connect(fg); fg.connect(master);
+  fs.connect(fg); fg.connect(songGain);
   bs.start(t0,chart.offset); fs.start(t0,chart.offset);
   return {t0,bs,fs,fg};
 }

@@ -2,26 +2,34 @@
    AUDIO
    ================================================================ */
 let AC=null,master=null,musicGain=null,sfxGain=null,noiseBuf=null;
-/* Mute (the Settings tab): kept for this browser tab only, through reloads, so one
-   window can be muted while another copy of the game or the song editor plays */
-let MUTED=false;
-try{ MUTED=sessionStorage.getItem('kgs-muted')==='1'; }catch(e){}
-const MASTER_VOL=0.5;
-/* an <audio> element follows the mute too (music tracks, footsteps, one-shot sounds) */
-const muteEl=a=>{ if(a) a.muted=MUTED; return a; };
-function setMuted(v){
-  MUTED=!!v;
-  try{ sessionStorage.setItem('kgs-muted',MUTED?'1':'0'); }catch(e){}
-  if(master){ master.gain.cancelScheduledValues(0); master.gain.value=MUTED?0:MASTER_VOL; }
-  [TRACKS,SFX,ONESHOT].forEach(L=>{ for(const k in L) muteEl(L[k]); });
+/* Volume (the Settings tab): Music and Sound effects, each 0 (off) to 10 (full), kept
+   in this browser (not in the save). Music is the tracks and the rhythm game's songs;
+   sound effects are everything else. */
+const VOL={music:10,sfx:10};
+try{ const v=JSON.parse(localStorage.getItem('kgs-vol')||'{}');
+  ['music','sfx'].forEach(k=>{ if(v[k]>=0&&v[k]<=10) VOL[k]=Math.round(v[k]); }); }catch(e){}
+/* a level as a loudness: squared, so each step sounds about as big as the last */
+const volK=k=>(VOL[k]/10)**2;
+const MASTER_VOL=0.5, MUSIC_GAIN=0.34, SFX_GAIN=0.75;
+let songGain=null;                         /* the rhythm game's recordings (music) */
+function setVolume(k,v){
+  VOL[k]=clamp(Math.round(v),0,10);
+  try{ localStorage.setItem('kgs-vol',JSON.stringify(VOL)); }catch(e){}
+  applyVolume();
+}
+function applyVolume(){
+  if(AC){ musicGain.gain.value=MUSIC_GAIN*volK('music'); songGain.gain.value=volK('music'); sfxGain.gain.value=SFX_GAIN*volK('sfx'); }
+  const a=TRACKS[curTrack]; if(a&&!a.paused) fadeTo(a,trackVol(curTrack));
+  for(const k in SFX) SFX[k].volume=SFX_LOOP_VOL*volK('sfx');
 }
 function initAudio(){
   if(AC) return;
   try{
     AC=new (window.AudioContext||window.webkitAudioContext)();
-    master=AC.createGain(); master.gain.value=MUTED?0:MASTER_VOL; master.connect(AC.destination);
-    musicGain=AC.createGain(); musicGain.gain.value=0.34; musicGain.connect(master);
-    sfxGain=AC.createGain(); sfxGain.gain.value=0.75; sfxGain.connect(master);
+    master=AC.createGain(); master.gain.value=MASTER_VOL; master.connect(AC.destination);
+    musicGain=AC.createGain(); musicGain.gain.value=MUSIC_GAIN*volK('music'); musicGain.connect(master);
+    songGain=AC.createGain(); songGain.gain.value=volK('music'); songGain.connect(master);
+    sfxGain=AC.createGain(); sfxGain.gain.value=SFX_GAIN*volK('sfx'); sfxGain.connect(master);
     const n=AC.sampleRate*0.5; noiseBuf=AC.createBuffer(1,n,AC.sampleRate);
     const d=noiseBuf.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
   }catch(e){ AC=null; }
@@ -37,7 +45,7 @@ function titleMusic(onLoad){
   initMusic(); setMusic('title');
   const a=TRACKS.title;
   /* blocked earlier, it's still the current track but paused: start it now */
-  if(a&&a.paused){ try{ const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} fadeTo(a,TRACK_VOL.title||0.45); }
+  if(a&&a.paused){ try{ const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} fadeTo(a,trackVol('title')); }
   if(onLoad){ if(a) setTimeout(()=>{ if(!a.paused&&G.scene==='title') titleWoken=true; },600); return; }
   titleWoken=true;
 }
@@ -184,13 +192,14 @@ const THEME={prog:[[2,6,9],[-5,-1,2],[-1,2,6],[-3,1,4]]};
 /* recorded themes, cross-faded */
 const TRACKS={}; let curTrack=null, musicOn=false;
 const TRACK_VOL={title:0.55,calm:0.42,battle:0.5,boss:0.55};
+const trackVol=k=>(TRACK_VOL[k]||0.45)*volK('music');
 function initMusic(){ musicOn=true; }
 /* a track is fetched the first time it's wanted (there are a lot of them now); all
    loop but the victory fanfare */
 /* where a track starts (seconds), and loops back to, if not its very beginning */
 const TRACK_START={title:16};
 function trackFor(k){
-  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=muteEl(new Audio(ASSET_MUS[k])); a.volume=0; a.preload='auto'; TRACKS[k]=a;
+  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=new Audio(ASSET_MUS[k]); a.volume=0; a.preload='auto'; TRACKS[k]=a;
     const st=TRACK_START[k];
     a.loop=k!=='victory'&&!st;
     if(st) a.addEventListener('ended',()=>{ if(curTrack===k){ a.currentTime=st; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); } });
@@ -229,5 +238,5 @@ function setMusic(mode){
   curTrack=mode;
   const a=trackFor(mode);
   if(a){ try{ a.volume=0; if(mode==='victory'||mode==='battle'||mode==='boss'||mode==='boss2') a.currentTime=0; cueTrack(a,mode); const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
-         fadeTo(a,TRACK_VOL[mode]||0.45); }
+         fadeTo(a,trackVol(mode)); }
 }

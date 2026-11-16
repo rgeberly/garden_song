@@ -55,6 +55,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 ## Sound effects
 - Recordings are `sfx/<name>.wav` in the art folder. `python tools/build_sfx.py` cleans them up (DC offset, leading silence, fades, even loudness), writes `assets/audio/sfx/<key>.m4a` and lists them in `js/data/sounds.js` (`SOUNDS`). The key is the name in lower case with spaces and dashes as underscores. A name ending in a number ("close door 2") is another take, picked at random.
 - `sfx(key, vol)` in `js/03-audio.js` plays one (Web Audio, decoded at start-up). `SOUND_VOL` there sets how loud each plays.
+- Settings has Music and Sound effects levels, 0 to 10 (`VOL`, `setVolume`). They're stored in `localStorage` (`kgs-vol`), not the save. Music covers the tracks and the rhythm game's recordings (`songGain`). Sound effects cover everything else, including the footstep and one-shot `<audio>` sounds.
 - Menu clicks are automatic: `menuClick` in `js/05-input.js` compares the menus before and after each key or tap. If nothing played a sound, it plays `menu_tab`, `menu_confirm`, `menu_cancel` or `menu_move`.
 - Tiny One's skill voices are in `SKILL_SOUND` (`js/12-battle.js`). A voice longer than the move holds the turn (`anim`'s `hold`) while his animation loops.
 

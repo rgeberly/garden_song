@@ -128,11 +128,17 @@ const SETTINGS=[{id:'diff',name:"Difficulty",opts:DIFF_ORDER,label:v=>DIFFICULTY
   {id:'run',name:"Running",opts:RUN_ORDER,label:v=>RUN_MODES[v],
    about:v=>(gearOn('boots')?"":"Needs the Sturdy Boots. ")+{hold:"Hold B to run, let go to walk.",walk:"Run all the time; hold B to slow to a walk.",toggle:"Press B to switch between running and walking."}[v],
    get:()=>G.runMode,set:v=>{ G.runMode=v; G.runOn=false; }},
-  {id:'sound',name:"Sound",opts:['on','muted'],label:v=>v==='on'?"On":"Muted",
-   about:v=>v==='on'?"Music and sound effects play.":"Silent in this browser tab, even after a reload. Other tabs and windows keep their sound.",
-   get:()=>MUTED?'muted':'on',set:v=>setMuted(v==='muted')}];
+  volRow('music',"Music","The music, and the songs in the rhythm game."),
+  volRow('sfx',"Sound effects","Footsteps, menus, battles, doors, fishing and the friends' voices.")];
+/* a volume row: 0 (off) to 10, kept in this browser rather than the save (setVolume) */
+function volRow(k,name,what){
+  return {id:k,name,level:true,opts:[0,1,2,3,4,5,6,7,8,9,10],label:v=>v?String(v):"Off",
+    about:v=>what+(v?"":" Off for now."),get:()=>VOL[k],set:v=>setVolume(k,v)}; }
+/* d: +1 or -1. Levels stop at their ends; the other choices go round. */
 function stepSetting(S,d){ const o=S.opts, i=o.indexOf(S.get());
-  S.set(o[(i+d+o.length)%o.length]); sfx('menu_toggle'); autoSave(); }
+  const j=S.level?clamp(i+d,0,o.length-1):(i+d+o.length)%o.length;
+  if(j===i){ sfx('cant_do_that'); return; }
+  S.set(o[j]); sfx('menu_toggle'); if(!S.level) autoSave(); }
 const allMembers=()=>['kaitlyn'].concat(Object.keys(G.allies));
 const whoId=()=>{ const L=allMembers(); return L[((sys.who%L.length)+L.length)%L.length]; };
 /* ---------- Lore: what she's learned about the pests and the fish ----------
@@ -473,6 +479,10 @@ function sysTouch(x,y){
   /* the first tap picks a row, a second tap on it uses it */
   const R=sysRows(), j=Math.floor((y-P.y-pageRowsY())/R.h), i=sys.top+j;
   if(j>=0&&j<rowsFit()&&i<R.rows.length&&!R.rows[i].head){
+    /* a volume: a tap on ◀ turns it down, on ▶ up */
+    const S=R.rows[i].set;
+    if(S&&S.level){ const right=P.x+P.w-14, w=TW("◀  "+S.label(S.get())+"  ▶",19,true);   /* as drawn */
+      if(x>right-w-24){ sys.focus='list'; sys.idx=i; stepSetting(S,x<right-w/2?-1:1); return; } }
     if(sys.focus==='list'&&sys.idx===i&&(SYSTABS[sys.tab]!=='Status'||R.rows[i].rename)) sysActivate(i);
     else { sys.focus='list'; sys.idx=i; } }
 }
@@ -498,7 +508,7 @@ function sysFoot(){
             :[name+": nothing",equipChoices(id,R.slot).length>1?(IS_TOUCH?"Tap again to put something on.":"J to put something on."):"Nothing to wear here yet."]; }
   if(t==='Equip') return [R.gear.name+(gearOn(R.gear.id)?"  ·  on":"  ·  off"),cap(R.gear.desc)+". A to switch "+(gearOn(R.gear.id)?"off.":"on.")];
   if(t==='Lore') return loreFoot(R);
-  if(t==='Settings'){ const S=R.set; return [S.name+":  "+S.label(S.get()),S.about(S.get())+(IS_TOUCH?"  Tap again to change.":"  ◀ ▶ or J to change.")]; }
+  if(t==='Settings'){ const S=R.set; return [S.name+":  "+S.label(S.get()),S.about(S.get())+(S.level?(IS_TOUCH?"  Tap ◀ or ▶ to change.":"  ◀ ▶ to change."):IS_TOUCH?"  Tap again to change.":"  ◀ ▶ or J to change.")]; }
   if(t==='Party'&&R.id) return null;
   return null;
 }
