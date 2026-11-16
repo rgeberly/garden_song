@@ -745,8 +745,9 @@ def main():
             pfaces.append(out)
     if pframes:
         psheet, ppos = pack(pframes)
-        # lossy WebP (with alpha) is well under half the size of a PNG for these painted frames
-        cv2.imwrite(os.path.join(OUT, 'party.webp'), psheet, [cv2.IMWRITE_WEBP_QUALITY, 95])
+        # lossy WebP (with alpha) is well under half the size of a PNG for these painted frames;
+        # quality 85 looks the same as 95 at the 2x they're drawn, and is 30% smaller
+        cv2.imwrite(os.path.join(OUT, 'party.webp'), psheet, [cv2.IMWRITE_WEBP_QUALITY, 85])
         for n, d in pmeta.items():
             d['ready'] = [ppos['%s %d' % (n, i)] for i in range(d.pop('n'))]
             if 'stance' in d: d['stance']['r'] = ppos[n + ' stance']

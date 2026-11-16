@@ -1,4 +1,4 @@
-const CACHE='kgs-v76';
+const CACHE='kgs-v77';
 const FILES=[
  "./",
  "assets/audio/music_battle.m4a",
@@ -13,8 +13,6 @@ const FILES=[
  "assets/audio/sfx_idle_up.mp3",
  "assets/audio/sfx_kick.mp3",
  "assets/audio/sfx_victory.mp3",
- "assets/audio/stem_backing.mp3",
- "assets/audio/stem_flute.mp3",
  "assets/icons/icon-192.png",
  "assets/icons/icon-512.png",
  "assets/sprites/anim.png",
@@ -78,7 +76,6 @@ const FILES=[
  "js/data/phrases.js",
  "js/data/art.js",
  "js/data/run.js",
- "js/data/stem.js",
  "js/data/songs.js",
  "js/data/sounds.js",
  "manifest.json"

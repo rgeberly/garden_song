@@ -58,44 +58,6 @@ function scheduleAccomp(chart,t0){
     pluck(chord[2],tt+(barMs*3/4)/1000,0.5,0.3,musicGain);
   }
 }
-/* Pick the phrase whose note count best matches what this song asks for,
-   then lay its real onsets straight onto the lanes. */
-function stemChart(count,seed){
-  let s=Math.abs(seed|0)||7;
-  const rr=()=>{ s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff; };
-  const ranked=STEM_PHRASES.map((p,i)=>({p,d:Math.abs(p.n.length-count)}))
-                           .sort((a,z)=>a.d-z.d);
-  const pool=ranked.slice(0,Math.min(4,ranked.length));
-  const ph=pool[Math.floor(rr()*pool.length)].p;
-  const LEAD=2.2, off=Math.max(0,ph.a-LEAD);
-  const span=Math.max(1,ph.hi-ph.lo);
-  const laneOf=s2=>clamp(Math.round((s2-ph.lo)/span*(LANES-1)),0,LANES-1);
-  const notes=ph.n.map((n,i)=>{
-    const aStart=ph.a+n.t, aEnd=aStart+n.d;
-    const t=(aStart-off)*1000, lane=laneOf(n.s);
-    const nx=ph.n[Math.min(ph.n.length-1,i+1)];
-    if(n.d>=0.42&&i<ph.n.length-1)
-      return {t,lane,semi:n.s,type:'hold',dur:n.d*1000,endLane:laneOf(nx.s),
-              done:false,score:0,reqLane:lane,aStart,aEnd};
-    return {t,lane,semi:n.s,type:'tap',done:false,aStart,aEnd};
-  });
-  return {notes,end:(ph.b-off)*1000+1500,offset:off,stem:true,beat:600,bpm:100};
-}
-/* Practice: the whole flute part, every phrase in a row over the backing track, on
-   lanes set by the whole song's range. */
-function fullStemChart(){
-  const P=STEM_PHRASES, lo=Math.min(...P.map(p=>p.lo)), hi=Math.max(...P.map(p=>p.hi)), span=Math.max(1,hi-lo);
-  const off=Math.max(0,P[0].a-2.2), laneOf=s2=>clamp(Math.round((s2-lo)/span*(LANES-1)),0,LANES-1);
-  const notes=[];
-  P.forEach(ph=>ph.n.forEach((n,i)=>{
-    const aStart=ph.a+n.t, aEnd=aStart+n.d, t=(aStart-off)*1000, lane=laneOf(n.s);
-    const nx=ph.n[Math.min(ph.n.length-1,i+1)];
-    notes.push(n.d>=0.42&&i<ph.n.length-1
-      ?{t,lane,semi:n.s,type:'hold',dur:n.d*1000,endLane:laneOf(nx.s),done:false,score:0,reqLane:lane,aStart,aEnd}
-      :{t,lane,semi:n.s,type:'tap',done:false,aStart,aEnd}); }));
-  notes.sort((a,z)=>a.t-z.t);
-  return {notes,end:(P[P.length-1].b-off)*1000+1500,offset:off,stem:true,beat:600,bpm:100};
-}
 /* A song with its own recordings: all of its flute notes, on the lanes worked out when
    it was built, starting a moment before the first note. */
 /* A held note slides along its path: [ms into the note, lane] points with straight lines
@@ -145,7 +107,7 @@ function songChart(D){
 const BATTLE_SONG={sprout:'sprout',lull:'lullaby',waltz:'waltz',req:'requiem',thorn:'nocturne',hymn:'hymn'};
 const songKey=(plot,bc)=>bc?bc.song:plot&&plot.sp;
 function startStemPlayback(chart,leadMs){
-  const SB=chart.bufs||STEM;               /* the song's own recordings, or the shared ones */
+  const SB=chart.bufs;                     /* the song's own recordings */
   const t0=AC.currentTime+leadMs/1000;     /* song time 0 lands after the count-in */
   const bs=AC.createBufferSource(); bs.buffer=SB.backing;
   const bg=AC.createGain(); bg.gain.value=0.8;
@@ -180,9 +142,10 @@ function fluteOn(){
   g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value,now);
   g.gain.linearRampToValueAtTime(1,now+0.02);
 }
-/* The notes always come from the flute part (STEM_PHRASES). If the recordings are
-   still loading, wait a moment for them; if they can't load, the same flute notes
-   play over a drawn accompaniment instead. */
+/* A song's notes come from its own flute recording (SONG_DATA). If its recordings are
+   still loading, wait a moment for them; if they can't load, the same notes play on a
+   drawn flute over a drawn accompaniment instead. A song not recorded yet gets notes
+   from the Grow Little Croppies phrases (makeChart), on the drawn flute. */
 const STEM_WAIT=5000;
 /* just a stretch of a song (bc.section: [from, to] in seconds; a Pep Rally) */
 function songSection(D,sec){
@@ -192,19 +155,15 @@ function startRhythm(plot,bc,waited){
   initAudio();
   let D=songData(songKey(plot,bc)); const SB=D&&loadSong(songKey(plot,bc));
   if(D&&bc&&bc.section) D=songSection(D,bc.section);
-  if((D?SB&&!SB.ready&&!SB.failed:STEM.loading)&&(waited||0)<STEM_WAIT){
+  if(D&&SB&&!SB.ready&&!SB.failed&&(waited||0)<STEM_WAIT){
     if(!waited&&!bc) say("Tuning the flute...");
     setTimeout(()=>startRhythm(plot,bc,(waited||0)+150),150); return;
   }
   const count=bc?bc.notes:SPECIES[plot.sp].notes;
   const bpm=bc?112:96+G.gardenLv*2;
   const seed=(plot?plot.x*7+plot.y*13:917)+count*31;
-  const haveFlute=typeof STEM_PHRASES!=='undefined'&&STEM_PHRASES.length, useStem=STEM.ready&&haveFlute;
-  const chart=D?songChart(D)
-             :!haveFlute?makeChart(bc&&bc.practice?64:count,seed,bc&&bc.practice?100:bpm)
-             :bc&&bc.practice?fullStemChart():stemChart(count,seed);
-  if(D){ if(SB&&SB.ready) chart.bufs=SB; else chart.stem=false; }
-  else if(!useStem) chart.stem=false;       /* hits play a drawn flute instead */
+  const chart=D?songChart(D):makeChart(bc&&bc.practice?64:count,seed,bc&&bc.practice?100:bpm);
+  if(D){ if(SB&&SB.ready) chart.bufs=SB; else chart.stem=false; }    /* hits play a drawn flute instead */
   /* Count-in: "3, 2, 1, Go!" one beat each, ending just before the first note
      starts to fall, so there is time to get your fingers on H J K L. */
   const first=chart.notes.length?chart.notes[0].t:0;

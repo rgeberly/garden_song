@@ -33,9 +33,9 @@ function initAudio(){
     const n=AC.sampleRate*0.5; noiseBuf=AC.createBuffer(1,n,AC.sampleRate);
     const d=noiseBuf.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
   }catch(e){ AC=null; }
-  loadStems(); loadSounds();   /* a key press counts too, not just a tap */
+  loadSounds();                /* a key press counts too, not just a tap */
 }
-addEventListener('pointerdown',()=>{initAudio(); initSfx(); initMusic(); loadStems();
+addEventListener('pointerdown',()=>{initAudio(); initSfx(); initMusic();
   if(AC&&AC.state==='suspended')AC.resume();},{passive:true});
 /* The title theme. Browsers only allow sound after a tap or key press, so it is tried
    as soon as the game loads (some browsers allow it) and otherwise the first press on
@@ -51,19 +51,6 @@ function titleMusic(onLoad){
 }
 const hz=s=>440*Math.pow(2,(s-9)/12);
 
-/* ---- recorded stems for the rhythm game ------------------------------
-   The backing track runs the whole time; the isolated flute is played in
-   perfect sync but muted, and only opened up when a note is hit. -------- */
-const STEM={ready:false,loading:false,failed:false,backing:null,flute:null};
-function loadStems(){
-  if(!AC||STEM.ready||STEM.loading||STEM.failed) return;
-  STEM.loading=true;
-  Promise.all([fetch(ASSET_STEM_BACKING),fetch(ASSET_STEM_FLUTE)])
-    .then(rs=>{ if(!rs.every(r=>r.ok)) throw 0; return Promise.all(rs.map(r=>r.arrayBuffer())); })
-    .then(bs=>Promise.all(bs.map(bf=>new Promise((res,rej)=>AC.decodeAudioData(bf,res,rej)))))
-    .then(([bk,fl])=>{ STEM.backing=bk; STEM.flute=fl; STEM.ready=true; STEM.loading=false; })
-    .catch(()=>{ STEM.loading=false; STEM.failed=true; });
-}
 /* ---- each song's own recordings (SONG_DATA, made by tools/build_songs.py) ----
    Loaded the first time the song is played, then kept. */
 const SONG_DIR='assets/audio/songs/', SONG_BUF={};
