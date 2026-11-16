@@ -135,13 +135,17 @@ function fishUp(id){
   if(FS&&FS.sw&&FS.sw.id===id){ const sw=FS.sw; FS.sw=null;
     if(FS.phase==='ready'){ if(FS.charge>0.15) fishCast(0.3+FS.charge*0.7); else FS.charge=0; } }
   if(FS&&FS.reelId===id){ FS.reelId=null; FS.lastA=null; } if(FS&&FS.rodId===id){ FS.rodId=null; FS.liftWant=0; } }
-/* a splash where the line meets the water (k: how big, 0..1+): rings, droplets, a sound */
-function fishSplash(k,snd){
+/* landing a fish: the splash is kept down, and the catch sound (one of the catch_fish takes)
+   waits until it's over (it's loudest for its first 0.6 s, gone by about 1 s) */
+const CATCH_SPLASH=0.5, CATCH_SOUND_MS=1000;
+/* a splash where the line meets the water (k: how big, 0..1+): rings, droplets, a sound
+   (snd: a recorded one, null for none; vol: its volume, if not from k) */
+function fishSplash(k,snd,vol){
   const p=waterPt(lineNear(),FS.side);
   for(let i=0;i<2+Math.round(k*2);i++) FS.rings.push({x:p.x,y:p.y,t:0,dur:600+i*180,r:(8+k*14)*p.s,delay:i*90});
   for(let i=0;i<Math.round(6+k*14);i++){ const a=-Math.PI*rnd(0.1,0.9);
     FS.drops.push({x:p.x+rnd(-4,4)*p.s,y:p.y,vx:Math.cos(a)*rnd(0.02,0.07)*p.s,vy:Math.sin(a)*rnd(0.06,0.14)*(0.6+k*0.5)*p.s,t:0,g:0.0004*p.s}); }
-  if(snd===undefined) splashSound(0.25+k*0.35); else if(snd) sfx(snd,Math.min(1,0.6+k*0.4));
+  if(snd===undefined) splashSound(0.25+k*0.35); else if(snd) sfx(snd,vol!==undefined?vol:Math.min(1,0.6+k*0.4));
 }
 function updateFishing(dt){
   FS.t+=dt;
@@ -197,10 +201,10 @@ function updateFishing(dt){
     FS.slackT=FS.tension<0.12?FS.slackT+dt:0;
     if(FS.snapT>SNAP_MS){ FS.phase='lost'; FS.t=0; FS.msg="Snap! The line broke."; blip(120,0.1,0.25,'sawtooth'); }
     else if(FS.slackT>SLACK_MS||FS.dist>=1.3){ FS.phase='lost'; FS.t=0; FS.msg="The line went slack and it got away."; }
-    else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; const L0=fishLength(FS.fish); FS.size=L0.len; FS.lunker=L0.big; fishSplash(1.2,'fish_jump');
+    else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; const L0=fishLength(FS.fish); FS.size=L0.len; FS.lunker=L0.big; fishSplash(1.2,'fish_jump',CATCH_SPLASH); setTimeout(()=>sfx('catch_fish'),CATCH_SOUND_MS);
       G.goods[FS.fish]=(G.goods[FS.fish]||0)+1;
       const L=G.lore.fish[FS.fish]||(G.lore.fish[FS.fish]={n:0,best:0}); L.n++; L.best=Math.max(L.best,FS.size);
-      if(AC){ flute(9,AC.currentTime,.3,.6); flute(13,AC.currentTime+.12,.3,.6); flute(16,AC.currentTime+.24,.6,.6); } }
+    }
   }
 }
 /* The rod and reel pictures (fishing/Spinning Rod, Spinning Reel in the art folder, packed
