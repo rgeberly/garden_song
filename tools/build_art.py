@@ -30,7 +30,7 @@ may have a white background: white touching the edge of the picture is
 removed (light grey shadows on it become see-through shadows). Each picture is
 trimmed, shrunk to game size and packed into
     assets/sprites/crops.png        crops, soil and the stand
-    assets/sprites/shop_items.png   shop pictures
+    assets/sprites/shop_items.webp  shop pictures (lossy colour, exact edges: under a quarter of a PNG's size)
     assets/sprites/creatures.png    creature and garden-effect animation frames
     assets/sprites/party.webp       party members' battle frames (drawn at 2x, like pose.png)
     assets/sprites/portrait_<name>.png   party portraits, as tall as Kaitlyn's portrait.png
@@ -648,7 +648,7 @@ def main():
         im = shrink(im, SHOP_BOX / max(im.shape[:2]))
         shop.append((name, im))
     ssheet, spos = pack(shop)
-    cv2.imwrite(os.path.join(OUT, 'shop_items.png'), ssheet, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+    cv2.imwrite(os.path.join(OUT, 'shop_items.webp'), ssheet, [cv2.IMWRITE_WEBP_QUALITY, 90])
     smeta = {k: spos[k] for k, _ in shop}
 
     # creatures and garden effects: every non-empty grid cell is a frame, in reading
@@ -994,7 +994,7 @@ def main():
             fh.write('const FLBIG_META=' + json.dumps(flutes['big'], separators=(',', ':')) + ';\n')
             fh.write('const FLUTE_PTR=' + json.dumps(flutes['ptr'], separators=(',', ':')) + ';\n')
     print('crops.png', sheet.shape[1], 'x', sheet.shape[0], '-', len(crops), 'pictures:', ', '.join(sorted(meta)))
-    print('shop_items.png', ssheet.shape[1], 'x', ssheet.shape[0], '-', len(shop), 'pictures')
+    print('shop_items.webp', ssheet.shape[1], 'x', ssheet.shape[0], '-', len(shop), 'pictures')
     print('creatures.png', ', '.join('%s %d frames' % (n, len(v)) for n, v in cmeta.items()))
     if pframes:
         print('party.webp', psheet.shape[1], 'x', psheet.shape[0], '-',

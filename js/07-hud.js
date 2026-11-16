@@ -141,7 +141,7 @@ function winButton(x,y,w,h,on,off){
   b.strokeStyle=off?'rgba(200,212,255,.25)':on?'rgba(255,224,138,.9)':'rgba(200,212,255,.55)'; b.lineWidth=1.2;
   b.beginPath(); b.roundRect(x+0.5,y+0.5,w-1,h-1,6); b.stroke();
 }
-/* Shop pictures (assets/sprites/shop_items.png, keyed by lower-case item name) load the
+/* Shop pictures (assets/sprites/shop_items.webp, keyed by lower-case item name) load the
    first time a menu needs them. drawShopPic fits one into a box centred on cx,cy. */
 let IMG_SHOPART=null;
 function shopArtImg(){
