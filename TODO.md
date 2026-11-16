@@ -1,46 +1,56 @@
 # Garden Song to-do list
-Things started but not finished, as of Nov 14, 2026. Tick a box by changing `[ ]` to `[x]`.
+What's still to make or do, as of Nov 15, 2026. Tick a box by changing `[ ]` to `[x]`.
 
-## Songs for the rhythm game
-Kaitlyn's battle songs have no recordings yet (each plays a stand-in tune). Save each as
-`rhythm/songs/<name>_flute.wav` and `<name>_backing.wav` in the art folder.
-- [ ] Sprout Strike: `sprout` (learned at Lv.1)
-- [ ] Frog Lullaby: `lullaby` (Lv.3)
-- [ ] Bramble Waltz: `waltz` (Lv.5)
-- [ ] Wasp Requiem: `requiem` (Lv.7)
-- [ ] Thorn Nocturne: `nocturne` (Lv.9)
-- [ ] Harvest Hymn: `hymn` (Lv.11)
+## Songs
+Rhythm game songs go in the art folder as `rhythm/songs/<name>_flute.wav` and `<name>_backing.wav`
+(then `python tools/build_songs.py <name>`). Every crop and all three practice songs have theirs.
+- [ ] Pep Rally songs: each plays a stretch of Grow Little Croppies or Drink Up, Lovelies for now
+      (`PEP_SONGS` in `js/01-content.js`). Rally Cry, Tangleroot Reel, Clean Slate, Hype Up, Safe and Sound, Grand Finale.
+- [ ] Kaitlyn's battle songs: they're not rhythm games any more, and all six play the same flute
+      sound (`sfx_flute`). A short flute phrase of each would do: Sprout Strike, Frog Lullaby,
+      Bramble Waltz, Wasp Requiem, Thorn Nocturne, Harvest Hymn.
+- [ ] Field songs (cast from the menu in the garden): Growth Reprise, Pest Ward and Sun Shower all play
+      the same short synthesized tune.
 - [ ] Decide what `graveyard.wav`, `graveyard battle.wav` and `graveyard boss.wav` are for (in `rhythm/songs`, not used yet)
 
-## Art still to make
-- [ ] Kaitlyn's talk-box faces: smile, sad, angry, concerned, questioning, determined, amazed (prompts in `tools/perchance-prompts.md`)
-- [x] Karate Kick battle animation (a `karate` row for `battle.png`)
-- [ ] Collard Greens harvest picture (`harvest Collard Greens`)
-- [ ] Mug of Cider picture
-- [ ] Hot Toddy picture
-- [ ] Townsfolk walking art (they're simple drawn stand-ins in town; only their portraits are art)
+## Sound effects
+Recorded ones go in the art folder's `sfx/` (then `python tools/build_sfx.py`). A name ending in a
+number ("catch fish 2") is another take of the same sound. These still play synthesized beeps:
+- [ ] Garden: planting, harvesting, clearing a dead plant, eating a crop from the menu
+- [ ] Frog's healing croak (garden frogs fill everyone's HP)
+- [ ] Wading into the pool ("Ahh. Music Points restoring...")
+- [ ] Level up
+- [ ] Battle: a hit landing on a pest, a critical hit, a pest's attack landing, a pest winding up its move
+- [ ] Battle: Focus, Meditate, eating a crop, the Pep meter filling up, the EXP tally ticking on the results
+- [ ] Battle voices for Ivy, Tituba and Tex's skills (Tiny One has his): e.g. Ivy's hiss (Ssssss),
+      Tituba's Hiss and swipes, Tex's Shell Up and Slam
+- [ ] Pest voices or noises (none yet)
+- [ ] Fishing: starting, casting, a bite, setting the hook, the line snapping
+- [ ] Rhythm game: the count-in beeps, a "perfect" fanfare (the frog's), tapping during the count-in
+- [ ] Tiny One as a baby: begging, and gulping a worm
+
+## Animations
+- [ ] Tiny One: a singing animation for his songs and Tweet (they use his attack loop now)
 - [ ] Tituba curled up asleep (at night she stands on the quilt with sleeping Z's)
-- [ ] Tituba's gear: Silver Claw Tips, Velvet Ribbon, Catnip Sachet, Moonstone Collar
-- [ ] Tex's gear: Old Oak Cane, Mossy Shell Cover, Sun-Warmed Stone, Shell Polish
-- [ ] Optional: more garden wildlife (bumblebee, dragonfly or hummingbird)
+- [ ] Townsfolk walking art (they're simple drawn stand-ins in town; only their portraits are art)
+- [ ] Optional: more garden wildlife (bumblebee, dragonfly or hummingbird), like the bluebird and monarch
+
+## Pictures (prompts in `tools/perchance-prompts.md`)
+- [ ] Kaitlyn's talk-box faces: smile, sad, angry, concerned, questioning, determined, amazed
+- [ ] Collard Greens: young plant, grown plant and harvest pictures (it's the only crop drawn in code)
+- [ ] Mug of Cider and Hot Toddy pictures
+- [ ] Tituba's gear: Silver Claw Tips, Velvet Ribbon, Catnip Sachet, Moonstone Collar (the gear isn't in the game yet either)
+- [ ] Tex's gear: Old Oak Cane, Mossy Shell Cover, Sun-Warmed Stone, Shell Polish (likewise)
 
 ## Shop interiors
 - [ ] Touch up the starter walls: `maps/cafe_collision.png`, `music_collision.png`, `fishshop_collision.png`, `bar_collision.png`
 - [ ] Touch up the starter doorways: `maps/<room>_transitions.png`
 - [ ] Front layers for the rooms (what Kaitlyn walks behind: counters, tables), like the house's
 
-## From the Nov 15 list, still to do
-- [x] Party screen: five slots with Kaitlyn in the middle, empty slots selectable, swap with reserves or other slots; the order matches where they stand in battle (#3, #4)
-- [x] Equip screen: pick from a list of what she can wear in each slot (#5)
-- [x] Town shops laid out like the garden stall, with Buy and Sell tabs (#6)
-- [x] Choose everyone's commands first, then all act by Agility (Dragon Quest style) (#7.4)
-- [x] Pep Rally: a meter filled by hits, and rally songs as an in-battle rhythm game, learned along the story (#7.7, #7.8)
-- [ ] Record the Pep Rally songs (each plays a stretch of Grow Little Croppies or Drink Up, Lovelies for now; `PEP_SONGS`)
-- [x] Shorter map shadows, better cloud shadows and pool ripples, stronger morning/evening/night tints, sunset by season (7 PM summer, 6 PM spring/fall, 5 PM winter), night-strong moves from 7 PM (#10)
-- [x] Fishing: no text prompts, no slider over the rod, fish-shaped shadows, the line stays on a leaping fish, jumps by kind of fish (#12)
-
 ## Story and game
 - [ ] The later area, then move the Muramatsu there (sold at Rosa's for 10,000 coins until then)
 - [ ] After the phone test: tune Tituba's and Tex's stats and skills
 - [ ] After the phone test: check their spots in town and at home
 - [ ] After the phone test: check how easy each meeting is to find
+- [ ] Optional, smaller downloads: Tiny One's quest animations (hatching, begging, falling asleep) are
+      about 15% of `party.webp` and could load only during his quest
