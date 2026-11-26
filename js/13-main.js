@@ -163,6 +163,25 @@ function titlePick(i){
   if(used){ TM.ask={n,idx:1}; return; }                                    /* start over in a used slot? */
   slotChosen(n);
 }
+/* ---------- a black transition ----------
+   The screen fades to black (FT_OUT), work() runs (it may change the scene), and it stays
+   black until ready() says everything it needs has loaded (at least FT_HOLD); the first
+   frame of the new scene is drawn under the black, then it fades in (FT_IN). */
+const FT_OUT=280, FT_HOLD=250, FT_IN=380;
+let FT=null;
+function fadeThrough(work,ready){
+  if(FT) return;
+  FT={t:0,phase:'out',work,ready:ready||(()=>true),from:G.scene}; }
+function drawFade(dt){
+  if(!FT) return; const d=Math.min(dt,40); FT.t+=d; let a=1;
+  if(FT.phase==='out'){ a=Math.min(1,FT.t/FT_OUT); if(FT.t>=FT_OUT){ FT.work(); FT.target=G.scene; G.scene='fade'; FT.phase='hold'; FT.t=0; } }
+  else if(FT.phase==='hold'){ if(FT.t>=FT_HOLD&&FT.ready()){ G.scene=FT.target; FT.phase='in'; FT.t=0; } }
+  else { a=1-FT.t/FT_IN; if(a<=0){ FT=null; return; } }
+  m.save(); m.setTransform(1,0,0,1,0,0); m.fillStyle='rgba(0,0,0,'+a+')'; m.fillRect(0,0,m.canvas.width,m.canvas.height); m.restore();
+}
+/* is the garden (or wherever she is) ready to show: its painting and the sprites */
+const imgReady=im=>!im||(im.complete&&im.naturalWidth>0);
+function worldReady(){ return assetsReady>=IMG_TOTAL&&imgReady(seasonMap(season())); }
 /* a slot for a new game, or for a pasted code */
 function slotChosen(n){
   if(TM.for==='new'){ beginSlot(n,'fresh'); return; }
@@ -173,9 +192,10 @@ function slotChosen(n){
 function beginSlot(n,how){
   G.slot=n; lastSlot=n; storeSet('kgs7_last',String(n));
   TM={mode:'main',idx:0,ask:null};
-  if(how==='load'){ autoLoad().then(()=>startGame()); return; }
+  /* (through black, until her surroundings have loaded) */
+  if(how==='load'){ autoLoad().then(()=>fadeThrough(()=>startGame(),worldReady)); return; }
   if(how==='fresh') newGameState();
-  startGame(); autoSave();
+  fadeThrough(()=>{ startGame(); autoSave(); },worldReady);
 }
 /* back to the title (from the menu's Save tab): the slots are read again */
 function toTitle(){
@@ -251,7 +271,8 @@ function loop(now){
   else if(G.scene==='levelup') drawLevelUp(dt);
   else if(G.scene==='fishing') drawFishing(dt);
   /* the garden's HUD draws the deck itself; everywhere else it goes on top */
-  if(deckShown()&&G.scene!=='world'&&G.scene!=='ask'&&G.scene!=='battleIn') drawDeck();
+  if(deckShown()&&G.scene!=='world'&&G.scene!=='ask'&&G.scene!=='battleIn'&&G.scene!=='fade') drawDeck();
+  drawFade(dt);
   /* going into a battle: over everything */
   if(G.scene==='battleIn') drawBattleIn(dt);
   else if(G.scene==='battle') drawBattleFadeIn(dt);

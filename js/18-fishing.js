@@ -90,8 +90,11 @@ function startFishing(){
      snapT:0,slackT:0,reel:0,ang:0,reelId:null,lastA:null,spin:0,size:0,splash:[],
      lift:0,liftWant:0,rodId:null,rodY0:0,
      side:rnd(-0.3,0.3),sideTo:0,drops:[],rings:[],leap:null};
-  padVec={x:0,y:0}; padId=null; G.scene='fishing';
+  padVec={x:0,y:0}; padId=null;
   sfx('fishing_start');
+  /* through black, until the pond, the rod and the reel have loaded (so their pictures
+     are there from the first frame) */
+  fadeThrough(()=>{ G.scene='fishing'; },()=>fishArtReady()&&imgReady(fishImg()===null?FISH_IMG[pondKey()]:fishImg()));
 }
 function endFishing(msg){ reelSound(true); FS=null; G.scene='world'; if(msg) say(msg); autoSave(); }
 /* the reel's clicking while she winds it: louder and a little faster the harder she reels,
