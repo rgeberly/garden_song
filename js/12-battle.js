@@ -1915,7 +1915,9 @@ function drawBattleBackdrop(dt){
   if(im){
     const f=BACK_HORIZON[backdropKey()]||0.5, r=im.naturalWidth/im.naturalHeight;
     const h=Math.max((T1-HORIZON)/(1-f),(HORIZON-T0)/f,LW/r), w=h*r;
-    b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,(LW-w)/2,HORIZON-f*h,w,h); b.restore();
+    b.save(); b.imageSmoothingEnabled=true;
+    if(GFX.dof||GFX.bloom) b.drawImage(hdBackdrop(im,(LW-w)/2,HORIZON-f*h,w,h,T0,T1),0,T0,LW,T1-T0);   /* with depth of field and bloom (Settings > Graphics) */
+    else b.drawImage(im,(LW-w)/2,HORIZON-f*h,w,h); b.restore();
   } else if(!hasBackdrop()) drawnBackdrop(P,T0,T1);
   else { b.fillStyle='#000'; b.fillRect(0,T0,LW,T1-T0); }        /* its painting is still loading */
   backdropLife(P,T0,T1,dt);
@@ -2181,6 +2183,7 @@ function drawBattleScene(dt){
     const r=mrc(p.id); if(r>0.3) flashOver(c=>drawMember(c,p.id,0,0,k),p.x,p.y,(r-0.3)/0.7);
   });
   tintBand(b,BAND_TOP(),BAND_BOT());       /* the hour's light over the field and everyone on it (the effects shine on top) */
+  if(HD()) hdLight(dt,1-ultA);
   if(B.ult&&ultA>0) drawUltFront(dt,ultA);
   if(A){ focus(A.foe); drawFoeFx(A.fx,k,A.targets); }
   else if(B.anim&&who&&!behind&&fxOn){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
@@ -2210,6 +2213,7 @@ function drawBattleScene(dt){
   drawTroubles(dt);
   drawSheets(dt);
   drawGlow(dt);
+  if(HD()) hdVignette();
   b.restore();                                   /* (the shake ends here: the windows stay put) */
 
   const pick=B.turn==='player'&&!B.over, W=battleWins(), dn=W.dn, id=actor(), pepBar=W=>({x:40,y:W.cmd.y-11,w:312,h:5});

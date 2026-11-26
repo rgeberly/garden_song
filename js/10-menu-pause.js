@@ -143,7 +143,11 @@ const SETTINGS=[{id:'diff',name:"Difficulty",opts:DIFF_ORDER,label:v=>DIFFICULTY
    about:v=>(gearOn('boots')?"":"Needs the Sturdy Boots. ")+{hold:"Hold B to run, let go to walk.",walk:"Run all the time; hold B to slow to a walk.",toggle:"Press B to switch between running and walking."}[v],
    get:()=>G.runMode,set:v=>{ G.runMode=v; G.runOn=false; }},
   volRow('music',"Music","The music, and the songs in the rhythm game."),
-  volRow('sfx',"Sound effects","Footsteps, menus, battles, doors, fishing and the friends' voices.")];
+  volRow('sfx',"Sound effects","Footsteps, menus, battles, doors, fishing and the friends' voices."),
+  /* opens the Graphics window (gfxRows in 21-hd.js); left/right steps through its presets */
+  {id:'gfx',name:"Graphics",opens:true,opts:['low','medium','high'],label:v=>GFX_PRESET_NAME[v],
+   about:v=>"Depth blur, bloom, sunbeams and more, in battles for now. "+(IS_TOUCH?"Tap again to set each one.":"J to set each one."),
+   get:()=>gfxPreset(),set:v=>gfxApplyPreset(v)}];
 /* a volume row: 0 (off) to 10, kept in this browser rather than the save (setVolume) */
 function volRow(k,name,what){
   return {id:k,name,level:true,opts:[0,1,2,3,4,5,6,7,8,9,10],label:v=>v?String(v):"Off",
@@ -374,14 +378,17 @@ function sysRows(){
      garden gear, which can be switched off */
   if(t==='Equip') return {h:34,rows:EQUIP_SLOTS.map(([slot])=>({slot})).concat(whoId()!=='kaitlyn'?[]:
     (ownedGearList().length?[{head:"Garden gear"}]:[]).concat(ownedGearList().map(g=>({gear:g}))))};
-  if(t==='Settings') return {h:44,rows:SETTINGS.map(S=>({set:S}))};
+  if(t==='Settings') return {h:44,rows:(sys.gfx?gfxRows():SETTINGS).map(S=>({set:S}))};
   if(t==='Lore') return loreRows();
   return {h:44,rows:SAVE_ACTIONS.map((a,i)=>({save:i}))};
 }
 const footH=()=>['Status','Skills','Items','Equip','Settings'].includes(SYSTABS[sys.tab])||(SYSTABS[sys.tab]==='Lore'&&sys.lore&&!sys.loreSel)?78:0;
 const rowsFit=()=>{ const R=sysRows(); return Math.max(1,Math.floor((SYSW.page.h-pageRowsY()-footH()-8)/R.h)); };
 function sysSee(i){ const n=rowsFit(); if(i<sys.top) sys.top=i; if(i>=sys.top+n) sys.top=i-n+1; }
-function sysSetTab(t){ sys.tab=(t+SYSTABS.length)%SYSTABS.length; sys.idx=0; sys.top=0; sys.lore=null; sys.loreSel=null; sys.held=null; sys.eq=null; }
+/* the Graphics window, opened from Settings, and B back out of it */
+function gfxOpen(){ sys.gfx=true; sys.idx=0; sys.top=0; sfx('menu_confirm'); }
+function gfxBack(){ if(!sys.gfx) return false; sys.gfx=false; sys.idx=SETTINGS.findIndex(S=>S.opens); sys.top=0; sysSee(sys.idx); return true; }
+function sysSetTab(t){ sys.tab=(t+SYSTABS.length)%SYSTABS.length; sys.idx=0; sys.top=0; sys.lore=null; sys.gfx=false; sys.loreSel=null; sys.held=null; sys.eq=null; }
 function sysActivate(i){
   const R=sysRows().rows[i], t=SYSTABS[sys.tab]; if(!R) return;
   if(t==='Party') partyPick(i);
@@ -399,7 +406,7 @@ function sysActivate(i){
     if(oneTarget(k)&&G.party.length>1){ sys.pick={k,idx:0}; return; }
     sys.ask={k,idx:0};
   }
-  else if(t==='Settings') stepSetting(R.set,1);
+  else if(t==='Settings'){ if(R.set.opens) gfxOpen(); else stepSetting(R.set,1); }
   else if(t==='Lore') loreActivate(R);
   else if(t==='Equip'){
     if(R.slot){ openEquipPick(whoId(),R.slot); return; }
@@ -464,7 +471,7 @@ function sysKey(k){
   else if((isLeft(k)||isRight(k))&&pagesWho()){ sys.who+=isLeft(k)?-1:1; sys.idx=0; sys.top=0; }
   else if((isLeft(k)||isRight(k))&&SYSTABS[sys.tab]==='Settings'){ const R=sysRows().rows[sys.idx]; if(R) stepSetting(R.set,isLeft(k)?-1:1); }
   else if(isOk(k)) sysActivate(sys.idx);
-  else if(isBack(k)){ if(!(SYSTABS[sys.tab]==='Lore'&&loreBack())) sys.focus='tabs'; }
+  else if(isBack(k)){ if(!(SYSTABS[sys.tab]==='Lore'&&loreBack())&&!(SYSTABS[sys.tab]==='Settings'&&gfxBack())) sys.focus='tabs'; }
   else if(k==='m') G.scene='world';
 }
 const PICK={x:40,y:150,w:280,row:40};
@@ -489,6 +496,7 @@ function sysTouch(x,y){
     sys.focus='list'; sys.idx=i; partyPick(i); return; }
   /* Lore: a tap on a page, or on a list's title, goes back a level */
   if(SYSTABS[sys.tab]==='Lore'&&(sys.loreSel||(sys.lore&&y<P.y+pageRowsY()-6))){ loreBack(); return; }
+  if(SYSTABS[sys.tab]==='Settings'&&sys.gfx&&y<P.y+pageRowsY()-6){ gfxBack(); return; }
   if(pagesWho()&&y<P.y+pageRowsY()-6){ sys.who+=x<P.x+P.w/2?-1:1; sys.idx=0; sys.top=0; return; }
   /* the first tap picks a row, a second tap on it uses it */
   const R=sysRows(), j=Math.floor((y-P.y-pageRowsY())/R.h), i=sys.top+j;
@@ -522,7 +530,7 @@ function sysFoot(){
             :[name+": nothing",equipChoices(id,R.slot).length>1?(IS_TOUCH?"Tap again to put something on.":"J to put something on."):"Nothing to wear here yet."]; }
   if(t==='Equip') return [R.gear.name+(gearOn(R.gear.id)?"  ·  on":"  ·  off"),cap(R.gear.desc)+". A to switch "+(gearOn(R.gear.id)?"off.":"on.")];
   if(t==='Lore') return loreFoot(R);
-  if(t==='Settings'){ const S=R.set; return [S.name+":  "+S.label(S.get()),S.about(S.get())+(S.level?(IS_TOUCH?"  Tap ◀ or ▶ to change.":"  ◀ ▶ to change."):IS_TOUCH?"  Tap again to change.":"  ◀ ▶ or J to change.")]; }
+  if(t==='Settings'){ const S=R.set; return [S.name+":  "+S.label(S.get()),S.about(S.get())+(S.opens?"  ◀ ▶ for a preset.":S.level?(IS_TOUCH?"  Tap ◀ or ▶ to change.":"  ◀ ▶ to change."):IS_TOUCH?"  Tap again to change.":"  ◀ ▶ or J to change.")]; }
   if(t==='Party'&&R.id) return null;
   return null;
 }
@@ -586,6 +594,7 @@ function drawSys(){
   else if(t==='Party') TS("Active team  "+G.party.length+"/"+PARTY_MAX,P.x+14,P.y+26,24,'#f4f6ff',null,true);
   else if(t==='Lore'){ TS(loreTitle(),P.x+14,P.y+26,sys.loreSel?22:24,'#f4f6ff',null,true);
     if(sys.lore&&!sys.loreSel) TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right'); }
+  else if(t==='Settings'&&sys.gfx){ TS("Graphics",P.x+14,P.y+26,24,'#f4f6ff',null,true); TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right'); }
   else TS(t,P.x+14,P.y+26,24,'#f4f6ff',null,true);
   if(t==='Party') drawPartyText(P);
   vis.forEach((r,j)=>{ const i=sys.top+j, y=rowY(i), sel=sys.focus==='list'&&i===sys.idx;
