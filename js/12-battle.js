@@ -106,13 +106,224 @@ function focus(f){ if(!f) return; const p=foeSpot(f); EX=p.x; EY=p.y-p.lift-52*p
 function foeBox(f){ const p=foeSpot(f), a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[f.sp], k=p.s/SC;
   const w=a?a.r[2]*k:60*p.s, h=a?a.r[3]*k:60*p.s;
   return {x:p.x-(a?a.ax*k:w/2),y:p.y-p.lift-(a?a.ay*k:h),w,h}; }
-function pop(txt,x,y,col,size){ B.pops.push({txt,x,y,t:1100,col,size}); }
+function pop(txt,x,y,col,size){ B.pops.push({txt,x,y,t:1100,col,size,fx2:FX2}); }
 /* Critical hits: a party member's hit lands extra hard now and then, more often the
    luckier they are */
 /* (Tituba's claws add PARTY_INFO crit, and some skills B.critUp for their own hits) */
 const CRIT_MUL=1.75, critChance=id=>0.03+statOf(id,'luk')*0.004+((PARTY_INFO[id]&&PARTY_INFO[id].crit)||0)+((B&&B.critUp)||0);
-function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++)
+function burst(x,y,col,n,spd){
+  if(FX2){ for(let i=0;i<(n||10);i++){ const a=rnd(0,Math.PI*2), sp=rnd(0.35,1)*(spd||0.13);     /* glowing, in FX2 */
+    glow({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.6-0.06,drag:0.05,g:0.0002,size:rnd(2.6,4.2),life:rnd(450,700),col}); } return; }
+  for(let i=0;i<(n||10);i++)
   B.fx.push({x,y,vx:rnd(-1,1)*(spd||0.13),vy:rnd(-0.19,0.03),t:520,col,g:0.001}); }
+
+/* ---------- livelier effects (FX2) ----------
+   A hit freezes everything for a moment (hit-stop), shakes the scene, knocks the pest back
+   with a squash, and throws off glowing sparks and a ring of light; damage numbers pop in.
+   Glows are soft round lights drawn with 'lighter', so overlapping light adds up and
+   shines. Sprout Strike's vines are drawn smooth and leafy instead of from squares.
+   ?oldfx in the address turns all this off, to compare. */
+let FX2=!/[?&]oldfx\b/.test(location.search);
+const TAU=Math.PI*2, GLOW_IMG={};
+const hexA=(h,a)=>'rgba('+parseInt(h.slice(1,3),16)+','+parseInt(h.slice(3,5),16)+','+parseInt(h.slice(5,7),16)+','+a+')';
+/* a soft round light of that colour, white at its heart (made once per colour) */
+function glowImg(col){
+  if(GLOW_IMG[col]) return GLOW_IMG[col];
+  const cv=document.createElement('canvas'); cv.width=cv.height=64; const c=cv.getContext('2d');
+  const g=c.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.2,hexA(col,0.95)); g.addColorStop(0.5,hexA(col,0.35)); g.addColorStop(1,hexA(col,0));
+  c.fillStyle=g; c.fillRect(0,0,64,64); return GLOW_IMG[col]=cv;
+}
+/* one glowing particle: x,y, vx,vy (px/ms), g (gravity), drag (share of speed lost per
+   16 ms), size (radius), life (ms), col; streak: stretched along its motion; ring: an
+   expanding ring from r0 to r1, w thick; fin: fades in (rising motes) */
+function glow(p){ (B.glow||(B.glow=[])).push({t:0,life:600,size:5,vx:0,vy:0,g:0,drag:0,a:1,...p}); }
+function drawGlow(dt){
+  const L=B.glow; if(!L||!L.length) return;
+  b.save(); b.globalCompositeOperation='lighter';
+  L.forEach(p=>{ p.t+=dt; const k=p.t/p.life; if(k>=1) return;
+    const d=Math.pow(1-p.drag,dt/16); p.vx*=d; p.vy*=d; p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+    const a=p.a*(p.fin&&k<0.2?k/0.2:1)*Math.pow(1-k,p.ring?1.5:1.1);
+    b.globalAlpha=a;
+    if(p.ring){ const r=p.r0+(p.r1-p.r0)*(1-Math.pow(1-k,3));
+      b.strokeStyle=hexA(p.col,1); b.lineWidth=p.w*(1-k)+0.6;
+      b.beginPath(); b.ellipse(p.x,p.y,r,r*0.62,0,0,TAU); b.stroke(); return; }
+    const s=p.size*(1-k*0.4);
+    if(p.streak){ const v=Math.hypot(p.vx,p.vy), len=s+v*60;
+      b.save(); b.translate(p.x,p.y); b.rotate(Math.atan2(p.vy,p.vx));
+      b.drawImage(glowImg(p.col),-len,-s*0.55,len*2,s*1.1); b.restore(); return; }
+    b.drawImage(glowImg(p.col),p.x-s,p.y-s,s*2,s*2); });
+  b.restore(); b.globalAlpha=1;
+  B.glow=L.filter(p=>p.t<p.life);
+}
+/* the scene shakes (mag px, for ms), easing off */
+function quake(mag,ms){ if(!B.quake||B.quake.mag*B.quake.t/B.quake.ms<mag) B.quake={mag,t:ms,ms}; }
+/* a blow landing at x,y: a flash, a ring of light and a spray of sparks */
+const IMPACT={gold:['#fff2c0','#ffd060','#ffb830'],crit:['#fff2c0','#ff9a30','#ff8a20'],
+  hurt:['#ffe4e0','#ff8a7a','#ff6050'],shield:['#e8f6ff','#9ad4ff','#7ac0ff']};
+function impactFx(x,y,crit,pal){
+  const k=crit?1.5:1, [core,ring,hot]=IMPACT[pal||(crit?'crit':'gold')];
+  glow({x,y,size:24*k,life:170,col:core});
+  glow({x,y,ring:true,r0:4,r1:30*k,w:3.5*k,life:340,col:ring});
+  for(let i=0;i<(crit?18:12);i++){ const a=rnd(0,TAU), sp=rnd(0.12,0.32)*k;
+    glow({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.75-0.04,drag:0.09,g:0.0004,size:rnd(3.2,5.4)*k,life:rnd(320,560),col:hot,streak:true}); }
+}
+/* Sprout Strike, FX2: vines curl up around the pest, leafing out as they grow, with green
+   motes rising; when it lands they burst into leaves and light, then wither away */
+const VINE={sprout:{dark:'#24552b',stem:'#6cc35e',leafD:'#3f8f45',leaf:'#8fe07a',mote:['#8fe07a','#e8ffb0'],bud:'#b8f890',flash:'#c8f8a0',ring:'#9ee880',spark:['#8fe07a','#fff6b0']},
+  hymn:{dark:'#7a5a18',stem:'#e8c050',leafD:'#b88a2a',leaf:'#ffe08a',mote:['#ffd060','#fff6c8'],bud:'#fff0a0',flash:'#fff0b0',ring:'#ffd870',spark:['#ffd060','#ffffff']}};
+function drawSproutFx2(k,kind){
+  const V=VINE[kind||'sprout'], A=B.anim, gx=EX, gy=EY+38, grow=Math.min(1,k*1.8), fade=k<0.6?1:Math.max(0,1-(k-0.6)/0.4);
+  /* rising motes, a steady few per frame while it grows */
+  A.emit=A.emit||0; while(A.emit<A.t&&k<0.6){ A.emit+=28;
+    glow({x:gx+rnd(-26,26),y:gy-rnd(0,10),vx:rnd(-0.01,0.01),vy:-rnd(0.03,0.07),size:rnd(2,3.5),life:rnd(600,900),col:Math.random()<0.7?V.mote[0]:V.mote[1],fin:true}); }
+  if(k>=0.55&&!A.burst){ A.burst=true;
+    glow({x:gx,y:gy-34,size:26,life:220,col:V.flash});
+    glow({x:gx,y:gy-30,ring:true,r0:6,r1:44,w:4,life:420,col:V.ring});
+    for(let i=0;i<18;i++){ const a=rnd(0,TAU), sp=rnd(0.08,0.24);
+      glow({x:gx,y:gy-30,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-0.05,drag:0.06,g:0.0003,size:rnd(2.5,4.5),life:rnd(450,750),col:i%3?V.spark[0]:V.spark[1],streak:i%2===0}); } }
+  b.save(); b.globalAlpha=fade; b.lineCap='round'; b.lineJoin='round';
+  for(let v=0;v<5;v++){
+    const bx=gx+(v-2)*11, dir=v%2?1:-1, H=62+((v*17)%20), n=Math.max(2,Math.round(28*grow));
+    const pt=s=>[bx+Math.sin(s*5.2+v)*(8+s*13)*dir, gy-s*H];
+    /* the stem, thick at the root and thin at the tip: a dark edge, then its green */
+    for(const [w0,col] of [[4.2,V.dark],[2.4,V.stem]]){
+      for(let i=1;i<n;i++){ const s0=(i-1)/27, s1=i/27, [x0,y0]=pt(s0), [x1,y1]=pt(s1);
+        b.lineWidth=w0*(1-s1*0.6); b.strokeStyle=col; b.beginPath(); b.moveTo(x0,y0); b.lineTo(x1,y1); b.stroke(); } }
+    /* leaves along it, unfurling as the stem passes them */
+    for(let j=1;j<=4;j++){ const s=j*0.2; if(s>grow) break;
+      const open=Math.min(1,(grow-s)*5), [lx,ly]=pt(s), side=j%2?1:-1;
+      b.save(); b.translate(lx,ly); b.rotate(side*0.9+dir*0.2); b.scale(open,open);
+      b.fillStyle=V.leafD; b.beginPath(); b.ellipse(side*5,0,5.5,2.6,0,0,TAU); b.fill();
+      b.fillStyle=V.leaf; b.beginPath(); b.ellipse(side*5,-0.6,3.6,1.4,0,0,TAU); b.fill(); b.restore(); }
+    /* a bud of light at the growing tip */
+    if(grow<1&&k<0.6){ const [tx,ty]=pt(grow); b.save(); b.globalCompositeOperation='lighter'; b.globalAlpha=0.8*fade;
+      b.drawImage(glowImg(V.bud),tx-6,ty-6,12,12); b.restore(); }
+  }
+  b.restore(); b.globalAlpha=1;
+}
+/* --- FX2 drawing helpers --- */
+/* a soft light at x,y (radius r) */
+function glowAt(x,y,r,col,a){ if(a<=0) return; b.save(); b.globalCompositeOperation='lighter'; b.globalAlpha=Math.min(1,a);
+  b.drawImage(glowImg(col),x-r,y-r,r*2,r*2); b.restore(); }
+/* a line of light along pts: a wide soft glow, then a bright thin core */
+function glowPath(pts,col,w,a){ if(a<=0||pts.length<2) return;
+  b.save(); b.globalCompositeOperation='lighter'; b.lineCap='round'; b.lineJoin='round';
+  for(const [lw,al,c] of [[w*3,0.22,col],[w*1.6,0.45,col],[w*0.6,0.9,'#ffffff']]){
+    b.globalAlpha=a*al; b.strokeStyle=c; b.lineWidth=lw; b.beginPath(); b.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++) b.lineTo(pts[i][0],pts[i][1]); b.stroke(); }
+  b.restore(); }
+/* every `ms` of an animation's time, call fn (time-based, so the same on any frame rate) */
+function emitEvery(A,key,ms,fn){ A[key]=A[key]==null?A.t-ms:A[key]; while(A[key]+ms<=A.t){ A[key]+=ms; fn(); } }
+/* once, the first time an animation passes k */
+function onceAt(A,key,k,at,fn){ if(k>=at&&!A[key]){ A[key]=true; fn(); } }
+/* where each pest still in the fight is: its middle */
+const foeMids=()=>liveFoes().map(f=>{ const r=foeBox(f); return {x:r.x+r.w*0.45,y:r.y+r.h*0.55,f}; });
+/* the friends' spells, in their own colours (heals are always green) */
+const SPELL_COL={ivy:['#b06ae0','#e8c0ff'],tituba:['#8aa8ff','#f0f4ff'],tex:['#d8a840','#fff0b0'],heal:['#7fd86a','#e8ffd8']};
+
+/* FX2 versions of the party's moves (drawSpellFx falls back to the old ones without FX2):
+   true if it drew one */
+function drawSpellFx2(kind,k,ax,ay){
+  const A=B.anim; if(!A) return false;
+  if(kind==='sprout'||kind==='hymn'){ drawSproutFx2(k,kind); return true; }
+  if(kind==='waltz'){
+    /* Bramble Waltz: three thorny whips sweep round the pest, then snap tight round it */
+    const thorny=(pts,a)=>{ if(a<=0) return; b.save(); b.globalAlpha=a; b.lineCap='round'; b.lineJoin='round';
+      for(const [lw,c] of [[5,'#2c1838'],[2.6,'#8a5ab0']]){ b.strokeStyle=c; b.lineWidth=lw; b.beginPath(); b.moveTo(pts[0][0],pts[0][1]);
+        for(let i=1;i<pts.length;i++) b.lineTo(pts[i][0],pts[i][1]); b.stroke(); }
+      b.fillStyle='#e0c0f0';
+      for(let i=2;i<pts.length-1;i+=3){ const [x0,y0]=pts[i-1],[x1,y1]=pts[i+1], nx=-(y1-y0), ny=x1-x0, l=Math.hypot(nx,ny)||1;
+        const [x,y]=pts[i]; b.beginPath(); b.moveTo(x+nx/l*1.6,y+ny/l*1.6); b.lineTo(x+nx/l*6,y+ny/l*6); b.lineTo(x+(x1-x0)*0.3,y+(y1-y0)*0.3); b.fill(); }
+      b.restore(); };
+    const cx=EX, cy=EY+12, arc=(r,a0,len,n)=>{ const P=[]; for(let i=0;i<=n;i++){ const a=a0+len*i/n; P.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r*0.62]); } return P; };
+    if(k<0.55){ for(let s=0;s<3;s++){ const r=52-k*36, a0=s*2.1+k*8, len=Math.min(1,k*2.2)*2.3;
+        thorny(arc(r,a0,len,22),1); glowAt(...arc(r,a0+len,0,1)[0],5,'#d8a0ff',0.7); } }
+    else { const q=(k-0.55)/0.45; thorny(arc(32-q*7,0,TAU,48),1-q*q); }
+    onceAt(A,'snap',k,0.55,()=>{ glow({x:cx,y:cy,ring:true,r0:40,r1:22,w:4,life:360,col:'#c890f0'});
+      for(let i=0;i<14;i++){ const a=rnd(0,TAU), sp=rnd(0.08,0.2); glow({x:cx+Math.cos(a)*26,y:cy+Math.sin(a)*16,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.6,drag:0.08,size:rnd(2.5,4),life:rnd(350,550),col:i%2?'#c890f0':'#ffe0ff',streak:true}); } });
+    return true;
+  }
+  if(kind==='req'){
+    /* Wasp Requiem: a swarm of glowing wasps spirals in on the pests, then poison blooms over each */
+    if(k<0.6) for(let i=0;i<12;i++){ const a=i*0.52+k*10, r=(70-k*70)*(0.7+0.3*Math.sin(i)), x=EX+Math.cos(a)*r, y=EY+10+Math.sin(a)*r*0.55;
+      const tx=EX+Math.cos(a-0.35)*(r+6), ty=EY+10+Math.sin(a-0.35)*(r+6)*0.55;
+      glowPath([[tx,ty],[x,y]],'#e8a020',1.4,0.6); glowAt(x,y,5,'#ffc030',0.9);
+      b.fillStyle='#2a1a0a'; b.beginPath(); b.ellipse(x,y,1.8,1.2,a,0,TAU); b.fill(); }
+    onceAt(A,'bloom',k,0.55,()=>foeMids().forEach(p=>{ glow({x:p.x,y:p.y,ring:true,r0:4,r1:30,w:3,life:420,col:'#a8e050'});
+      for(let i=0;i<9;i++) glow({x:p.x+rnd(-14,14),y:p.y+rnd(-10,8),vx:rnd(-0.03,0.03),vy:-rnd(0.01,0.04),size:rnd(6,10),life:rnd(700,1000),col:i%3?'#8ccf40':'#b070e0',a:0.7,fin:true}); }));
+    return true;
+  }
+  if(kind==='thorn'){
+    /* Thorn Nocturne: dark thorns lit by moonlight burst up under the pests, then sink away */
+    const rise=k<0.75?Math.min(1,k*1.8):Math.max(0,1-(k-0.75)/0.25), base=EY+46;
+    if(rise>0){ b.save(); b.globalAlpha=0.45*rise; b.fillStyle='#1a1028'; b.beginPath(); b.ellipse(EX+2,base,56,7,0,0,TAU); b.fill(); b.restore(); }  /* the broken ground */
+    for(let i=0;i<9;i++){ const x=EX-46+i*11.5+Math.sin(i*3.1)*3, h=rise*(58+((i*13)%28)), lean=Math.sin(i*1.9)*0.25;
+      if(h<2) continue;
+      const tip=[x+h*lean,base-h], g=b.createLinearGradient(x,base,tip[0],tip[1]);
+      g.addColorStop(0,'#1e1230'); g.addColorStop(0.6,'#5a3a86'); g.addColorStop(1,'#d8c8f8');
+      b.fillStyle=g; b.beginPath(); b.moveTo(x-4.5,base); b.quadraticCurveTo(x+h*lean*0.4-2,base-h*0.5,tip[0],tip[1]);
+      b.quadraticCurveTo(x+h*lean*0.4+2,base-h*0.5,x+4.5,base); b.fill();
+      glowAt(tip[0],tip[1],5,'#e0d0ff',0.6*rise); }
+    if(k>0.6&&k<0.85) glowAt(EX,EY,90,'#c8b0f0',(0.85-k)/0.25*0.45);
+    emitEvery(A,'petal',60,()=>{ if(k<0.85) glow({x:EX+rnd(-50,50),y:EY-rnd(20,50),vx:rnd(-0.02,0.02),vy:rnd(0.02,0.05),size:rnd(2,3),life:900,col:'#e0d0ff',fin:true}); });
+    return true;
+  }
+  if(kind==='lull'){
+    /* Frog Lullaby: soft green notes and motes drift up round her, the frog bobbing along */
+    emitEvery(A,'note',90,()=>glow({x:ax+rnd(-30,30),y:ay-rnd(20,60),vx:rnd(-0.01,0.01),vy:-rnd(0.02,0.05),size:rnd(2.5,4),life:1000,col:Math.random()<0.6?'#9ee880':'#f0fff0',fin:true}));
+    for(let i=0;i<6;i++){ const q=(k*1.3+i/6)%1, x=ax+Math.sin(i*2.3+q*5)*28, y=ay-30-q*70, a=Math.sin(q*Math.PI);
+      glowAt(x,y,9,'#b8f0a0',a*0.6); noteGlyph(b,Math.round(x),Math.round(y),i%2?'#e8ffe0':'#a8e890',a); }
+    const bo=Math.abs(Math.sin(G.t/180))*4; glowAt(ax+34,ay-30-bo,18,'#a8e890',0.35); drawFrog(b,ax+34,ay-26-bo,G.t,0);
+    return true;
+  }
+  if(kind==='kick'||kind==='lunge'){
+    /* a swoosh of light ahead of the blow (the hit itself has its own flash and sparks) */
+    if(k>0.3&&k<0.62){ const q=(k-0.3)/0.32, P=[]; for(let i=0;i<=14;i++){ const a=-1.3+2.2*(i/14)*Math.min(1,q*1.6); P.push([EX-30+Math.cos(a)*30,EY+18+Math.sin(a)*24]); }
+      glowPath(P,'#fff0c0',2.6,Math.sin(q*Math.PI)); }
+    return true;
+  }
+  if(kind==='meditate'||kind==='focus'){
+    /* calm rings of light settling round them, and motes rising (warm ones for Focus) */
+    const fo=kind==='focus', C=fo?['#ffb070','#ffe0a0']:['#9ad4ff','#c8f0b0'];
+    for(let i=0;i<3;i++){ const p=clamp(k*1.4-i*0.22,0,1); if(p<=0||p>=1) continue;
+      const P=[]; for(let j=0;j<=32;j++){ const a=j/32*TAU; P.push([ax+Math.cos(a)*(46-p*30),ay-4+Math.sin(a)*(12-p*7)]); }
+      glowPath(P,C[i%2],1.6,(1-p)*0.9); }
+    emitEvery(A,'mote',70,()=>{ if(k<0.85) glow({x:ax+rnd(-26,26),y:ay-rnd(0,20),vy:-rnd(0.04,0.08),vx:rnd(-0.01,0.01),size:rnd(2.2,3.4),life:900,col:C[Math.random()<0.5?0:1],fin:true}); });
+    return true;
+  }
+  if(kind==='spell'){
+    /* a friend's magic in their own colour: motes gather round them, then (an attack) orbs
+       streak at the pest */
+    const C=A.heal?SPELL_COL.heal:SPELL_COL[A.who]||SPELL_COL.ivy;
+    for(let i=0;i<10;i++){ const a=i*0.63+G.t/250, r=20+Math.sin(G.t/200+i)*6;
+      glowAt(ax+Math.cos(a)*r,ay-14+Math.sin(a)*r*0.5,4.5,C[i%2],Math.sin(Math.min(1,k*1.4)*Math.PI)*0.9); }
+    if(!A.heal&&k>0.45&&k<0.75){ const q=(k-0.45)/0.3;
+      for(let i=0;i<5;i++){ const pt=t=>[ax+(EX-ax)*t+Math.sin(i*1.7+t*6)*6, ay-14+(EY+20-ay+14)*t-Math.sin(t*Math.PI)*24+i*3];
+        const P=[]; for(let j=0;j<=6;j++) P.push(pt(Math.max(0,q-0.18+0.03*j)));
+        glowPath(P,C[0],1.6,0.8); glowAt(...pt(q),6,C[1],1); } }
+    return true;
+  }
+  if(kind==='sing'){
+    /* a little bird's song: glowing notes bob up, then drift to the party (a heal) or fly at the pests */
+    for(let i=0;i<6;i++){ const q=(k*1.6+i/6)%1, a=Math.sin(q*Math.PI)*(1-k*0.6);
+      let x=ax+Math.sin(i*2.3+q*5)*14, y=ay-30-q*40;
+      if(!A.heal&&k>0.4){ const p=clamp((k-0.4)/0.35,0,1); x+=(EX-x)*p; y+=(EY+10-y)*p; }
+      glowAt(x,y,13,A.heal?'#b8f0a0':'#ffd890',a*0.9); noteGlyph(b,Math.round(x),Math.round(y),i%2?(A.heal?'#c8f0b0':'#ffd08a'):'#fff6d8',a); }
+    return true;
+  }
+  if(kind==='eat'){
+    emitEvery(A,'mote',60,()=>{ if(k<0.8) glow({x:ax+rnd(-20,20),y:ay-rnd(50,70),vy:-rnd(0.03,0.06),size:rnd(2.4,3.6),life:800,col:Math.random()<0.5?'#8fe07a':'#ffe08a',fin:true}); });
+    return true;
+  }
+  return false;
+}
+/* FX2: HP coming back: a ring of light at their feet and a column of rising motes */
+function healFx(id){
+  const s=slotOf(id), top=headOf(id);
+  glow({x:s.x,y:s.y-2,ring:true,r0:8*s.s,r1:30*s.s,w:2.5,life:500,col:'#8fe07a'});
+  for(let i=0;i<10;i++) glow({x:s.x+rnd(-14,14)*s.s,y:s.y-rnd(0,s.y-top),vy:-rnd(0.03,0.07),size:rnd(2.4,3.8),life:rnd(600,900),col:i%2?'#8fe07a':'#e8ffd8',fin:true});
+}
 /* hold (ms): a recorded voice that runs longer than the move; its animation loops until
    the voice is done. The move lands at its usual time, or with atEnd (Kaitlyn's songs)
    its effect plays last, landing as the song ends (it runs a little past the hold) */
@@ -469,6 +680,9 @@ function hitFoe(f,dmg,label){
   /* a guarding pest takes half from every hit until its next turn (when it lets its guard down) */
   if(f.st.guard){ const d=Math.max(1,Math.round(dmg/2)); label=label.replace(String(dmg),String(d))+"  It's guarding!"; dmg=d; }
   f.hp=Math.max(0,f.hp-dmg); f.shake=crit?520:340; f.flash=crit?320:200; focus(f);
+  if(FX2){ const r=foeBox(f); f.hitT=0; f.hitBig=crit;
+    B.stopT=Math.max(B.stopT||0,crit?130:70); quake(crit?5:2.2,crit?340:200);
+    impactFx(r.x+r.w*0.42,r.y+r.h*0.5,crit); }
   if(crit){ pop("-"+dmg+"!",EX,EY-10,'#ff9a3a',52); pop("CRITICAL!",EX,EY-42,'#fff07a',28); B.critT=260; blip(980,0.05,0.18,'square'); }
   else pop("-"+dmg,EX,EY-10,'#ffd24a');
   thud(); B.log=label;
@@ -613,7 +827,7 @@ function flurry(n,hit){
 function mendMember(id,h){
   const M=member(id), s=slotOf(id); h=Math.max(1,Math.round(h));
   M.hp=Math.min(M.maxhp,M.hp+h); pop("+"+h,s.x,headOf(id),'#8fe07a');
-  burst(s.x,headOf(id)+14*s.s,'#c8f0b0',7,0.08); return h;
+  if(FX2) healFx(id); else burst(s.x,headOf(id)+14*s.s,'#c8f0b0',7,0.08); return h;
 }
 /* Tiny One's Tweet: everyone standing gets back a share of their max HP (PARTY_INFO tweet) */
 function doTweet(){
@@ -839,7 +1053,7 @@ function foeHits(f,sk,targets,charged,cover){
     if(sk.miss&&Math.random()<sk.miss){ pop("miss",s.x,headOf(id),'#e8eef8'); lines.push("It misses "+name+"."); return; }
     if(F.blind>0&&Math.random()<0.5){ pop("miss",s.x,headOf(id),'#e8eef8'); lines.push("It can't see and misses "+name+"."); return; }
     if(sk.pow>0&&B.shieldAll){          /* Safe and Sound: nothing gets through this round */
-      pop("0",s.x,headOf(id),'#bfe8ff'); burst(s.x,s.y-80,'#bfe8ff',8);
+      pop("0",s.x,headOf(id),'#bfe8ff'); if(FX2) impactFx(s.x+8*s.s,(s.y+headOf(id))/2,false,'shield'); else burst(s.x,s.y-80,'#bfe8ff',8);
       if(targets.length===1) lines.push("It can't get through to "+name+"!"); }
     else if(sk.pow>0){
       const braced=B.guard[id];         /* braced: half damage until their next turn (a quarter in a shell) */
@@ -848,7 +1062,10 @@ function foeHits(f,sk,targets,charged,cover){
       M.hp=Math.max(0,M.hp-dmg); pepFill(id,dmg);
       /* a hit may wake you, as it may a pest */
       const S=B.st[id]; if(S&&S.sleep>0&&M.hp>0&&Math.random()<0.4){ S.sleep=0; lines.push(name+" wakes up!"); }
-      pop("-"+dmg,s.x,headOf(id),'#ff8a8a'); burst(s.x,s.y-80,'#ff9a8a',8);
+      pop("-"+dmg,s.x,headOf(id),'#ff8a8a');
+      if(FX2){ (B.mhit||(B.mhit={}))[id]={t:0,big:!!charged}; impactFx(s.x+8*s.s,(s.y+headOf(id))/2,charged,'hurt');
+        B.stopT=Math.max(B.stopT||0,charged?110:60); quake(charged?4:1.8,charged?300:180); }
+      else burst(s.x,s.y-80,'#ff9a8a',8);
       if(sk.drain){ const h=Math.round(dmg*sk.drain); f.hp=Math.min(f.maxhp,f.hp+h); pop("+"+h,EX,EY-10,'#8fe07a'); }
       if(targets.length===1) lines.push("It hits "+name+" for "+dmg+"!"+(braced?" (braced)":"")+(charged?" A huge blow!":""));
     }
@@ -1074,6 +1291,7 @@ function wrapT(text,x,y,w,size,col){
 }
 /* effects for the move playing; ax,ay are the feet of whoever is acting */
 function drawSpellFx(kind,k,ax,ay){
+  if(FX2&&drawSpellFx2(kind,k,ax,ay)) return;
   if(kind==='sprout'||kind==='hymn'){
     for(let i=0;i<7;i++){
       const h=Math.min(1,k*1.6)*62, a=i*1.05+Math.sin(G.t/200)*0.2;
@@ -1293,9 +1511,13 @@ function drawFoeFx(fx,k,targets){
   const T=(targets||[]).map(id=>{ const s=slotOf(id); return {x:s.x+8*s.s,y:s.y-62*s.s}; });
   const hit=clamp((k-0.45)/0.4,0,1), on=k>0.45&&k<0.9;
   const along=(t,arc)=>T.map(p=>({x:from.x+(p.x-from.x)*t,y:from.y+(p.y-from.y)*t-Math.sin(t*Math.PI)*arc}));
-  const dot=(x,y,r,col,a)=>{ b.globalAlpha=a===undefined?1:a; b.fillStyle=col; b.beginPath(); b.arc(x,y,r,0,7); b.fill(); b.globalAlpha=1; };
+  /* FX2: slashes, sparks, venom and wisps glow; thrown things (and the swarm) stay solid */
+  const soft=FX2&&!['ball','trash','paper','steal','buzz'].includes(fx);
+  const dot=(x,y,r,col,a)=>{ b.globalAlpha=a===undefined?1:a; b.fillStyle=col; b.beginPath(); b.arc(x,y,r,0,7); b.fill(); b.globalAlpha=1;
+    if(soft) glowAt(x,y,r*3,col,(a===undefined?1:a)*0.5); };
   const line=(x1,y1,x2,y2,col,w,a)=>{ b.globalAlpha=a===undefined?1:a; b.strokeStyle=col; b.lineWidth=w;
-    b.beginPath(); b.moveTo(x1,y1); b.lineTo(x2,y2); b.stroke(); b.globalAlpha=1; };
+    b.beginPath(); b.moveTo(x1,y1); b.lineTo(x2,y2); b.stroke(); b.globalAlpha=1;
+    if(soft) glowPath([[x1,y1],[x2,y2]],col,w*0.8,(a===undefined?1:a)*0.5); };
   if(['bash','pinch','bite','peck','claw','dive'].includes(fx)){
     /* slashes, bite marks or an impact star where it lands */
     if(on) T.forEach(p=>{ const a=1-hit;
@@ -1428,6 +1650,7 @@ function inspectLayout(){
   return {I,rows,h:40+rows.length*15+20};
 }
 function drawBattle(dt){
+  if(B.stopT>0){ B.stopT-=dt; dt=0; }          /* FX2 hit-stop: a blow freezes everything for a moment */
   if(B.turn==='player') B.readyT+=dt;
   let k=0;
   if(B.anim){
@@ -1443,6 +1666,10 @@ function drawBattle(dt){
   if(B.prep) B.prep.t+=dt;
   if(B.banner){ B.banner.t-=dt; if(B.banner.t<=0) B.banner=null; }
   if(B.inspect&&typeof B.inspect==='object'&&B.inspect.hp<=0) B.inspect=null;
+  /* FX2: the scene (not the windows) shakes after a blow */
+  let qx=0,qy=0; if(B.quake){ B.quake.t-=dt; if(B.quake.t<=0) B.quake=null;
+    else { const q=B.quake.mag*B.quake.t/B.quake.ms; qx=Math.round(rnd(-1,1)*q); qy=Math.round(rnd(-1,1)*q*0.6); } }
+  b.save(); b.translate(qx,qy);
   drawBattleBackdrop(dt);
   /* the pests, back to front: shadow, sprite, and a white flash when hit or about to
      use a special move. One lunges at whoever it attacks (further for a dive, a dash
@@ -1452,7 +1679,9 @@ function drawBattle(dt){
     if(f.shake>0) f.shake-=dt; if(f.flash>0) f.flash-=dt;
     if((f.hp<=0&&!(B.pending>0))||B.over==='win') f.fade=Math.min(1,f.fade+dt/450);     /* a beaten pest fades away (once a flurry's done) */
     if(f.fade>=1) return;
-    const p=foeSpot(f), me=A&&A.foe===f, sh=f.shake>0?Math.round(Math.sin(G.t/25)*3):0;
+    if(f.hitT!=null) f.hitT+=dt;
+    const rc=FX2&&f.hitT!=null&&f.hitT<300?1-f.hitT/300:0;                /* FX2 recoil, 1 -> 0 */
+    const p=foeSpot(f), me=A&&A.foe===f, sh=FX2?Math.round(rc*rc*(f.hitBig?12:8)):f.shake>0?Math.round(Math.sin(G.t/25)*3):0;
     const eL=me&&!A.self?Math.round(Math.sin(k*Math.PI)*(A.fx==='dive'?-110:A.fx==='zoom'?-150:-38)):0;
     const eY=me&&A.fx==='dive'?Math.round(Math.sin(k*Math.PI)*(40+p.lift)):0;
     /* ground pests stand still on their shadows; flyers hover and bob */
@@ -1460,16 +1689,23 @@ function drawBattle(dt){
     const x=p.x+sh+eL, y=p.y-p.lift+bob+eY, art=c=>drawEnemyArt(c,f.sp,0,0,p.s);
     castShadow(art,x,p.y,p.lift-eY,0.36*(1-f.fade));
     b.globalAlpha=(1-f.fade)*(night?.88:1)*(me&&A.fx==='fade'?1-Math.sin(k*Math.PI)*0.7:1);
+    const sq=rc*rc*(f.hitBig?0.18:0.12)*Math.cos((1-rc)*9);                /* a squash that springs back */
+    if(sq){ b.save(); b.translate(x,y); b.scale(1+sq,1-sq); b.translate(-x,-y); }
     drawEnemyArt(b,f.sp,x,y,p.s);
     b.globalAlpha=1;
     const prep=B.prep&&B.prep.f===f?Math.abs(Math.sin(B.prep.t/90))*0.75:0;
     flashOver(art,x,y,Math.max(f.flash/250,prep)*(1-f.fade));
+    if(sq) b.restore();
   });
   /* the party, back to front, each in place playing their own animations */
   let who=null;
   const placed=B.party.map(id=>{ const s=slotOf(id);
     if(B.anim&&B.anim.who===id) who={id,x:s.x,y:s.y};
     return {id,x:s.x,y:s.y}; }).sort((a,z)=>a.y-z.y);
+  /* FX2: a member just hit is knocked back (left) and flashes */
+  const mrc=id=>{ const h=B.mhit&&B.mhit[id]; return h&&h.t<300?1-h.t/300:0; };
+  if(B.mhit) for(const id in B.mhit){ B.mhit[id].t+=dt; if(B.mhit[id].t>400) delete B.mhit[id]; }
+  placed.forEach(p=>{ const r=mrc(p.id); if(r) p.x-=Math.round(r*r*(B.mhit[p.id].big?12:8)); });
   placed.forEach(p=>castShadow(c=>drawMember(c,p.id,0,0,k),p.x,p.y,0,0.32));
   /* Meditate's and Focus's rings and motes go behind the party */
   const behind=B.anim&&who&&(B.anim.kind==='meditate'||B.anim.kind==='focus');
@@ -1479,6 +1715,7 @@ function drawBattle(dt){
       b.globalAlpha=.35+Math.sin(G.t/260)*.12; b.fillStyle='#ffe08a';
       const s=slotOf(p.id).s; b.beginPath(); b.ellipse(p.x,p.y+1,30*s,8*s,0,0,7); b.fill(); b.globalAlpha=1; }
     drawMember(b,p.id,p.x,p.y,k);
+    const r=mrc(p.id); if(r>0.3) flashOver(c=>drawMember(c,p.id,0,0,k),p.x,p.y,(r-0.3)/0.7);
   });
   if(A){ focus(A.foe); drawFoeFx(A.fx,k,A.targets); }
   else if(B.anim&&who&&!behind&&fxOn){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
@@ -1498,10 +1735,13 @@ function drawBattle(dt){
   const won=B.over==='win'&&B.win, xs=won?xpShown(B.win.who[0]):null;
   /* victory sparkles */
   if(won&&B.win.t<1600&&Math.random()<dt/40)
-    B.fx.push({x:rnd(30,330),y:rnd(40,200),vx:rnd(-0.02,0.02),vy:rnd(-0.06,-0.01),t:700,col:Math.random()<0.5?'#ffe08a':'#ffffff',g:0.00005});
+    { const sp={x:rnd(30,330),y:rnd(40,200),vx:rnd(-0.02,0.02),vy:rnd(-0.06,-0.01),t:700,col:Math.random()<0.5?'#ffe08a':'#ffffff',g:0.00005};
+      if(FX2) glow({x:sp.x,y:sp.y,vx:sp.vx,vy:sp.vy,size:rnd(2.5,4),life:900,col:sp.col,fin:true}); else B.fx.push(sp); }
   B.fx.forEach(f=>{ f.t-=dt; f.x+=f.vx*dt; f.y+=f.vy*dt; f.vy+=dt*f.g;
     b.globalAlpha=Math.min(1,f.t/300); px(b,Math.round(f.x),Math.round(f.y),3,3,f.col); b.globalAlpha=1; });
   B.fx=B.fx.filter(f=>f.t>0);
+  drawGlow(dt);
+  b.restore();                                   /* (the shake ends here: the windows stay put) */
 
   const pick=B.turn==='player'&&!B.over, W=battleWins(), dn=W.dn, id=actor(), pepBar=W=>({x:40,y:W.cmd.y-11,w:312,h:5});
   /* a name in the party window: dim when down, green once they've picked their move */
@@ -1612,6 +1852,9 @@ function drawBattle(dt){
   if(shoutAt){ m.globalAlpha=Math.min(1,B.shout.t/300); TS(B.shout.txt,shoutAt.tx,shoutAt.y+17,24,'#f4f6ff','center',true); m.globalAlpha=1; }
   if(bannerAt&&!B.inspect){ m.globalAlpha=Math.min(1,B.banner.t/250); TS(B.banner.txt,bannerAt.cx,bannerAt.y+17,24,'#ffe08a','center',true); m.globalAlpha=1; }
   B.pops.forEach(p=>{ p.t-=dt; p.y-=dt*0.03;
+    if(p.fx2){ /* FX2: it pops in big, settles, and springs up a little */
+      const e=1100-p.t, sc=e<90?0.6+0.9*e/90:e<230?1.5-0.5*(e-90)/140:1, up=16*(1-Math.pow(1-Math.min(1,e/320),3));
+      m.globalAlpha=Math.min(1,p.t/400); TO(p.txt,p.x,p.y-up,(p.size||40)*sc,p.col,'center',true,(p.size?2:1.6)*sc); m.globalAlpha=1; return; }
     const hop=Math.max(0,Math.sin((1100-p.t)/140))*6*Math.max(0,(p.t-600)/500);
     m.globalAlpha=Math.min(1,p.t/400); TO(p.txt,p.x,p.y-hop,p.size||40,p.col,'center',true,p.size?2:1.6); m.globalAlpha=1; });
   B.pops=B.pops.filter(p=>p.t>0);

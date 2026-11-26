@@ -74,7 +74,8 @@ function drawCastFx(cam){
     plots.forEach(p=>{ if(!active(p)||!p.sp) return;
       for(let i=0;i<6;i++){ const q=(c.t/700+i/6+p.x*0.01)%1, a=i*1.05+c.t/300;
         b.globalAlpha=Math.sin(q*Math.PI)*Math.min(1,k*3);
-        px(b,Math.round(p.x-cam.x+Math.cos(a)*(6+q*8)),Math.round(p.y-cam.y-q*36),3,3,i%2?'#8fe07a':'#e8ffb0'); } });
+        const sx=p.x-cam.x+Math.cos(a)*(6+q*8), sy=p.y-cam.y-q*36, col=i%2?'#8fe07a':'#e8ffb0';
+        if(FX2) glowAt(sx,sy,4,col,b.globalAlpha); else px(b,Math.round(sx),Math.round(sy),3,3,col); } });
     b.globalAlpha=1;
   } else if(c.id==='ward'){
     /* golden rings ripple outward from her */
