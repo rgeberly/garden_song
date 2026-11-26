@@ -215,7 +215,7 @@ function initMusic(){ musicOn=true; }
 /* where a track starts (seconds), and loops back to, if not its very beginning */
 const TRACK_START={title:16};
 function trackFor(k){
-  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=new Audio(ASSET_MUS[k]); a.volume=0; a.preload='auto'; TRACKS[k]=a;
+  if(!TRACKS[k]&&ASSET_MUS[k]){ try{ const a=new Audio(ASSET_MUS[k]); a.volume=0; a._v=0; a.preload='auto'; TRACKS[k]=a;
     const st=TRACK_START[k];
     a.loop=k!=='victory'&&!st;
     if(st) a.addEventListener('ended',()=>{ if(curTrack===k){ a.currentTime=st; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); } });
@@ -238,13 +238,21 @@ function areaMusic(){
   if(G.area==='mountain') return s==='spring'||s==='summer'?'springsummer_mountain':'fallwinter_mountain';
   return s==='spring'?'calm':s+'_garden';
 }
+/* A fade keeps its own count of the level (a._v) instead of reading a.volume back: on
+   iPhones and iPads a track's volume can't be set (it always reads 1), so a fade that
+   watched it never ended and the old track never stopped. There the fades are cuts
+   instead, and a Music level of 0 mutes (which they do allow). */
 function fadeTo(a,target,done){
   if(!a) return;
   if(a._f) clearInterval(a._f);
+  if(a._v==null) a._v=0;
+  target=Math.max(0,Math.min(1,target)); a.muted=VOL.music===0;
   a._f=setInterval(()=>{
-    const d=target-a.volume;
-    if(Math.abs(d)<0.04){ a.volume=Math.max(0,Math.min(1,target)); clearInterval(a._f); a._f=null; if(done)done(); }
-    else a.volume=Math.max(0,Math.min(1,a.volume+Math.sign(d)*0.04));
+    const d=target-a._v;
+    if(Math.abs(d)<0.04){ a._v=target; clearInterval(a._f); a._f=null; }
+    else a._v=Math.max(0,Math.min(1,a._v+Math.sign(d)*0.04));
+    try{ a.volume=a._v; }catch(e){}
+    if(!a._f&&done) done();
   },40);
 }
 function setMusic(mode){
@@ -253,6 +261,6 @@ function setMusic(mode){
   if(old) fadeTo(old,0,()=>{ try{old.pause();}catch(e){} });
   curTrack=mode;
   const a=trackFor(mode);
-  if(a){ try{ a.volume=0; if(mode==='victory'||mode==='battle'||mode==='boss'||mode==='boss2') a.currentTime=0; cueTrack(a,mode); const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+  if(a){ try{ a.volume=0; a._v=0; if(mode==='victory'||mode==='battle'||mode==='boss'||mode==='boss2') a.currentTime=0; cueTrack(a,mode); const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
          fadeTo(a,trackVol(mode)); }
 }
