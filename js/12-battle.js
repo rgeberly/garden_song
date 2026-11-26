@@ -295,7 +295,7 @@ function drawSpellFx2(kind,k,ax,ay){
     const C=A.heal?SPELL_COL.heal:SPELL_COL[A.who]||SPELL_COL.ivy;
     for(let i=0;i<10;i++){ const a=i*0.63+G.t/250, r=20+Math.sin(G.t/200+i)*6;
       glowAt(ax+Math.cos(a)*r,ay-14+Math.sin(a)*r*0.5,4.5,C[i%2],Math.sin(Math.min(1,k*1.4)*Math.PI)*0.9); }
-    if(!A.heal&&k>0.45&&k<0.75){ const q=(k-0.45)/0.3;
+    if(!A.heal&&!A.sheet&&k>0.45&&k<0.75){ const q=(k-0.45)/0.3;
       for(let i=0;i<5;i++){ const pt=t=>[ax+(EX-ax)*t+Math.sin(i*1.7+t*6)*6, ay-14+(EY+20-ay+14)*t-Math.sin(t*Math.PI)*24+i*3];
         const P=[]; for(let j=0;j<=6;j++) P.push(pt(Math.max(0,q-0.18+0.03*j)));
         glowPath(P,C[0],1.6,0.8); glowAt(...pt(q),6,C[1],1); } }
@@ -335,6 +335,36 @@ function drawThorns(dt){
       b.strokeStyle='rgba(230,215,255,0.55)'; b.lineWidth=0.8; b.beginPath(); b.moveTo(x+w*0.3,T.y-h*0.15); b.quadraticCurveTo(mid[0]+w*0.2,mid[1],tip[0],tip[1]); b.stroke();
       glowAt(tip[0],tip[1],5,'#e0d0ff',0.6*rise); } });
   B.thorns=L.filter(T=>T.t<THORN_MS);
+}
+/* ---------- effect sheets (EFFECTS: animations made in Effekseer, tools/build_effects.py) ----------
+   Loaded the first time they're wanted. A sheet made on black is drawn as added light, so
+   its black is see-through. SKILL_SHEET: friends' skills with one; a skill with several
+   hits plays an equal share of its frames on each hit's pest, as the hit lands. */
+/* SHEET_GAIN: an added-light sheet is drawn this many times over, so it still shows on the
+   bright garden (it was made on black) */
+const SKILL_SHEET={swipes:'fury_swipes'}, SHEET_FPS=60, SHEET_GAIN=2, SHEET_IMG={};
+const haveSheet=key=>typeof EFFECTS!=='undefined'&&!!EFFECTS[key];
+function sheetImg(key){
+  if(!haveSheet(key)) return null;
+  if(!SHEET_IMG[key]){ const im=new Image(); im.src=EFFECTS[key].file; SHEET_IMG[key]=im; }
+  const im=SHEET_IMG[key]; return im.complete&&im.naturalWidth?im:null;
+}
+/* play frames from..to of a sheet, centred on x,y, size across (scene px) */
+function playSheet(key,x,y,size,from,to){ if(!haveSheet(key)) return; sheetImg(key);
+  (B.sheets||(B.sheets=[])).push({key,x,y,size,from,to,t:0}); }
+/* hit i of n lands on pest f: its share of the sheet, over the pest */
+function sheetHit(key,f,i,n){ if(!haveSheet(key)) return;
+  const E=EFFECTS[key], r=foeBox(f), size=clamp(r.w*2.2,100,210);
+  playSheet(key,r.x+r.w*0.5,r.y+r.h*0.55,size,Math.floor(i*E.n/n),Math.floor((i+1)*E.n/n)-1); }
+const sheetFrame=S=>S.from+Math.floor(S.t*SHEET_FPS/1000);
+function drawSheets(dt){
+  const L=B.sheets; if(!L||!L.length) return;
+  L.forEach(S=>{ S.t+=dt; const E=EFFECTS[S.key], im=sheetImg(S.key), f=sheetFrame(S); if(!im||f>S.to) return;
+    b.save(); if(E.add) b.globalCompositeOperation='lighter'; b.imageSmoothingEnabled=true;
+    for(let g=0;g<(E.add?SHEET_GAIN:1);g++)
+      b.drawImage(im,(f%E.cols)*E.cell,Math.floor(f/E.cols)*E.cell,E.cell,E.cell,S.x-S.size/2,S.y-S.size/2,S.size,S.size);
+    b.restore(); });
+  B.sheets=L.filter(S=>sheetFrame(S)<=S.to);
 }
 /* FX2: HP coming back: a ring of light at their feet and a column of rising motes */
 function healFx(id){
@@ -869,6 +899,7 @@ function useSkill(sk,f,to){
   const kind_heal=!!(sk.heal||sk.mend||sk.mendAll||sk.cureAll||sk.guardAll||sk.clear||sk.revive||sk.shell||sk.cover||sk.coverAll||sk.graze);
   /* their recorded voice: from the start, or (pecks) with the hits */
   const voice=SKILL_SOUND[sk.id]||(id==='tiny'&&sk.song?'tiny_songs':null), atHit=voice&&sk.pecks;
+  const sheet=FX2&&haveSheet(SKILL_SHEET[sk.id])&&SKILL_SHEET[sk.id]; if(sheet) sheetImg(sheet);     /* (start loading it) */
   const len=voice&&!atHit?sfx(voice):0;
   anim(kind,spell?1400:sk.song?1300:1000,()=>{
     if(atHit) sfx(voice);
@@ -920,8 +951,9 @@ function useSkill(sk,f,to){
     if(sk.pecks){
       /* quick pecks at whoever's still there, a moment apart */
       /* (full: each at a single hit's full power; steal: each also tries to steal first) */
-      const cm=useCharge(id), got=[], took=[];
+      const cm=useCharge(id), got=[], took=[]; let hitN=0;
       flurry(sk.pecks,(t,up)=>{
+        if(sheet) sheetHit(sheet,t,hitN++,sk.pecks);
         if(sk.steal&&up){ const r=trySteal(id,t); if(r.k) took.push(GOODS[r.k].name); }
         if(has(id,'blind')&&Math.random()<0.5){ focus(t); pop("miss",EX,EY-10,'#e8eef8'); got.push("miss"); }
         else { const dmg=soften(statOf(id,sk.stat||'agi')*(sk.full?1.5:1)*sk.pow*weakMul(id)*cm*rnd(0.85,1.15),foeDef(t));
@@ -971,7 +1003,7 @@ function useSkill(sk,f,to){
     hitFoe(f,dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(bm>1?"  The venom bursts! (x"+bm+")":"")+(cm>1?"  A focused blow!":""));
     B.critUp=0;
     if(f.hp>0&&sk.bind&&Math.random()<sk.bind){ f.st.bound=1; B.log+="  It's held fast!"; }
-  },{heal:kind_heal,tgt:f,hold:len*1000-200});
+  },{heal:kind_heal,tgt:f,hold:len*1000-200,sheet:!!sheet});
 }
 /* Focus: braced like Meditate (half damage until their next turn), and the next hit they
    land is twice as hard */
@@ -1760,6 +1792,7 @@ function drawBattle(dt){
     b.globalAlpha=Math.min(1,f.t/300); px(b,Math.round(f.x),Math.round(f.y),3,3,f.col); b.globalAlpha=1; });
   B.fx=B.fx.filter(f=>f.t>0);
   drawThorns(dt);
+  drawSheets(dt);
   drawGlow(dt);
   b.restore();                                   /* (the shake ends here: the windows stay put) */
 

@@ -1,4 +1,4 @@
-const CACHE='kgs-v83';
+const CACHE='kgs-v84';
 const FILES=[
  "./",
  "assets/audio/music_battle.m4a",
@@ -78,6 +78,7 @@ const FILES=[
  "js/data/run.js",
  "js/data/songs.js",
  "js/data/sounds.js",
+ "js/data/effects.js",
  "manifest.json"
 ];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));});

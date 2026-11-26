@@ -51,6 +51,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Kaitlyn's battle sheet: `python tools/build_battle.py` builds `assets/sprites/battle.png` and `BATL_META` (in `js/assets.js`) from `party/Kaitlyn/battle.png` (kick, kick2, flute and victory rows) and her `karate kick` spritesheet (the `karate` row).
 - Portraits: a member's `portrait2` (or `portrait 2`) picture wins over `portrait` and keeps its whole square, so the animal looks smaller. Ivy, Tituba and Tiny One (and his baby portrait) use theirs.
 - Running animation: `python tools/build_run.py` produces `assets/sprites/run.png` and `js/data/run.js`.
+- Animated effects made in Effekseer: `effects/<name>.png` in the art folder, exported with the Recorder as a single image, X Count 8, square frames, "Make transparent: None" (black, drawn as added light; list ones made with "Original image" in `SOLID`). `python tools/build_effects.py` trims empty frames and writes `assets/effects/<key>.webp` and `js/data/effects.js` (`EFFECTS`). A friend's skill plays one through `SKILL_SHEET` in `js/12-battle.js`; a skill with several hits plays an equal share of the frames on each hit's pest (`sheetHit`). `SHEET_GAIN` brightens added-light sheets on the bright garden.
 - Perchance prompts are in `tools/perchance-prompts.md`. Save full-resolution images with the heart icon, then "save to your device". Downloads arrive as `<uuid>.tmp` in Downloads, and the save windows are dialogs titled `data:image/...`.
 
 ## Sound effects
