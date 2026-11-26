@@ -530,26 +530,24 @@ function drawSoil(c,x,y){
   px(c,x-5,y-2,10,1,'#9c6c44');
 }
 /* a plant's meter: its growth (the bar), and under it its health (0..100) in a thin second
-   bar, green to orange to red, blinking when nearly gone. Soft
-   rounded pills over a see-through backing, each with a little shine along its top. */
+   bar, green to orange to red, blinking when nearly gone. A bar that's completely full is a
+   soft blue, like the light part of the menu windows (a ripe plant's glows). Soft rounded
+   pills over a see-through backing, each with a little shine along its top. */
 function pill(c,x,y,w,h,fill){ if(w<=0) return; c.fillStyle=fill; c.beginPath(); c.roundRect(x,y,Math.max(w,h),h,h/2); c.fill(); }
+const shade=(c,y,h,top,bot)=>{ const g=c.createLinearGradient(0,y,0,y+h); g.addColorStop(0,top); g.addColorStop(1,bot); return g; };
+const FULL_BAR=['#c8d4ff','#6a88dc'];
 function drawMeter(c,cx,cy,pct,ready,health){
-  const w=26, hurt=health!==undefined, x0=cx-w/2;     /* hurt: there's a health bar to draw */
+  const w=26, hasHp=health!==undefined, x0=cx-w/2, full=ready||pct>=1;
   c.save();
-  pill(c,x0-2,cy-2,w+4,hurt?10.5:8,'rgba(24,16,10,0.42)');                 /* the backing */
+  pill(c,x0-2,cy-2,w+4,hasHp?10.5:8,'rgba(24,16,10,0.42)');               /* the backing */
   pill(c,x0,cy,w,4,'rgba(255,255,255,0.14)');                              /* the empty track */
-  if(ready){ const glow=0.5+0.5*Math.sin(Date.now()/240);
-    c.shadowColor='rgba(255,220,120,'+(0.5+0.4*glow)+')'; c.shadowBlur=4;
-    const g=c.createLinearGradient(0,cy,0,cy+4); g.addColorStop(0,'#fff0a8'); g.addColorStop(1,'#e8b440');
-    pill(c,x0,cy,w,4,g); c.shadowBlur=0; }
-  else { const fw=w*clamp(pct,0,1);
-    if(fw>0){ const g=c.createLinearGradient(0,cy,0,cy+4); g.addColorStop(0,'#b8ec7a'); g.addColorStop(1,'#5aa83a');
-      pill(c,x0,cy,fw,4,g); } }
-  pill(c,x0+1,cy+0.6,(ready?w:w*clamp(pct,0,1))-2,1.1,'rgba(255,255,255,0.45)');   /* the shine */
-  if(hurt){ const h=clamp(health/100,0,1), col=h>0.6?['#d8f070','#9ac83a']:h>0.3?['#ffc070','#e08a30']:['#ff8a70','#d8402e'];
+  if(full){ if(ready){ c.shadowColor='rgba(170,200,255,'+(0.55+0.35*Math.sin(Date.now()/240))+')'; c.shadowBlur=4; }
+    pill(c,x0,cy,w,4,shade(c,cy,4,...FULL_BAR)); c.shadowBlur=0; }
+  else { const fw=w*clamp(pct,0,1); if(fw>0) pill(c,x0,cy,fw,4,shade(c,cy,4,'#b8ec7a','#5aa83a')); }
+  pill(c,x0+1,cy+0.6,(full?w:w*clamp(pct,0,1))-2,1.1,'rgba(255,255,255,0.45)');   /* the shine */
+  if(hasHp){ const h=clamp(health/100,0,1), col=h>=1?FULL_BAR:h>0.6?['#d8f070','#9ac83a']:h>0.3?['#ffc070','#e08a30']:['#ff8a70','#d8402e'];
     pill(c,x0,cy+5.2,w,2.6,'rgba(255,255,255,0.12)');
-    if(h>0.2||Math.floor(Date.now()/250)%2){ const g=c.createLinearGradient(0,cy+5.2,0,cy+7.8); g.addColorStop(0,col[0]); g.addColorStop(1,col[1]);
-      pill(c,x0,cy+5.2,Math.max(2.6,w*h),2.6,g); } }
+    if(h>0.2||Math.floor(Date.now()/250)%2) pill(c,x0,cy+5.2,Math.max(2.6,w*h),2.6,shade(c,cy+5.2,2.6,...col)); }
   c.restore();
 }
 function drawStall(c,x,y){
