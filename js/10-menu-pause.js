@@ -15,7 +15,9 @@ function bonusLines(){
 /* ---------- field songs ----------
    Picking one closes the menu and Kaitlyn plays it out in the garden: her flute
    animation from battle, the song's own effect over the garden, and its work done
-   partway through (CAST_HIT). Growth Reprise can be played once a day. */
+   partway through it (CAST_HIT). With a recording she plays it through first: the effect
+   starts at G.cast.fxFrom, so its work is done as the song ends. The clock waits meanwhile.
+   Growth Reprise can be played once a day. */
 const CAST_MS=2400, CAST_HIT=1300, REPRISE_SHARE=0.2;
 const fieldUsable=f=>f.id!=='reprise'||G.daily.reprise!==G.day;
 function castField(f){
@@ -24,8 +26,12 @@ function castField(f){
   if(G.player.mp<f.mp){ say("Not enough Music Points."); sfx('cant_do_that'); return; }
   G.player.mp-=f.mp;
   if(f.id==='reprise') G.daily.reprise=G.day;
-  G.cast={id:f.id,t:0,hit:false}; G.scene='world'; padVec={x:0,y:0};
-  if(AC){ flute(9,AC.currentTime,.5,.6); flute(14,AC.currentTime+.24,.5,.6); flute(18,AC.currentTime+.48,.7,.6);
+  /* its own recording (sfx/<song name>): she plays it through, the music stepping back, and
+     its effect plays last (from fxFrom), its work done just as the song ends */
+  const len=sfx(soundKey(f.name)), fxFrom=Math.max(0,len*1000-CAST_HIT);
+  G.cast={id:f.id,t:0,hit:false,fxFrom,ms:fxFrom+CAST_MS}; G.scene='world'; padVec={x:0,y:0};
+  if(len) duckMusic(len);
+  else if(AC){ flute(9,AC.currentTime,.5,.6); flute(14,AC.currentTime+.24,.5,.6); flute(18,AC.currentTime+.48,.7,.6);
           flute(21,AC.currentTime+.8,.9,.5); }
 }
 function castHit(id){
@@ -48,17 +54,19 @@ function castHit(id){
 function updateCast(dt){
   const c=G.cast; if(!c) return false;
   c.t+=dt;
-  if(!c.hit&&c.t>=CAST_HIT){ c.hit=true; castHit(c.id); }
-  if(c.t>=CAST_MS) G.cast=null;
+  if(!c.hit&&c.t>=(c.fxFrom||0)+CAST_HIT){ c.hit=true; castHit(c.id); }
+  if(c.t>=(c.ms||CAST_MS)) G.cast=null;
   if(G.msgT>0) G.msgT-=dt;
   return true;
 }
 /* the song's effect, in garden px (drawn inside the garden's zoom) */
 function drawCastFx(cam){
-  const c=G.cast, k=c.t/CAST_MS, P=G.player, kx=P.x-cam.x, ky=P.y-cam.y;
+  /* its effect takes CAST_MS from fxFrom (the end of the song); the notes float up all along */
+  const c=G.cast, k=clamp((c.t-(c.fxFrom||0))/CAST_MS,0,1), fx=c.t>=(c.fxFrom||0), P=G.player, kx=P.x-cam.x, ky=P.y-cam.y;
   /* notes floating up from the flute */
   for(let i=0;i<5;i++){ const p=(c.t/900+i/5)%1;
     noteGlyph(b,Math.round(kx+14+Math.sin(p*6+i)*10+p*16),Math.round(ky-46-p*44),i%2?'#ffe08a':'#fff6d8',Math.sin(p*Math.PI)); }
+  if(!fx) return;                          /* the song's own effect waits for its end */
   if(c.id==='reprise'){
     /* a green wave rolls out across the garden, and every plant sends up sparks */
     const r=k*560; b.globalAlpha=Math.max(0,1-k)*0.5; b.strokeStyle='#8fe07a'; b.lineWidth=5;

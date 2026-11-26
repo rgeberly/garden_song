@@ -2,7 +2,7 @@
    DAY CYCLE · SEASONS · SLEEP
    Half a real second is one game minute, and the clock only runs while
    she is out in the garden (the world scene, not indoors), so menus,
-   songs and battles stop time.
+   songs (field songs too) and battles stop time.
    ================================================================ */
 const WAKE_AT=6*60, EARLY_BED=22*60, MIDNIGHT=24*60;
 const MS_PER_MINUTE=500, DAYS_PER_SEASON=10, SEASONS=['spring','summer','fall','winter'];
@@ -30,7 +30,7 @@ function currentMap(){
 
 /* ---------- the clock ---------- */
 function tickClock(dt){
-  if(G.indoors) return;
+  if(G.indoors||G.cast) return;            /* not indoors, nor while she plays a field song */
   passTime(dt/MS_PER_MINUTE);
 }
 /* move the clock on (game minutes); at midnight she falls asleep */

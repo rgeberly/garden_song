@@ -126,7 +126,22 @@ const SOUND_VOL={menu_move:0.45,menu_tab:0.5,menu_confirm:0.55,menu_cancel:0.55,
   cant_do_that:0.6,buy:0.7,sell:0.7,pickup:0.65,drink:0.7,droplet:0.5,knock_on_door:0.8,open_door:0.6,close_door:0.6,
   battle_start:0.8,get_key_item:0.75,fish_jump:0.75,fish_churnin:0.6,catch_fish:1,
   fishing_start:0.5,fishing_casting:0.7,fishing_bite:0.6,fishing_set_the_hook:0.8,fishing_line_break:0.8,fishing_reeling:0.5,tituba_meow:0.8,
-  tiny_tweet:0.8,tiny_songs:0.8,tiny_peckpeckpeck:0.8,tiny_disarmingtrill:0.8,tiny_wakeupcall:0.8};
+  tiny_tweet:0.8,tiny_songs:0.8,tiny_peckpeckpeck:0.8,tiny_disarmingtrill:0.8,tiny_wakeupcall:0.8,
+  /* Kaitlyn's songs: her battle songs and field songs, each named for the song */
+  sprout_strike:0.85,frog_lullaby:0.85,bramble_waltz:0.85,wasp_requiem:0.85,thorn_nocturne:0.85,harvest_hymn:0.85,
+  growth_reprise:0.85,pest_ward:0.85,sun_shower:0.85};
+/* a sound's key from a name, as build_sfx.py makes them ("Sprout Strike" -> sprout_strike) */
+const soundKey=name=>name.toLowerCase().replace(/[\s\-]+/g,'_');
+/* While Kaitlyn plays one of her songs, the music steps back (to MUSIC_DUCK of its level)
+   for that many seconds, then comes back. */
+const MUSIC_DUCK=0.25;
+let duckUntil=0;
+function duckMusic(sec){
+  const a=TRACKS[curTrack], k=curTrack; if(!a||!(sec>0)) return;
+  duckUntil=performance.now()+sec*1000;
+  fadeTo(a,trackVol(k)*MUSIC_DUCK);
+  setTimeout(()=>{ if(performance.now()>=duckUntil-20&&curTrack===k) fadeTo(a,trackVol(k)); },sec*1000);
+}
 function loadSounds(){
   if(!AC||loadSounds.on||typeof SOUNDS==='undefined') return; loadSounds.on=true;
   for(const k in SOUNDS) SOUNDS[k].files.forEach(file=>{

@@ -113,10 +113,15 @@ function pop(txt,x,y,col,size){ B.pops.push({txt,x,y,t:1100,col,size}); }
 const CRIT_MUL=1.75, critChance=id=>0.03+statOf(id,'luk')*0.004+((PARTY_INFO[id]&&PARTY_INFO[id].crit)||0)+((B&&B.critUp)||0);
 function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++)
   B.fx.push({x,y,vx:rnd(-1,1)*(spd||0.13),vy:rnd(-0.19,0.03),t:520,col,g:0.001}); }
-/* hold (ms): a recorded voice that runs longer than the move; the move lands at its
-   usual time, and its animation loops until the voice is done */
+/* hold (ms): a recorded voice that runs longer than the move; its animation loops until
+   the voice is done. The move lands at its usual time, or with atEnd (Kaitlyn's songs)
+   its effect plays last, landing as the song ends (it runs a little past the hold) */
 function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:kind==='enemy'?null:actor(),...extra};
-  if(B.anim.hold>dur){ B.anim.hitAt=dur*0.55; B.anim.loopMs=dur; B.anim.dur=B.anim.hold; } }
+  const A=B.anim;
+  if(A.hold>dur){ A.loopMs=dur;
+    if(A.atEnd){ A.fxFrom=A.hold-dur*0.55; A.dur=A.fxFrom+dur; }
+    else { A.fxFrom=0; A.dur=A.hold; }
+    A.hitAt=A.fxFrom+dur*0.55; } }
 /* friends' skills with a recorded voice of their own (other Tiny One songs: tiny_songs) */
 const SKILL_SOUND={peck:'tiny_peckpeckpeck',trill:'tiny_disarmingtrill',wake:'tiny_wakeupcall'};
 const has=(id,s)=>B.st[id]&&B.st[id][s]>0;
@@ -523,7 +528,10 @@ const healMul=id=>wears(id,'bell')?1.2:1;
 const SONG_ACC=0.82;
 function useSong(mv,f){
   G.player.mp-=mv.mp; B.turn='busy'; B.menu='cmd';
-  const acc=SONG_ACC; playOne('flute',0.5);
+  /* the song's own recording (sfx/<song name>): she plays it through, and its effect lands
+     as it ends (anim's atEnd) */
+  const acc=SONG_ACC, len=sfx(soundKey(mv.name));
+  if(len) duckMusic(len); else playOne('flute',0.5);
   B.log="Kaitlyn plays "+mv.name+"!";
   {
     anim(mv.fx,1500,()=>{
@@ -549,7 +557,7 @@ function useSong(mv,f){
         if(T.length>1) B.log=mv.name+" sweeps over every pest!"+pc;
         B.log+=gotLog(by)+healed+(cm>1?"  A focused blow!":"");
       } else B.log=mv.name+" heals the party.";
-    },{tgt:f});
+    },{tgt:f,hold:len*1000,atEnd:true});
   }
 }
 /* ---------- Pep Rally (PEP_SONGS) ----------
@@ -1423,10 +1431,13 @@ function drawBattle(dt){
   if(B.turn==='player') B.readyT+=dt;
   let k=0;
   if(B.anim){
-    B.anim.t+=dt; k=clamp(B.anim.t/B.anim.dur,0,1);
+    /* k: how far its effect has got (a move held for a long voice plays its effect once,
+       at the usual speed, from fxFrom; the rest is just the looping pose: fxOn) */
+    B.anim.t+=dt; k=clamp((B.anim.t-(B.anim.fxFrom||0))/(B.anim.loopMs||B.anim.dur),0,1);
     if(!B.anim.hit&&(B.anim.hitAt!=null?B.anim.t>=B.anim.hitAt:k>=0.55)){ B.anim.hit=true; if(B.anim.onHit) B.anim.onHit(); }
-    if(k>=1){ B.anim=null; afterAction(); }
+    if(B.anim.t>=B.anim.dur){ B.anim=null; afterAction(); }
   }
+  const fxOn=!B.anim||!B.anim.loopMs||(B.anim.t>=B.anim.fxFrom&&B.anim.t<B.anim.fxFrom+B.anim.loopMs);
   /* the victory poses hold until a press (winSkip), then the results come in */
   if(B.win) B.win.t=B.win.posed?B.win.t+dt:Math.min(B.win.t+dt,POSE_MS-1);
   if(B.prep) B.prep.t+=dt;
@@ -1462,7 +1473,7 @@ function drawBattle(dt){
   placed.forEach(p=>castShadow(c=>drawMember(c,p.id,0,0,k),p.x,p.y,0,0.32));
   /* Meditate's and Focus's rings and motes go behind the party */
   const behind=B.anim&&who&&(B.anim.kind==='meditate'||B.anim.kind==='focus');
-  if(behind) drawSpellFx(B.anim.kind,k,who.x,who.y);
+  if(behind&&fxOn) drawSpellFx(B.anim.kind,k,who.x,who.y);
   placed.forEach(p=>{
     if(B.turn==='player'&&!B.over&&actor()===p.id){        /* a warm glow under whoever's turn it is */
       b.globalAlpha=.35+Math.sin(G.t/260)*.12; b.fillStyle='#ffe08a';
@@ -1470,7 +1481,7 @@ function drawBattle(dt){
     drawMember(b,p.id,p.x,p.y,k);
   });
   if(A){ focus(A.foe); drawFoeFx(A.fx,k,A.targets); }
-  else if(B.anim&&who&&!behind){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
+  else if(B.anim&&who&&!behind&&fxOn){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
   drawStatusTags();
   /* picking a target: a bouncing pointer over whoever is picked */
   const picking=B.turn==='player'&&B.menu==='target'&&B.tgt, tg=picking&&!B.tgt.all?B.tgt.list[B.tgt.i]:null;

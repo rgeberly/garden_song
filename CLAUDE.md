@@ -58,6 +58,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Settings has Music and Sound effects levels, 0 to 10 (`VOL`, `setVolume`). They're stored in `localStorage` (`kgs-vol`), not the save. Music covers the tracks and the rhythm game's recordings (`songGain`). Sound effects cover everything else, including the footstep and one-shot `<audio>` sounds.
 - Sounds in `LOOPS` (`build_sfx.py`, now just `fishing_reeling`) are built to repeat without a seam and played with `sfxLoop`, which can change volume and speed while it runs.
 - Menu clicks are automatic: `menuClick` in `js/05-input.js` compares the menus before and after each key or tap. If nothing played a sound, it plays `menu_tab`, `menu_confirm`, `menu_cancel` or `menu_move`.
+- Kaitlyn's battle and field songs play `sfx/<song name>.wav` (`soundKey(name)`), with the music turned down meanwhile (`duckMusic`). Each plays through, then its effect lands as the song ends: in battle the move's animation runs last (`anim`'s `atEnd`), in the garden from `G.cast.fxFrom`. The clock stops during a field song.
 - Tiny One's skill voices are in `SKILL_SOUND` (`js/12-battle.js`). A voice longer than the move holds the turn (`anim`'s `hold`) while his animation loops.
 
 ## Songs and the rhythm game

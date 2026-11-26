@@ -6,11 +6,9 @@ Rhythm game songs go in the art folder as `rhythm/songs/<name>_flute.wav` and `<
 (then `python tools/build_songs.py <name>`). Every crop, practice song and Pep Rally has its own.
 - [x] Pep Rally songs: Rally Cry, Tangleroot Reel, Clean Slate, Hype Up, Safe and Sound, Grand Finale
 - [x] Practice songs made of them: Croppies In Your Mouth! and Not in My Pep Rally! (250 coins each at Rosa's)
-- [ ] Kaitlyn's battle songs: they're not rhythm games any more, and all six play the same flute
-      sound (`sfx_flute`). A short flute phrase of each would do: Sprout Strike, Frog Lullaby,
-      Bramble Waltz, Wasp Requiem, Thorn Nocturne, Harvest Hymn.
-- [ ] Field songs (cast from the menu in the garden): Growth Reprise, Pest Ward and Sun Shower all play
-      the same short synthesized tune.
+- [x] Kaitlyn's battle songs, as sound effects: Sprout Strike, Frog Lullaby, Bramble Waltz, Wasp Requiem,
+      Thorn Nocturne, Harvest Hymn
+- [x] Field songs, as sound effects: Growth Reprise, Pest Ward, Sun Shower
 - [ ] Decide what `graveyard.wav`, `graveyard battle.wav` and `graveyard boss.wav` are for (in `rhythm/songs`, not used yet)
 
 ## Sound effects
