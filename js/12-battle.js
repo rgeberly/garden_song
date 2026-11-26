@@ -1924,11 +1924,8 @@ function battleWins(){
   return W;
 }
 const cmdTop=W=>W.cmd.y+6;
-const BACKDROP={
-  spring:{sky:['#86c4ee','#e6f2dc'],far:'#6aa45e',near:'#4f8c48',ground:['#78b45a','#4a8638'],dots:['#f4a8c8','#f7e48a','#ffffff'],drift:'petal'},
-  summer:{sky:['#5eb2ee','#f2f0cc'],far:'#4a944a',near:'#357a36',ground:['#68aa4c','#3c7a2e'],dots:['#f6d64a','#ff8a5a','#ffffff'],drift:null},
-  fall:  {sky:['#e6a874','#fae2c2'],far:'#c8682c',near:'#a04a22',ground:['#b8923e','#86662a'],dots:['#e8743a','#f0b040'],drift:'leaf'},
-  winter:{sky:['#a6c6e6','#f0f5fa'],far:'#d4e0ec',near:'#b8cadc',ground:['#f2f6fa','#cad8e6'],dots:[],drift:'snow'}};
+/* what drifts across each season's battles */
+const BACKDROP={spring:{drift:'petal'},summer:{drift:null},fall:{drift:'leaf'},winter:{drift:'snow'}};
 /* Every window in the game: a smooth gradient from light blue at the top to deep blue at
    the bottom, a white rim and a dark outline, a little see-through (WIN_GLASS; `glass`
    overrides it, e.g. the clock). Words on windows use WIN_TXT's colours, drawn with TS. */
@@ -1965,8 +1962,8 @@ function TO(t,x,y,size,col,align,bold,w){ const o=w||1.2;
   T(t,x,y,size,col,align,bold); }
 /* The season's painted backdrop (backdrops/<season>; on the mountain its own,
    backdrops/mountain_<season>), placed so where its ground begins (BACK_HORIZON, a share of
-   its height) lines up with HORIZON, and big enough to cover the whole scene. Until it
-   loads, a drawn one stands in. */
+   its height) lines up with HORIZON, and big enough to cover the whole scene (black until
+   it loads; it's made ready ahead, see prebakeBattle). */
 const BACK_HORIZON={spring:0.50,summer:0.53,fall:0.53,winter:0.57,
   mountain_spring:0.56,mountain_summer:0.56,mountain_fall:0.50,mountain_winter:0.60}, BACK_IMG={};
 const backdropKey=()=>{ const s=season(), m='mountain_'+s;
@@ -1978,7 +1975,7 @@ const hasBackdrop=()=>typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(backdro
    backdrops (hdPrebake). The first fight used to freeze for a quarter of a second. */
 function prebakeBattle(){
   hdPrebake(); partyImg();
-  if(typeof fishArtReady==='function'){ fishArtReady(); fishImg(); }     /* (the fishing pictures, loading early too) */
+  fishArtReady(); fishImg(); rhythmArt(); rhythmPic('vine'); rhythmPic('flute');   /* (fishing's and the rhythm game's pictures, loading early too) */
   const sheets=[IMG_PARTY,IMG_EN,IMG_BATL,IMG_POSE,IMG_PT].filter(Boolean);
   Promise.all(sheets.map(im=>im.decode?im.decode().catch(()=>{}):null)).then(()=>{
     /* (drawn once, tiny, into the canvases a battle draws them into, so they're uploaded
@@ -2017,34 +2014,10 @@ function drawBattleBackdrop(dt){
     /* with depth of field and bloom (Settings > Graphics; made ahead, hdPrebake) */
     if(GFX.dof||GFX.bloom) b.drawImage(hdBackdrop(im,x,y,w,h,T0,T1),0,T0,LW,T1-T0);
     else b.drawImage(im,x,y,w,h); b.restore();
-  } else if(!hasBackdrop()) drawnBackdrop(P,T0,T1);
-  else { b.fillStyle='#000'; b.fillRect(0,T0,LW,T1-T0); }        /* its painting is still loading */
+  } else { b.fillStyle='#000'; b.fillRect(0,T0,LW,T1-T0); }      /* its painting is still loading */
   backdropLife(P,T0,T1,dt);
 }
-/* the stand-in: sky, clouds, trees, hedge and a striped lawn */
-function drawnBackdrop(P,T0,T1){
-  const sky=b.createLinearGradient(0,T0,0,HORIZON);
-  sky.addColorStop(0,P.sky[0]); sky.addColorStop(1,P.sky[1]);
-  b.fillStyle=sky; b.fillRect(0,T0,LW,HORIZON-T0);
-  /* soft clouds */
-  b.fillStyle='rgba(255,255,255,.5)';
-  for(let i=0;i<4;i++){ const cx=((G.t*0.006+i*110)%(LW+160))-80, cy=40+((i*37)%60);
-    b.beginPath(); b.ellipse(cx,cy,34,9,0,0,7); b.fill(); b.beginPath(); b.ellipse(cx+18,cy-5,20,8,0,0,7); b.fill(); }
-  /* distant trees, then the near hedge along the horizon */
-  b.fillStyle=P.far;
-  for(let i=-1;i<13;i++){ const x=i*32+((i*13)%11); b.beginPath(); b.ellipse(x,HORIZON-4,24,20+((i*7)%10),0,0,7); b.fill(); }
-  b.fillStyle=P.near;
-  for(let i=-1;i<20;i++){ const x=i*20+((i*7)%9); b.beginPath(); b.ellipse(x,HORIZON+4,14,11+((i*5)%5),0,0,7); b.fill(); }
-  P.dots.forEach((c,k)=>{ b.fillStyle=c; for(let i=0;i<14;i++){ const x=((i*53+k*29)%LW), y=HORIZON-2+((i*17+k*11)%10);
-    b.beginPath(); b.arc(x,y,1.6,0,7); b.fill(); } });
-  /* the lawn, with mowing stripes that widen toward the front */
-  const gr=b.createLinearGradient(0,HORIZON,0,T1);
-  gr.addColorStop(0,P.ground[0]); gr.addColorStop(1,P.ground[1]);
-  b.fillStyle=gr; b.fillRect(0,HORIZON+8,LW,T1-HORIZON-8);
-  b.fillStyle='rgba(255,255,255,.05)';
-  for(let i=0,y=HORIZON+10;y<T1;i++){ const hgt=4+i*3; if(i%2===0) b.fillRect(0,y,LW,hgt); y+=hgt; }
-}
-/* over either backdrop: drifting petals/leaves/snow, the hour */
+/* over the backdrop: drifting petals/leaves/snow, the hour */
 function backdropLife(P,T0,T1,dt){
   /* petals, leaves or snow drifting across */
   if(P.drift){

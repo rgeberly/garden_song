@@ -80,7 +80,7 @@ const sellPrice=sp=>Math.round(SPECIES[sp].value*(G.yard.arch?1.15:1));
      blind, sleep, weak, scared; drain heals it by that share of the damage; miss a
      chance to miss. fx is the effect drawn (see drawFoeFx). lv: the level it turns up
    at (stats grow from there, see pestStats); fly: hovers in battle; where:'mountain': only
-   on the mountain trail; big: how big its stand-in is until it has a picture; size: drawn bigger or smaller in
+   on the mountain trail; size: drawn bigger or smaller in
    battle (the HOA President towers over Kaitlyn; the raccoon is 0.7); about: its flavor. */
 const PESTS={
   beetle :{name:"Dung Beetle",  hp:26, atk:4, def:3, agi:3,  xp:14, coin:5, min:1, col:'#a8781e',lv:1,
@@ -137,17 +137,17 @@ const PESTS={
     {name:"Curse",kind:'hit',pow:0.5,w:1,st:'weak',p:1,fx:'curse'},
     {name:"Gather Gloom",kind:'charge',w:1,fx:'gloom'}]},
   /* the mountain's own (where:'mountain': never in the garden) */
-  goat   :{name:"Mountain Goat",hp:52, atk:8, def:5, agi:10, xp:34, coin:13,min:1, col:'#d8d0c0',lv:5,where:'mountain',big:0.9,
+  goat   :{name:"Mountain Goat",hp:52, atk:8, def:5, agi:10, xp:34, coin:13,min:1, col:'#d8d0c0',lv:5,where:'mountain',
           about:"Will eat your hat, your map and your lunch. Then headbutt you for dessert.",skills:[
     {name:"Headbutt",kind:'hit',pow:1,w:3,fx:'bash'},
     {name:"Bleat",kind:'all',pow:0.3,w:2,st:'scared',p:0.4,fx:'caw'},
     {name:"Ram Charge",kind:'charge',w:1,fx:'gloom'}]},
-  boar   :{name:"Wild Boar",    hp:74, atk:10,def:6, agi:6,  xp:46, coin:18,min:1, col:'#6a5040',lv:7,where:'mountain',big:1.05,
+  boar   :{name:"Wild Boar",    hp:74, atk:10,def:6, agi:6,  xp:46, coin:18,min:1, col:'#6a5040',lv:7,where:'mountain',
           about:"Bristly, grumpy and built like a fridge. Snorts at everything, especially you.",skills:[
     {name:"Gore",kind:'hit',pow:1.1,w:3,fx:'bash'},
     {name:"Tusk Toss",kind:'hit',pow:1.5,w:1,miss:0.25,fx:'claw'},
     {name:"Mud Wallow",kind:'guard',w:1,fx:'shell'}]},
-  bear   :{name:"Black Bear",   hp:130,atk:13,def:7, agi:5,  xp:80, coin:30,min:1, col:'#2e2a2a',lv:10,where:'mountain',big:1.4,
+  bear   :{name:"Black Bear",   hp:130,atk:13,def:7, agi:5,  xp:80, coin:30,min:1, col:'#2e2a2a',lv:10,where:'mountain',
           about:"Mostly wants berries and naps. You are standing between it and both.",skills:[
     {name:"Swipe",kind:'hit',pow:1.1,w:3,fx:'claw'},
     {name:"Maul",kind:'hit',pow:1.7,w:1,fx:'bite'},
@@ -445,7 +445,7 @@ function drawPestWorld(c,sp,x,y,t,flip,ph){
   groundShadow(c,cc=>{ if(flip) cc.scale(-1,1); drawEnemyArt(cc,sp,0,0,s); },x,y,P.boss?20:9,lift);
   c.globalAlpha=P.night?.85:1;
   c.save(); if(flip){ c.translate(x,0); c.scale(-1,1); c.translate(-x,0); }
-  if(!drawEnemyArt(c,sp,x,y-bob-lift,s)) px(c,x-6,y-8,12,8,P.col);
+  drawEnemyArt(c,sp,x,y-bob-lift,s);
   c.restore(); c.globalAlpha=1;
 }
 

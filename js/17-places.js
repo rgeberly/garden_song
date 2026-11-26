@@ -148,8 +148,7 @@ const PLACES={
     ]},
   /* Bramble Peak (maps/mountain_<season>): a trail winds up from the garden at the
      bottom to the rocky top, a meadow beside it and a stream down the right side to fish
-     in. Its walls come from the painting (assets/sprites/mountain_collision.png); paths
-     and trees only draw the stand-in until the painting loads. */
+     in. Its walls come from the painting (assets/sprites/mountain_collision.png). */
   mountain:{name:"Bramble Peak", ground:'#7aa85a', path:'#c8b48a', w:1080, h:1446,
     paths:[[400,1200,150,246],[360,900,140,320],[330,600,130,320],[380,300,130,320],[440,120,120,200]],
     pond:{x:900,y:1050,rx:75,ry:150}, trees:[],
@@ -442,8 +441,7 @@ function updatePlace(dt){
   if(G.msgT>0) G.msgT-=dt;
 }
 
-/* ---------- painting a place (until it has a real picture) ---------- */
-const PLACE_CANVAS={}, PLACE_PX=1.5;        /* canvas px per garden px */
+/* ---------- a place's painting ---------- */
 /* a place's painting for this season (maps/<place>_<season>), or the one for all year (the
    rooms in town: maps/<room>), once it has loaded */
 const PLACE_IMG={};
@@ -455,66 +453,6 @@ function placeImg(area){
   const key=placeMapKey(area); if(!key) return null;
   if(!PLACE_IMG[key]){ PLACE_IMG[key]=new Image(); PLACE_IMG[key].src='assets/places/'+key+'.jpg'; }
   return PLACE_IMG[key].complete&&PLACE_IMG[key].naturalWidth?PLACE_IMG[key]:null;
-}
-function placeCanvas(area){
-  const key=area+'|'+season();
-  if(PLACE_CANVAS[key]) return PLACE_CANVAS[key];
-  const P=PLACES[area], cv2=document.createElement('canvas'), wint=season()==='winter', fall=season()==='fall';
-  const W=placeW(P), H=placeH(P), s=P.w?1:PLACE_PX;          /* a big place at 1 px each, to keep it light */
-  cv2.width=W*s; cv2.height=H*s; const c=cv2.getContext('2d'); c.scale(s,s);
-  if(P.room){ drawRoom(c,P); PLACE_CANVAS[key]=cv2; return cv2; }
-  c.fillStyle=wint?'#e8eef4':fall?'#a8a05a':P.ground; c.fillRect(0,0,W,H);
-  for(let i=0;i<900*W*H/(WORLD_W*WORLD_H);i++){ const x=(i*97.3)%W, y=(i*61.7)%H;   /* grass flecks */
-    c.fillStyle=wint?'rgba(255,255,255,.5)':'rgba(40,80,30,.18)'; c.fillRect(x,y,2,3); }
-  if(P.cliffs){ const g=c.createLinearGradient(0,0,0,160); g.addColorStop(0,'#6a7080'); g.addColorStop(1,'#8a8a8a');
-    c.fillStyle=g; c.beginPath(); c.moveTo(0,160);
-    for(let x=0;x<=W;x+=60) c.lineTo(x,40+((x*37)%70)); c.lineTo(W,160); c.closePath(); c.fill();
-    c.fillStyle='#f4f8ff'; for(let x=0;x<W;x+=120){ c.beginPath(); c.moveTo(x+20,70); c.lineTo(x+60,40+((x*37)%40)); c.lineTo(x+100,70); c.fill(); } }
-  c.fillStyle=wint?'#dcd4c4':P.path; P.paths.forEach(([x,y,w,h])=>{ c.beginPath(); c.roundRect(x,y,w,h,18); c.fill(); });
-  if(P.plaza){ c.fillStyle='#cfc4b0'; c.beginPath(); c.arc(P.plaza.x,P.plaza.y,P.plaza.r,0,7); c.fill();
-    c.strokeStyle='rgba(90,80,60,.25)'; for(let r=20;r<P.plaza.r;r+=20){ c.beginPath(); c.arc(P.plaza.x,P.plaza.y,r,0,7); c.stroke(); } }
-  if(P.fountain){ const f=P.fountain; c.fillStyle='#9a9488'; c.beginPath(); c.arc(f.x,f.y,f.r,0,7); c.fill();
-    c.fillStyle=wint?'#dff0ff':'#6ab8e0'; c.beginPath(); c.arc(f.x,f.y,f.r-6,0,7); c.fill(); }
-  if(P.pond){ const p=P.pond; c.fillStyle='#5a7a4a'; c.beginPath(); c.ellipse(p.x,p.y,p.rx+8,p.ry+6,0,0,7); c.fill();
-    c.fillStyle=wint?'#d8ecf8':'#4a90c8'; c.beginPath(); c.ellipse(p.x,p.y,p.rx,p.ry,0,0,7); c.fill();
-    c.fillStyle='rgba(255,255,255,.25)'; c.beginPath(); c.ellipse(p.x-20,p.y-14,p.rx*0.5,p.ry*0.3,0,0,7); c.fill(); }
-  (P.houses||[]).forEach(h=>{
-    c.fillStyle='rgba(0,0,0,.2)'; c.fillRect(h.x+6,h.y+h.h-6,h.w,12);
-    if(h.tent){ c.fillStyle='#f6f0e0'; c.fillRect(h.x,h.y+20,h.w,h.h-20);
-      for(let i=0;i<h.w;i+=20){ c.fillStyle=i%40?'#f6f0e0':h.roof; c.beginPath(); c.moveTo(h.x+i,h.y+22); c.lineTo(h.x+i+10,h.y); c.lineTo(h.x+i+20,h.y+22); c.fill(); } }
-    else { c.fillStyle='#e8dcc0'; c.fillRect(h.x,h.y+h.h*0.4,h.w,h.h*0.6);
-      c.fillStyle=h.roof; c.beginPath(); c.moveTo(h.x-8,h.y+h.h*0.45); c.lineTo(h.x+h.w/2,h.y); c.lineTo(h.x+h.w+8,h.y+h.h*0.45); c.fill();
-      c.fillStyle='#6a4a2a'; c.fillRect(h.x+h.w/2-10,h.y+h.h-28,20,28);
-      c.fillStyle='#a8d0e8'; c.fillRect(h.x+14,h.y+h.h*0.55,18,14); c.fillRect(h.x+h.w-32,h.y+h.h*0.55,18,14); }
-    if(wint){ c.fillStyle='#f8fbff'; c.beginPath(); c.moveTo(h.x-8,h.y+h.h*0.45); c.lineTo(h.x+h.w/2,h.y); c.lineTo(h.x+h.w+8,h.y+h.h*0.45); c.lineTo(h.x+h.w/2,h.y+10); c.fill(); }
-    if(h.name){ c.fillStyle='#3a2a1a'; c.font='bold 12px '+FONT; c.textAlign='center'; c.fillText(h.name,h.x+h.w/2,h.y+h.h*0.4-6); } });
-  P.trees.forEach(([x,y])=>{ c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(x+4,y+8,20,8,0,0,7); c.fill();
-    c.fillStyle='#6a4a2a'; c.fillRect(x-3,y-6,6,14);
-    c.fillStyle=wint?'#e8f0f4':fall?'#d8782a':(P.cliffs?'#3a6a3a':'#4a8a3a');
-    if(P.cliffs){ c.beginPath(); c.moveTo(x,y-46); c.lineTo(x-18,y); c.lineTo(x+18,y); c.fill(); }
-    else { c.beginPath(); c.arc(x,y-18,20,0,7); c.fill(); c.beginPath(); c.arc(x-10,y-10,13,0,7); c.arc(x+10,y-10,13,0,7); c.fill(); } });
-  PLACE_CANVAS[key]=cv2; return cv2;
-}
-/* a placeholder room: floorboards, the back wall with windows, furniture with labels, and
-   the doorway at the bottom */
-function drawRoom(c,P){
-  const W=P.w, H=P.h;
-  c.fillStyle=P.floor; c.fillRect(0,0,W,H);
-  c.fillStyle='rgba(0,0,0,.12)'; for(let y=P.wall;y<H;y+=22) c.fillRect(0,y,W,2);
-  for(let y=P.wall,r=0;y<H;y+=22,r++) for(let x=(r%2)*60;x<W;x+=120) c.fillRect(x,y,2,22);
-  c.fillStyle=P.wallCol; c.fillRect(0,0,W,P.wall);
-  c.fillStyle='rgba(0,0,0,.18)'; c.fillRect(0,P.wall-26,W,26);                 /* wainscot */
-  c.fillStyle='rgba(0,0,0,.35)'; c.fillRect(0,P.wall-3,W,3);
-  [[70,20],[330,20]].forEach(([x,y])=>{ c.fillStyle='#4a3a2a'; c.fillRect(x-4,y-4,58,48); c.fillStyle='#a8c8e8'; c.fillRect(x,y,50,40);
-    c.fillStyle='rgba(255,255,255,.35)'; c.fillRect(x+4,y+4,16,32); });
-  (P.furn||[]).forEach(([x,y,w,h,col,label])=>{
-    c.fillStyle='rgba(0,0,0,.25)'; c.fillRect(x+4,y+h-2,w,8);
-    c.fillStyle=col; c.fillRect(x,y,w,h); c.fillStyle='rgba(255,255,255,.18)'; c.fillRect(x,y,w,5);
-    c.fillStyle='rgba(255,246,216,.85)'; c.font='bold 9px '+FONT; c.textAlign='center'; c.fillText(label,x+w/2,y+h/2+3); });
-  c.fillStyle='#2a1a10'; c.fillRect(W/2-40,H-14,80,14);                       /* the doorway */
-  c.fillStyle='#8a3a3a'; c.fillRect(W/2-34,H-34,68,16);                       /* the mat */
-  c.fillStyle='rgba(255,246,216,.5)'; c.font='bold 10px '+FONT; c.textAlign='center';
-  c.fillText(P.name,W/2,P.wall-34); c.textAlign='left';
 }
 /* a townsperson: a simple stand-in figure until they have art */
 function drawPerson(c,p){
@@ -543,10 +481,10 @@ function drawPlace(){
   const cam=camera(), P=curPlace();
   b.save(); b.beginPath(); b.rect(0,0,LW,VIEW_H); b.clip();
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);
-  /* the painting; black while it loads (the drawn stand-in only for a place without one) */
-  const pim=placeImg(G.area), painted=!!placeMapKey(G.area);
+  /* the painting (black while it loads) */
+  const pim=placeImg(G.area);
   b.imageSmoothingEnabled=true;
-  if(pim||!painted) b.drawImage(pim||placeCanvas(G.area),-cam.x,-cam.y,placeW(P),placeH(P));
+  if(pim) b.drawImage(pim,-cam.x,-cam.y,placeW(P),placeH(P));
   const ents=[];
   const ps=Math.max(1,peopleScale());
   placePeople(P).forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
@@ -645,18 +583,14 @@ function gearRows(keys){
         if(r>=0&&r>FLUTE_RANK.indexOf(equipOf('kaitlyn').weapon||'recorder')){ equipOf('kaitlyn').weapon=k; refitMember('kaitlyn'); } }}; });
 }
 const pawn=(k,n)=>{ G.pawn[k]=(G.pawn[k]||0)+n; };
-/* a small drawn picture of a good (until they have art): a fish shape, or a sprig */
+/* a good's picture, or a small drawn sprig for one without art yet (the summit flowers,
+   the Tipsy Toad's drinks) */
 function drawGoodIcon(c,k,cx,cy,box){
   const g=GOODS[k], s=box/24;
   /* its picture (shop items/<name>), when there is one */
   if(c===b&&drawShopPic(g.name.toLowerCase(),cx,cy,box,box)) return;
   c.save(); c.translate(cx,cy); c.scale(s,s);
-  if(g.kind==='fish'){
-    c.fillStyle=g.col; c.beginPath(); c.ellipse(-2,0,9,4.5,0,0,7); c.fill();
-    c.beginPath(); c.moveTo(6,0); c.lineTo(11,-5); c.lineTo(11,5); c.fill();
-    c.fillStyle='#1a1a2a'; c.beginPath(); c.arc(-7,-1,1,0,7); c.fill();
-    c.fillStyle='rgba(255,255,255,.35)'; c.beginPath(); c.ellipse(-3,-2,5,1.4,0,0,7); c.fill();
-  } else {
+  {
     c.strokeStyle='#4a7a3a'; c.lineWidth=1.5; c.beginPath(); c.moveTo(0,10); c.lineTo(0,-2); c.moveTo(0,4); c.lineTo(-5,0); c.moveTo(0,2); c.lineTo(5,-2); c.stroke();
     c.fillStyle=g.col;
     [[0,-5],[-5,-1],[5,-4]].forEach(([x,y])=>{ c.beginPath(); c.arc(x,y,3.4,0,7); c.fill(); });

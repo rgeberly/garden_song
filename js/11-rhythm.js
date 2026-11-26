@@ -505,53 +505,16 @@ function drawRhythm(){
     const im=art.bg, r=im.naturalWidth/im.naturalHeight, h=Math.max(TH,LW/r), w=h*r;
     b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,(LW-w)/2,T0+(TH-h)/2,w,h); b.restore();
     b.globalAlpha=.18; px(b,0,T0,LW,TH,'#0a1020'); b.globalAlpha=1;
-  } else {
-  const sky=b.createLinearGradient(0,0,0,LH);
-  sky.addColorStop(0,'#1b2f46'); sky.addColorStop(0.34,'#3a5a72');
-  sky.addColorStop(0.62,'#6a7f6a'); sky.addColorStop(1,'#25341f');
-  px(b,0,T0,LW,-T0,'#1b2f46');
-  b.fillStyle=sky; b.fillRect(0,0,LW,LH);
-  /* low sun and its glow, brightening with the combo */
-  b.globalAlpha=.20+grow*0.28;
-  const gl=b.createRadialGradient(300,150,4,300,150,190);
-  gl.addColorStop(0,'#ffe6a8'); gl.addColorStop(1,'rgba(255,220,150,0)');
-  b.fillStyle=gl; b.fillRect(0,0,LW,LH); b.globalAlpha=1;
-  b.fillStyle='#ffdca0'; b.globalAlpha=.5+grow*0.3;
-  b.beginPath(); b.arc(300,150,17,0,7); b.fill(); b.globalAlpha=1;
-  /* drifting clouds */
-  b.globalAlpha=.16; b.fillStyle='#dfe8ee';
-  for(let i=0;i<4;i++){
-    const cxp=((G.t*0.008+i*130)%(LW+200))-100;
-    b.beginPath(); b.ellipse(cxp,54+i*26,44,11,0,0,7); b.fill();
-    b.beginPath(); b.ellipse(cxp+26,60+i*26,28,8,0,0,7); b.fill();
-  }
-  b.globalAlpha=1;
-  /* three ridges of hills */
-  [[248,'#3d5a4a',44],[262,'#33503c',34],[276,'#2b4531',26]].forEach(([hy,col,r],li)=>{
-    b.fillStyle=col;
-    for(let i=-1;i<12;i++){
-      const hx=i*34+(li*11), hh=r+((i*7+li*5)%16);
-      b.beginPath(); b.ellipse(hx,hy,34,hh,0,0,7); b.fill();
-    }
-  });
-  px(b,0,282,LW,T1-282,'#25381f');
-  /* fireflies */
-  for(let i=0;i<14;i++){
-    const fx=(i*53+G.t*0.011*(1+i%3))%LW;
-    const fy=200+((i*37)%150)+Math.sin(G.t/420+i)*9;
-    b.globalAlpha=.35+0.35*Math.sin(G.t/300+i*1.7);
-    px(b,Math.round(fx),Math.round(fy),3,3,'#f7f0a0'); b.globalAlpha=1;
-  }
-  }
-  /* the lanes: see-through rails over a painted background, solid over the drawn one */
+  } else px(b,0,T0,LW,TH,'#000');                                  /* (still loading) */
+  /* the lanes: see-through rails over the painted background */
   for(let i=0;i<LANES;i++){ const x=LANE_X0+i*LANE_W;
-    b.globalAlpha=art.bg?.34:.72; px(b,x,T0,LANE_W-3,TH,(i%2)?'#1e2731':'#222c37'); b.globalAlpha=1;
-    if(art.bg){ b.globalAlpha=.35; px(b,x,T0,1,TH,'#fff6d8'); px(b,x+LANE_W-4,T0,1,TH,'#fff6d8'); b.globalAlpha=1; }
+    b.globalAlpha=.34; px(b,x,T0,LANE_W-3,TH,(i%2)?'#1e2731':'#222c37'); b.globalAlpha=1;
+    b.globalAlpha=.35; px(b,x,T0,1,TH,'#fff6d8'); px(b,x+LANE_W-4,T0,1,TH,'#fff6d8'); b.globalAlpha=1;
     if(R_.flash[i]>0){ b.globalAlpha=R_.flash[i]/500; px(b,x,T0,LANE_W-3,TH,'#5ea8d8'); b.globalAlpha=1; } }
   /* carved wooden frame down both margins */
   for(const fx of [0,LW-21]) drawWoodRail(fx,T0,T1,fx>0);
   /* vine + leaves climbing the frame, growing with the combo: the painted vine (rhythm/vine),
-     copies stacked up each side, uncovered from the bottom; a drawn one until it loads */
+     copies stacked up each side, uncovered from the bottom */
   const vine=rhythmPic('vine');
   if(vine){ const h=LH*(0.25+grow*0.75), vh=RVINE_H, vw=vh*vine.naturalWidth/vine.naturalHeight;
     b.save(); b.beginPath(); b.rect(0,LH-h,LW,h); b.clip(); b.imageSmoothingEnabled=true;
@@ -559,18 +522,9 @@ function drawRhythm(){
       for(let i=0,y=LH;y>T0-vh;i++,y-=vh*0.92){                  /* a little overlap, every other one mirrored */
         b.save(); b.translate(cx,y); b.scale(flip*(i%2?-1:1),1); b.drawImage(vine,-vw/2,-vh,vw,vh); b.restore(); } }
     b.restore(); }
-  else for(const [fx,dir] of [[21,1],[LW-22,-1]]){
-    const h=LH*(0.25+grow*0.75);
-    for(let yv=0;yv<h;yv+=4){
-      const xv=fx+dir*Math.round(Math.sin(yv/26)*4);
-      px(b,xv,LH-yv,3,4,'#3f7a35');
-      if(yv%24===0){ px(b,xv+dir*3,LH-yv-2,6,4,'#5aa347'); px(b,xv+dir*3,LH-yv-2,3,2,'#7cc45c'); }
-      if(grow>0.6&&yv%48===0) px(b,xv+dir*4,LH-yv-4,5,5,'#e8c34a');
-    }
-  }
   if(R_.shine>0){ b.globalAlpha=R_.shine/900; px(b,0,0,LW,LH,'#ffe08a'); b.globalAlpha=1; }
   /* the hit line is a flute: the painted one (rhythm/flute) with a finger hole over each lane
-     that lights up as it's played, or the one you have equipped, drawn */
+     that lights up as it's played */
   const fl=rhythmPic('flute');
   if(fl){ const w=LW-12, h=w*fl.naturalHeight/fl.naturalWidth;
     b.globalAlpha=.35; px(b,8,HITLINE+h/2-2,LW-16,6,'#101820'); b.globalAlpha=1;
@@ -580,24 +534,7 @@ function drawRhythm(){
       b.strokeStyle=on?'#ffe08a':'rgba(214,176,96,.9)'; b.lineWidth=on?2.4:1.6; b.beginPath(); b.arc(x,HITLINE,7.5,0,7); b.stroke();
       if(on){ b.fillStyle='#fff3b0'; b.beginPath(); b.arc(x,HITLINE,4.5,0,7); b.fill();
         b.globalAlpha=.5; px(b,LANE_X0+i*LANE_W,T0,LANE_W-3,TH,'#ffe08a'); b.globalAlpha=1; } }
-  } else {
-  const FS=FLUTE_INFO[G.flute||'recorder'];
-  b.globalAlpha=.35; px(b,6,HITLINE+10,LW-12,7,'#101820'); b.globalAlpha=1;
-  px(b,6,HITLINE-10,LW-12,22,'#241a10');
-  px(b,8,HITLINE-8,LW-16,18,FS.body);
-  px(b,8,HITLINE-8,LW-16,5,FS.hi);
-  px(b,8,HITLINE+7,LW-16,3,FS.dark);
-  px(b,8,HITLINE-8,13,18,FS.hi); px(b,LW-21,HITLINE-8,13,18,FS.hi);
-  px(b,LW-24,HITLINE-11,7,24,FS.dark);
-  px(b,23,HITLINE-5,9,7,'#241a10');
-  if(G.flute==='dizi'){ px(b,30,HITLINE-8,4,18,'#7ad0a0'); px(b,LW-30,HITLINE-8,4,18,'#e8c34a'); }
-  for(let i=0;i<LANES;i++){
-    const x=LANE_X0+i*LANE_W+LANE_W/2-7;
-    px(b,x-2,HITLINE-7,18,16,FS.dark);
-    px(b,x,HITLINE-5,14,12,R_.press[i]?'#fff3b0':'#241a10');
-    if(R_.press[i]){ px(b,x+2,HITLINE-3,10,8,'#ffe08a');
-      b.globalAlpha=.5; px(b,LANE_X0+i*LANE_W,T0,LANE_W-3,TH,'#ffe08a'); b.globalAlpha=1; }
-  } }
+  }
   for(let i=0;i<LANES;i++) rhythmPlant(b,LANE_X0+i*LANE_W+LANE_W/2,LH-26,grow,R_.flash[i]>60);
   for(const n of R_.chart.notes){
     if(n.done) continue;
@@ -605,10 +542,7 @@ function drawRhythm(){
       const y=HITLINE-((n.t-R_.time)/FALL)*HITLINE;
       if(y<T0-20||y>T1)continue;
       const x=LANE_X0+n.lane*LANE_W;
-      if(art.gems){ drawGem(art.gems,n.lane,x+LANE_W/2-1.5,y,30); continue; }
-      px(b,x+7,Math.round(y)-8,LANE_W-17,16,'#2b1c12');
-      px(b,x+9,Math.round(y)-6,LANE_W-21,12,'#f2701c');
-      px(b,x+9,Math.round(y)-6,LANE_W-21,4,'#ffcf3a');
+      if(art.gems) drawGem(art.gems,n.lane,x+LANE_W/2-1.5,y,30);
     } else if(HITLINE-((n.t-R_.time)/FALL)*HITLINE>T0-40) drawHold(n,art,T0);
   }
   R_.fx.forEach(f=>{ const a=Math.min(1,f.t/400);

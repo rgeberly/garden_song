@@ -3,7 +3,7 @@
    ================================================================ */
 /* The title: a sunrise. The sky lightens from deep blue to morning, the stars fade and
    the sun climbs over the horizon, warming the scene below. The scene is the title
-   picture (assets/scenes/title.jpg) once it has loaded, or a drawn garden until then. */
+   picture (assets/scenes/title.jpg), over a drawn sky, once it has loaded. */
 const TITLE_RISE=11000, TITLE_HORIZON=0.5;     /* how long the sunrise takes (ms); where the horizon is */
 /* where the light comes from in the title picture (shares of its width and height) */
 const TITLE_SUN={x:0.88,y:0.62};
@@ -58,17 +58,6 @@ function drawTitle(){
   if(im){
     /* the picture, covering the scene; it's dark before the sun is up */
     b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,pic.x,pic.y,pic.w,pic.h); b.restore();
-  } else {
-    /* a drawn garden: far hills, near hills, the lawn with Kaitlyn and friends */
-    b.fillStyle=mixCol('#2a2a4a','#6a9a7a',k);
-    b.beginPath(); b.moveTo(0,hy+10); for(let x=0;x<=LW;x+=30) b.lineTo(x,hy-14-Math.sin(x/70)*16-((x*7)%11)); b.lineTo(LW,hy+30); b.lineTo(0,hy+30); b.fill();
-    b.fillStyle=mixCol('#203024','#4f8c48',k);
-    b.beginPath(); b.moveTo(0,hy+40); for(let x=0;x<=LW;x+=20) b.lineTo(x,hy+12-Math.sin(x/45+1)*10); b.lineTo(LW,bot); b.lineTo(0,bot); b.fill();
-    b.fillStyle=mixCol('#26402a','#5a9a46',k); b.fillRect(0,hy+60,LW,bot-hy-60);
-    for(let x=0;x<LW;x+=6) px(b,x,hy+58+((x*5)%7),3,4,mixCol('#2e4a30','#6aaa52',k));
-    const gy=hy+120;
-    drawPlant(b,46,gy-8,'strawberry',3,false); drawPlant(b,300,gy-10,'sunflower',3,false);
-    drawKaitlyn(b,112,gy,4,G.t,false,false); drawFrog(b,226,gy-26,G.t,1);
   }
   /* before sunrise everything is in shadow; the warm light comes up with the sun */
   b.save(); b.globalCompositeOperation='multiply'; b.globalAlpha=(1-k)*0.55;
