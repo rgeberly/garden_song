@@ -85,17 +85,26 @@ function startFishing(){
      lift:0,liftWant:0,rodId:null,rodY0:0,
      side:rnd(-0.3,0.3),sideTo:0,drops:[],rings:[],leap:null};
   padVec={x:0,y:0}; padId=null; G.scene='fishing';
-  blip(300,0.05,0.12,'triangle');
+  sfx('fishing_start');
 }
-function endFishing(msg){ FS=null; G.scene='world'; if(msg) say(msg); autoSave(); }
+function endFishing(msg){ reelSound(true); FS=null; G.scene='world'; if(msg) say(msg); autoSave(); }
+/* the reel's clicking while she winds it: louder and a little faster the harder she reels,
+   and gone when she stops or the fish is landed or lost (off: stop it now) */
+function reelSound(off){
+  if(!FS) return;
+  const k=FS.phase==='reel'&&!off?clamp(FS.reel,0,1.2):0;
+  if(k>0.08){ if(!FS.reelSnd) FS.reelSnd=sfxLoop('fishing_reeling',0,1);
+              if(FS.reelSnd) FS.reelSnd.set(Math.min(1,k),0.85+0.25*k); }
+  else if(FS.reelSnd){ FS.reelSnd.stop(); FS.reelSnd=null; }
+}
 /* the cast: power 0..1 decides how far out the line lands */
 function fishCast(power){
   FS.phase='cast'; FS.t=0; FS.dist=0.55+0.45*clamp(power,0,1); FS.charge=0;
-  blip(240,0.08,0.1,'triangle');
+  sfx('fishing_casting');
 }
 /* pulling the rod: sets the hook on a bite, scares the fish off before one */
 function fishPull(){
-  if(FS.phase==='bite'){ FS.phase='reel'; FS.t=0; FS.lift=1; FS.leaps=leapsFor(FS.fish); FS.leapAt=rnd(500,1300); blip(520,0.06,0.15,'square'); fishSplash(0.6,'fish_churnin'); return; }
+  if(FS.phase==='bite'){ FS.phase='reel'; FS.t=0; FS.lift=1; FS.leaps=leapsFor(FS.fish); FS.leapAt=rnd(500,1300); sfx('fishing_set_the_hook'); fishSplash(0.6,'fish_churnin'); return; }
   if(FS.phase==='wait'){ FS.phase='lost'; FS.t=0; FS.msg="Too soon — you scared it off."; }
 }
 function fishHook(){
@@ -148,7 +157,7 @@ function fishSplash(k,snd,vol){
   if(snd===undefined) splashSound(0.25+k*0.35); else if(snd) sfx(snd,vol!==undefined?vol:Math.min(1,0.6+k*0.4));
 }
 function updateFishing(dt){
-  FS.t+=dt;
+  FS.t+=dt; reelSound();
   FS.splash.forEach(s=>s.t-=dt); FS.splash=FS.splash.filter(s=>s.t>0);
   FS.rings.forEach(r=>r.t+=dt); FS.rings=FS.rings.filter(r=>r.t<r.dur+r.delay);
   FS.drops.forEach(d=>{ d.t+=dt; d.x+=d.vx*dt; d.y+=d.vy*dt; d.vy+=d.g*dt; }); FS.drops=FS.drops.filter(d=>d.t<900);
@@ -164,7 +173,7 @@ function updateFishing(dt){
     else if(FS.held){ FS.held=0; fishCast(0.3+FS.charge*0.7); } }
   if(FS.phase==='cast'&&FS.t>THROW_MS){ FS.phase='wait'; FS.t=0; fishSplash(0.3,'droplet'); }
   else if(FS.phase==='wait'&&FS.t>FS.wait){ FS.phase='bite'; FS.t=0; FS.fish=pickFish();
-    for(let i=0;i<8;i++) FS.splash.push({a:i*0.8,t:500}); blip(880,0.05,0.15,'sine'); fishBuzz(); }
+    for(let i=0;i<8;i++) FS.splash.push({a:i*0.8,t:500}); sfx('fishing_bite'); fishBuzz(); }
   else if(FS.phase==='bite'&&FS.t>HOOK_MS){ FS.phase='lost'; FS.t=0; FS.msg="It nibbled the bait and swam off."; }
   else if(FS.phase==='reel'){
     const g=GOODS[FS.fish], s=dt/1000;
@@ -195,11 +204,11 @@ function updateFishing(dt){
     FS.slipping=slip>0;
     FS.dist=clamp(FS.dist-(FS.reel*0.22*RD.reel*s+yank*0.14)*(1.15-FS.pull*0.25)+FS.pull*0.11*s+slip,strong?0.3:0,1.3);
     /* a fish too strong for this rod can't be landed: it wins in the end */
-    if(strong&&FS.t>9000){ FS.phase='lost'; FS.t=0; FS.msg="Snap! That "+g.name+" was too strong for this rod."; blip(120,0.1,0.25,'sawtooth'); return; }
+    if(strong&&FS.t>9000){ FS.phase='lost'; FS.t=0; FS.msg="Snap! That "+g.name+" was too strong for this rod."; sfx('fishing_line_break'); return; }
     FS.tension+=(target-FS.tension)*Math.min(1,s*3);
     FS.snapT=FS.tension>1?FS.snapT+dt:Math.max(0,FS.snapT-dt*2);
     FS.slackT=FS.tension<0.12?FS.slackT+dt:0;
-    if(FS.snapT>SNAP_MS){ FS.phase='lost'; FS.t=0; FS.msg="Snap! The line broke."; blip(120,0.1,0.25,'sawtooth'); }
+    if(FS.snapT>SNAP_MS){ FS.phase='lost'; FS.t=0; FS.msg="Snap! The line broke."; sfx('fishing_line_break'); }
     else if(FS.slackT>SLACK_MS||FS.dist>=1.3){ FS.phase='lost'; FS.t=0; FS.msg="The line went slack and it got away."; }
     else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; const L0=fishLength(FS.fish); FS.size=L0.len; FS.lunker=L0.big; fishSplash(1.2,'fish_jump',CATCH_SPLASH); setTimeout(()=>sfx('catch_fish'),CATCH_SOUND_MS);
       G.goods[FS.fish]=(G.goods[FS.fish]||0)+1;

@@ -286,24 +286,24 @@ const MOVES=[
    and more as friends join and when she finds the Muramatsu (learn). The Pep meter
    (G.pep, out of PEP_MAX) fills as the party takes hits, from fight to fight; when it's
    full she can play one after the last friend has chosen their move: a short rhythm game
-   (a stretch of a practice song: song, sec [from, to] in seconds) before anyone moves,
+   (song: its own recording; sec [from, to] in seconds would play just a stretch of it) before anyone moves,
    as strong as it's played. pow: a hit on every foe (from Intelligence, like her songs);
    bindAll: each foe may be Bound; cureAll: the party's troubles go; heal: a share of
    everyone's max HP back; chargeAll: everyone's
    next hit is doubled; shieldAll: no damage to the party this round. */
 const PEP_MAX=100;
 const PEP_SONGS=[
-  {id:'rally', name:"Rally Cry",      song:'practice_Grow Little Croppies',sec:[0,15.106],     pow:1.6, learn:()=>true,
+  {id:'rally', name:"Rally Cry",      song:'Rally Cry', pow:1.6, learn:()=>true,
    desc:"Everyone cheers, and the pests feel it. A hit on every foe."},
-  {id:'tangle',name:"Tangleroot Reel",song:'practice_Drink Up, Lovelies', sec:[0,11.844],      pow:0.8, bindAll:true, learn:()=>!!G.allies.ivy,
+  {id:'tangle',name:"Tangleroot Reel",song:'Tangleroot Reel', pow:0.8, bindAll:true, learn:()=>!!G.allies.ivy,
    desc:"A twisty jig that whips roots around the pests. A hit on every foe, and each may be Bound for a turn."},
-  {id:'clean', name:"Clean Slate",    song:'practice_Grow Little Croppies',sec:[15.106,30.154],cureAll:true, heal:0.25, learn:()=>!!G.allies.tiny,
+  {id:'clean', name:"Clean Slate",    song:'Clean Slate', cureAll:true, heal:0.25, learn:()=>!!G.allies.tiny,
    desc:"A bright, clear tune that shakes off every trouble on the whole party and heals everyone 25% of their max HP."},
-  {id:'hype',  name:"Hype Up",        song:'practice_Grow Little Croppies',sec:[30.154,47.886],chargeAll:true, learn:()=>!!G.allies.tituba,
+  {id:'hype',  name:"Hype Up",        song:'Hype Up', chargeAll:true, learn:()=>!!G.allies.tituba,
    desc:"Everyone's fired up: each one's next hit is twice as hard."},
-  {id:'safe',  name:"Safe and Sound", song:'practice_Drink Up, Lovelies', sec:[4.5,17.4],      shieldAll:true, learn:()=>!!G.allies.tex,
+  {id:'safe',  name:"Safe and Sound", song:'Safe and Sound', shieldAll:true, learn:()=>!!G.allies.tex,
    desc:"A slow, steady song like a shell around everyone. No one takes any damage this turn."},
-  {id:'finale',name:"Grand Finale",   song:'practice_Grow Little Croppies',sec:[47.886,69.854],pow:3.2, learn:()=>!!G.gear.muramatsu,
+  {id:'finale',name:"Grand Finale",   song:'Grand Finale', pow:3.2, learn:()=>!!G.gear.muramatsu,
    desc:"Everything she's got, on the finest flute there is. A huge hit on every foe."},
 ];
 const pepKnown=()=>Object.keys(G.allies).length>0;

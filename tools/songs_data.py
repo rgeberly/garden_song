@@ -13,6 +13,9 @@ PARTS = {
     'practice_Grow Little Croppies': ['strawberry', 'radish', 'blueberry', 'avocado', 'lemongrass',
         'tomato', 'sunflower', 'melon', 'carrot', 'pumpkin', 'satsuma'],
     'practice_Drink Up, Lovelies': ['squash', 'muscadine', 'beet', 'collards'],
+    # the Pep Rally songs, three to a practice song (Not in My Pep Rally! ends on a stretch with no flute)
+    'practice_Croppies In Your Mouth!': ['Rally Cry', 'Tangleroot Reel', 'Clean Slate'],
+    'practice_Not in My Pep Rally!': ['Safe and Sound', 'Hype Up', 'Grand Finale'],
 }
 HEADER = ('/* Rhythm game songs, built by tools/build_songs.py from the recordings in the art\n'
           '   folder\'s rhythm/songs/, with any hand edits from the song editor (tools/song-editor.html).\n'

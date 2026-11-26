@@ -82,6 +82,10 @@ const PRACTICE_SONGS=[
   {id:'croppies',name:"Grow Little Croppies",file:"Grow Little Croppies",xp:1,min:60,cost:0},
   {id:'lovelies',name:"Drink Up, Lovelies",file:"Drink Up, Lovelies",xp:0.4,min:20,cost:0},
   {id:'home',name:"Home Sweet Home",file:"Home Sweet Home",xp:1.5,min:90,cost:300},
+  /* the Pep Rally songs, three in a row: Rally Cry, Tangleroot Reel, Clean Slate; and Safe
+     and Sound, Hype Up, Grand Finale (and a last stretch without flute) */
+  {id:'mouth',name:"Croppies In Your Mouth!",file:"Croppies In Your Mouth!",xp:1.2,min:60,cost:250},
+  {id:'peprally',name:"Not in My Pep Rally!",file:"Not in My Pep Rally!",xp:1.2,min:60,cost:250},
 ];
 const songKnown=s=>!s.cost||G.sheets.includes(s.id);
 const knownSongs=()=>PRACTICE_SONGS.filter(songKnown);

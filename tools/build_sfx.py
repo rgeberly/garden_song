@@ -15,6 +15,8 @@ Along the way each recording is cleaned up, without touching the original:
   - it fades in over a few milliseconds and out at the end (no clicks; a longer fade
     when the recording stops while still sounding),
   - its loudness is evened out with the others (SFX_RMS), never past SFX_PEAK.
+A sound in LOOPS (like fishing reeling) keeps its end and has it crossfaded into its start
+instead, so the game can repeat it without a seam.
 How loud each one plays in the game is then set by SOUND_VOL in js/03-audio.js.
 Needs: pip install imageio-ffmpeg librosa soundfile scipy
 """
@@ -32,6 +34,10 @@ SFX_RMS = -20.0      # dBFS: the loudness of the sounding part, before SOUND_VOL
 SFX_PEAK = -1.0      # dBFS: no peak goes past this
 START_DB = -30       # the sound starts where it first gets this loud (dB below its peak)
 END_DB = -50         # and ends after it last is
+# sounds that loop while something goes on (the game repeats them seamlessly): no fades,
+# their end crossfaded into their start over LOOP_XFADE seconds, and their exact length kept
+LOOPS = {'fishing_reeling'}
+LOOP_XFADE = 0.2
 
 
 def key_of(name):
@@ -40,7 +46,7 @@ def key_of(name):
     return re.sub(r'_\d+$', '', file), file
 
 
-def clean(y):
+def clean(y, loop=False):
     """y: (channels, samples) float. Returns the cleaned, levelled copy."""
     # DC: a gentle 20 Hz high-pass, both ways so nothing shifts in time
     # left and right out of phase (they'd cancel on a phone's single speaker): the louder one alone
@@ -56,6 +62,12 @@ def clean(y):
     tail = np.where(mono > pk * 10 ** (END_DB / 20))[0]
     s = max(0, loud[0] - int(0.004 * SR))
     e = min(out.shape[1], max(tail[-1], loud[-1]) + int(0.03 * SR))
+    if loop:
+        out = out[:, s:].copy(); n = out.shape[1]; x = int(LOOP_XFADE * SR)
+        k = np.linspace(0, np.pi / 2, x)
+        out[:, :x] = out[:, :x] * np.sin(k) + out[:, n - x:] * np.cos(k)     # equal-power crossfade
+        out = out[:, :n - x]
+        return level(out)
     out = out[:, s:e].copy()
     n = out.shape[1]
     # fades: 4 ms in; out over 30 ms, or 250 ms if it was still sounding at the end
@@ -63,6 +75,11 @@ def clean(y):
     end_lvl = np.abs(out[:, -int(0.05 * SR):]).max() / (np.abs(out).max() or 1)
     fo = min(n // 3, int((0.25 if end_lvl > 0.05 else 0.03) * SR))
     out[:, n - fo:] *= np.linspace(1, 0, fo) ** 2
+    return level(out)
+
+
+def level(out):
+    """evened out with the others: the sounding part at SFX_RMS, no peak past SFX_PEAK"""
     # loudness of the sounding part (above -40 dB of its peak, 20 ms windows)
     m = out.mean(axis=0); w = int(0.02 * SR)
     wins = np.array([np.sqrt(np.mean(m[i:i + w] ** 2)) for i in range(0, max(1, len(m) - w), w)])
@@ -90,9 +107,10 @@ def main():
         y, _ = librosa.load(path, sr=SR, mono=False)
         if y.ndim == 1:
             y = y[None, :]
-        y = clean(y)
+        y = clean(y, key in LOOPS)
         encode(y, os.path.join(OUT_AUDIO, file + '.m4a'))
         S = sounds.setdefault(key, {'files': [], 'dur': 0})
+        if key in LOOPS: S['loop'] = round(y.shape[1] / SR, 4)      # the exact length to repeat
         S['files'].append(file)
         S['dur'] = round(max(S['dur'], y.shape[1] / SR), 2)
         print(f'{file:28s} {y.shape[1] / SR:5.2f} s')

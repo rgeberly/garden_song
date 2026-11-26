@@ -3,9 +3,9 @@ What's still to make or do, as of Nov 15, 2026. Tick a box by changing `[ ]` to 
 
 ## Songs
 Rhythm game songs go in the art folder as `rhythm/songs/<name>_flute.wav` and `<name>_backing.wav`
-(then `python tools/build_songs.py <name>`). Every crop and all three practice songs have theirs.
-- [ ] Pep Rally songs: each plays a stretch of Grow Little Croppies or Drink Up, Lovelies for now
-      (`PEP_SONGS` in `js/01-content.js`). Rally Cry, Tangleroot Reel, Clean Slate, Hype Up, Safe and Sound, Grand Finale.
+(then `python tools/build_songs.py <name>`). Every crop, practice song and Pep Rally has its own.
+- [x] Pep Rally songs: Rally Cry, Tangleroot Reel, Clean Slate, Hype Up, Safe and Sound, Grand Finale
+- [x] Practice songs made of them: Croppies In Your Mouth! and Not in My Pep Rally! (250 coins each at Rosa's)
 - [ ] Kaitlyn's battle songs: they're not rhythm games any more, and all six play the same flute
       sound (`sfx_flute`). A short flute phrase of each would do: Sprout Strike, Frog Lullaby,
       Bramble Waltz, Wasp Requiem, Thorn Nocturne, Harvest Hymn.
@@ -25,7 +25,7 @@ number ("catch fish 2") is another take of the same sound. These still play synt
 - [ ] Battle voices for Ivy, Tituba and Tex's skills (Tiny One has his): e.g. Ivy's hiss (Ssssss),
       Tituba's Hiss and swipes, Tex's Shell Up and Slam
 - [ ] Pest voices or noises (none yet)
-- [ ] Fishing: starting, casting, a bite, setting the hook, the line snapping
+- [x] Fishing: starting, casting, a bite, setting the hook, reeling, the line snapping
 - [ ] Rhythm game: the count-in beeps, a "perfect" fanfare (the frog's), tapping during the count-in
 - [ ] Tiny One as a baby: begging, and gulping a worm
 

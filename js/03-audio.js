@@ -124,7 +124,8 @@ const SND_BUF={}, SND_DIR='assets/audio/sfx/';
 /* how loud each one plays (they're all built to about the same loudness) */
 const SOUND_VOL={menu_move:0.45,menu_tab:0.5,menu_confirm:0.55,menu_cancel:0.55,menu_toggle:0.5,menu_talkbox_advance:0.45,
   cant_do_that:0.6,buy:0.7,sell:0.7,pickup:0.65,drink:0.7,droplet:0.5,knock_on_door:0.8,open_door:0.6,close_door:0.6,
-  battle_start:0.8,get_key_item:0.75,fish_jump:0.75,fish_churnin:0.6,catch_fish:1,tituba_meow:0.8,
+  battle_start:0.8,get_key_item:0.75,fish_jump:0.75,fish_churnin:0.6,catch_fish:1,
+  fishing_start:0.5,fishing_casting:0.7,fishing_bite:0.6,fishing_set_the_hook:0.8,fishing_line_break:0.8,fishing_reeling:0.5,tituba_meow:0.8,
   tiny_tweet:0.8,tiny_songs:0.8,tiny_peckpeckpeck:0.8,tiny_disarmingtrill:0.8,tiny_wakeupcall:0.8};
 function loadSounds(){
   if(!AC||loadSounds.on||typeof SOUNDS==='undefined') return; loadSounds.on=true;
@@ -151,6 +152,19 @@ function sfx(key,vol=1){
   src.buffer=B.buf; g.gain.value=(SOUND_VOL[key]||0.6)*vol;
   src.connect(g); g.connect(sfxGain); src.start(AC.currentTime,B.off);
   return B.buf.duration-B.off;
+}
+/* a sound that repeats until stopped (one with SOUNDS[key].loop: just that exact span
+   repeats, so there's no seam). Returns {set(vol,rate), stop()}, or null if it can't play
+   yet. vol: times its SOUND_VOL; rate: playback speed (1 normal). */
+function sfxLoop(key,vol=1,rate=1){
+  sndN++;
+  const S=typeof SOUNDS!=='undefined'&&SOUNDS[key], B=S&&SND_BUF[S.files[0]]; if(!AC||!B) return null;
+  const src=AC.createBufferSource(), g=AC.createGain(), base=SOUND_VOL[key]||0.6;
+  src.buffer=B.buf; src.loop=true; src.loopStart=B.off; src.loopEnd=B.off+(S.loop||B.buf.duration-B.off);
+  g.gain.value=base*vol; src.playbackRate.value=rate;
+  src.connect(g); g.connect(sfxGain); src.start(AC.currentTime,B.off);
+  return {set(v,r){ const t=AC.currentTime; g.gain.setTargetAtTime(base*v,t,0.05); if(r) src.playbackRate.setTargetAtTime(r,t,0.05); },
+          stop(){ const t=AC.currentTime; g.gain.setTargetAtTime(0,t,0.03); try{ src.stop(t+0.2); }catch(e){} }};
 }
 function blip(f,dur,vol,type){ sndN++; if(!AC)return;
   const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();

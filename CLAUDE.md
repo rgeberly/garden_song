@@ -29,7 +29,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - `index.html` loads `js/assets.js`, then `js/data/*.js` (generated data), then `js/00-core.js` … `js/20-friends.js` in order. These are shared globals, not modules.
 - `G` is the game state (`js/04-state.js`). Save keys are short (`jm`, `nm`, `sh`, …), so keep them stable.
 - The party stands in five spots, top to bottom (`G.slots`, save key `ps`, Kaitlyn in the middle by default). `G.party` is who's out, in spot order; `partySlots()` keeps the two in step. Battles put each member at `PARTY_SPOTS[spot]`.
-- Battle rounds: everyone picks a move top to bottom (`plan`, `B.plan`), then all act by Agility (`startActions`, `nextActor`, `runPlan`). The Pep meter (`G.pep`, save key `pp`) fills on hits; when it's full, a Pep Rally (`PEP_SONGS` in `js/01-content.js`) can be played after the last pick, as a rhythm game over a stretch of a practice song (`bc.section`).
+- Battle rounds: everyone picks a move top to bottom (`plan`, `B.plan`), then all act by Agility (`startActions`, `nextActor`, `runPlan`). The Pep meter (`G.pep`, save key `pp`) fills on hits; when it's full, a Pep Rally (`PEP_SONGS` in `js/01-content.js`) can be played after the last pick, as a rhythm game over its own song (a `sec` would play just a stretch of one, `bc.section`).
 - Town shops (`TOWN_SHOPS` in `js/17-places.js`, each with `tabs`) open in the garden stall's window (`openTownShop` in `js/09-menu-shop.js`).
 - Party member ids are `kaitlyn`, `ivy`, `tiny`, `tituba` and `tex`. Saves and art file names depend on them, so keep them stable. (Ivy's id was `bling` until Nov 14, 2026; saves from before then don't carry over.)
 - New `SPECIES` go at the end, because saves store plots by their index in that list.
@@ -56,6 +56,7 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Recordings are `sfx/<name>.wav` in the art folder. `python tools/build_sfx.py` cleans them up (DC offset, leading silence, fades, even loudness), writes `assets/audio/sfx/<key>.m4a` and lists them in `js/data/sounds.js` (`SOUNDS`). The key is the name in lower case with spaces and dashes as underscores. A name ending in a number ("close door 2") is another take, picked at random.
 - `sfx(key, vol)` in `js/03-audio.js` plays one (Web Audio, decoded at start-up). `SOUND_VOL` there sets how loud each plays.
 - Settings has Music and Sound effects levels, 0 to 10 (`VOL`, `setVolume`). They're stored in `localStorage` (`kgs-vol`), not the save. Music covers the tracks and the rhythm game's recordings (`songGain`). Sound effects cover everything else, including the footstep and one-shot `<audio>` sounds.
+- Sounds in `LOOPS` (`build_sfx.py`, now just `fishing_reeling`) are built to repeat without a seam and played with `sfxLoop`, which can change volume and speed while it runs.
 - Menu clicks are automatic: `menuClick` in `js/05-input.js` compares the menus before and after each key or tap. If nothing played a sound, it plays `menu_tab`, `menu_confirm`, `menu_cancel` or `menu_move`.
 - Tiny One's skill voices are in `SKILL_SOUND` (`js/12-battle.js`). A voice longer than the move holds the turn (`anim`'s `hold`) while his animation loops.
 
@@ -63,5 +64,5 @@ The logo says "Garden Song", without "Kaitlyn's".
 - Recordings are `rhythm/songs/<name>_flute.wav` and `<name>_backing.wav` in the art folder. Crop songs are named by species key; practice songs are `practice_<Title>`.
 - `python tools/build_songs.py [names…]` converts them to `assets/audio/songs/*.m4a` and finds the notes in `js/data/songs.js`. Never chain it after other edits in the same command; it once wrote an empty song list.
 - Hand edits made in the editor live in `tools/song_edits.json` and always win over the automatic note finder.
-- `PARTS` in `tools/songs_data.py` defines songs made of other songs: Grow Little Croppies and Drink Up, Lovelies. `recompose()` rebuilds them, and the last note of each part keeps its own lane.
+- `PARTS` in `tools/songs_data.py` defines songs made of other songs: Grow Little Croppies and Drink Up, Lovelies (crop songs), and Croppies In Your Mouth! and Not in My Pep Rally! (Pep Rally songs). `recompose()` rebuilds them, and the last note of each part keeps its own lane.
 - Note format is `{t, d, s, l}` plus an optional `e` (end lane) and `b` (bends, `[[secondsIn, lane]]`). The game's hold rules are in `songHoldDur` (`js/11-rhythm.js`), and the editor's `gameDur` mirrors them.
