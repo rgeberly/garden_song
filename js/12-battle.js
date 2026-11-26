@@ -2060,21 +2060,40 @@ function drawBattle(dt){
    bar filling with a tick, LEVEL UP!). Room for five. */
 const RES={pad:10, head:96, row:62};
 function resultsBox(){ const T0=BAND_TOP(), T1=BAND_BOT(); return {x:RES.pad,y:T0+RES.pad,w:LW-RES.pad*2,h:T1-T0-RES.pad*2}; }
+/* Fitting the results in: what was found, the same things stacked ("Rat Tail x3"); then,
+   if the list doesn't fit under the party, two columns, then shorter party rows, then
+   tighter lines, and at worst "+N more" */
+function resultsLayout(){
+  const w=B.win, R=resultsBox(), n=w.who.length, items=[];
+  (w.drops||[]).forEach(k=>{ const it=items.find(t=>t.good===k); if(it) it.n++; else items.push({good:k,n:1}); });
+  if(w.seed) items.push({seed:w.seed,n:1});
+  const FOUND=26, FOOT=26;
+  let row=RES.row, cols=1, lh=22;
+  const avail=()=>R.h-RES.head-n*row-8-FOUND-FOOT, need=()=>Math.ceil(Math.max(1,items.length)/cols)*lh;
+  if(need()>avail()) cols=2;
+  if(need()>avail()) row=Math.max(46,Math.floor((R.h-RES.head-8-FOUND-FOOT-need())/n));
+  if(need()>avail()) lh=17;
+  const perCol=Math.max(1,Math.floor(avail()/lh)), room=perCol*cols;
+  return {R,row,cols,lh,perCol,items,more:items.length>room?items.length-(room-1):0,dy:R.y+RES.head+n*row+8};
+}
+/* where found item i goes: its column's left edge and its line's middle */
+const foundAt=(L,i)=>({x:L.R.x+16+Math.floor(i/L.perCol)*(L.R.w-32)/L.cols, y:L.dy+30+(i%L.perCol)*L.lh});
 function drawResultsBack(){
   const w=B.win, a=clamp((w.t-POSE_MS)/RESULTS_FADE,0,1), R=resultsBox();
   b.save(); b.globalAlpha=a;
   b.fillStyle='rgba(6,10,30,.55)'; b.fillRect(0,BAND_TOP(),LW,BAND_BOT()-BAND_TOP());
   rpgWin(R);
-  w.who.forEach((id,i)=>{ const y=R.y+RES.head+i*RES.row, x=xpShown(id);
-    b.fillStyle='#0a0f2a'; b.fillRect(R.x+12,y+4,44,RES.row-12);
+  const L=resultsLayout(), row=L.row;
+  w.who.forEach((id,i)=>{ const y=R.y+RES.head+i*row, x=xpShown(id);
+    b.fillStyle='#0a0f2a'; b.fillRect(R.x+12,y+4,44,row-12);
     const im=portraitImg(id);
-    if(im){ const ph=RES.row-14, pw=ph*im.naturalWidth/im.naturalHeight;
-      b.save(); b.beginPath(); b.rect(R.x+13,y+5,42,RES.row-14); b.clip(); b.imageSmoothingEnabled=true;
+    if(im){ const ph=row-14, pw=ph*im.naturalWidth/im.naturalHeight;
+      b.save(); b.beginPath(); b.rect(R.x+13,y+5,42,row-14); b.clip(); b.imageSmoothingEnabled=true;
       b.drawImage(im,R.x+34-pw/2,y+5,pw,ph); b.restore(); }
-    gauge(R.x+66,y+36,R.w-80,7,x.xp,x.next,'#f0c84a','#fff0b0'); });
-  const dy=R.y+RES.head+w.who.length*RES.row+8;
-  (w.drops||[]).forEach((k,i)=>drawGoodIcon(b,k,R.x+26,dy+30+i*22,18));
-  if(w.seed) drawShopPic(seedName(w.seed).toLowerCase(),R.x+26,dy+30+(w.drops||[]).length*22,14,18);
+    gauge(R.x+66,y+Math.round(row*0.58),R.w-80,7,x.xp,x.next,'#f0c84a','#fff0b0'); });
+  const sz=L.lh<22?14:18;
+  L.items.slice(0,L.more?L.perCol*L.cols-1:L.items.length).forEach((it,i)=>{ const p=foundAt(L,i);
+    if(it.good) drawGoodIcon(b,it.good,p.x+10,p.y,sz); else drawShopPic(seedName(it.seed).toLowerCase(),p.x+10,p.y,sz*0.8,sz); });
   b.restore();
   /* the bars fill with a ticking sound */
   const k=clamp((w.t-WIN_DELAY)/WIN_FILL,0,1);
@@ -2088,17 +2107,21 @@ function drawResultsWords(){
   TS("EXP +"+Math.round(w.xp*xs.k)+(w.who.length>1?" each":""),R.x+16,R.y+72,20,'#ffe08a',null,true);
   TS((w.bonus?"lucky!  ":"")+"+"+got+"c",R.x+R.w-16,R.y+66,21,'#ffe08a','right',true);
   TS("purse: "+(G.coins-w.coins+got)+"c",R.x+R.w-16,R.y+84,15,'#aab6e8','right');
-  w.who.forEach((id,i)=>{ const x=xpShown(id), f=w.from[id], y=R.y+RES.head+i*RES.row;
+  const LY=resultsLayout(), row=LY.row;
+  w.who.forEach((id,i)=>{ const x=xpShown(id), f=w.from[id], y=R.y+RES.head+i*row;
     TS(PARTY_INFO[id].name,R.x+66,y+20,21,'#f4f6ff',null,true);
     TS("Lv."+x.lv,R.x+R.w-16,y+20,19,x.lv>f.lv?'#ffe08a':'#c8d4ff','right',true);
     if(x.lv>f.lv&&Math.floor(G.t/240)%2===0) TS("LEVEL UP!",R.x+66+TW(PARTY_INFO[id].name,21,true)+12,y+20,17,'#ffb04a',null,true);
-    TS(x.xp+" / "+x.next+" EXP",R.x+R.w-16,y+56,14,'#aab6e8','right'); });
-  const dy=R.y+RES.head+w.who.length*RES.row+8;
+    TS(x.xp+" / "+x.next+" EXP",R.x+R.w-16,y+row-6,14,'#aab6e8','right'); });
+  const dy=LY.dy, fs=LY.lh<22?15:18, colW=(R.w-32)/LY.cols;
   TS("Found",R.x+16,dy+12,17,'#c8d4ff',null,true);
-  const L=(w.drops||[]).map(k=>[GOODS[k].name,GOODS[k].value>=40?'#ffb0ff':'#f4f6ff',GOODS[k].value>=40?"  ★ rare!":""]);
-  if(w.seed) L.push([seedName(w.seed),'#b8f0a0',""]);
-  if(!L.length) TS("nothing this time",R.x+44,dy+34,16,'#8a94c4');
-  L.forEach(([n,c,r],i)=>TS(n+r,R.x+44,dy+36+i*22,18,c,null,true));
+  if(!LY.items.length) TS("nothing this time",R.x+44,dy+34,16,'#8a94c4');
+  const shown=LY.more?LY.perCol*LY.cols-1:LY.items.length;
+  LY.items.slice(0,shown).forEach((it,i)=>{ const p=foundAt(LY,i), g=it.good&&GOODS[it.good], rare=g&&g.value>=40;
+    let t=(g?g.name:seedName(it.seed))+(it.n>1?" x"+it.n:"")+(rare?(LY.cols>1?" ★":"  ★ rare!"):"");
+    while(t.length>3&&TW(t,fs,true)>colW-34) t=t.slice(0,-2)+"…";
+    TS(t,p.x+28,p.y+6,fs,rare?'#ffb0ff':g?'#f4f6ff':'#b8f0a0',null,true); });
+  if(LY.more){ const p=foundAt(LY,shown); TS("+"+LY.more+" more",p.x+28,p.y+6,fs,'#aab6e8',null,true); }
   if(!winGuard()&&xs.k>=1) TS(IS_TOUCH?"tap to continue":"J to continue",180,R.y+R.h-14,16,'#8a94c4','center');
   m.globalAlpha=1;
 }

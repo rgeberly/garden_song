@@ -95,7 +95,7 @@ function touchAt(x,y,id,hy){
   if(G.scene==='title'){ if(!titleWoken){ titleMusic(); return; } titleTouch(x,y); return; }
   if(G.scene==='rhythm'){ rhythmTouch(x,y,id); return; }
   if(G.scene==='battle'){ battleTouch(x,y); return; }
-  if(G.scene==='menu'){ menuTouch(x,y); return; }
+  if(G.scene==='menu'){ menuTouch(x,y,id); return; }
   if(G.scene==='shop'){ shopTouch(x,y); return; }
   if(G.scene==='sys'){ sysTouch(x,y); return; }
   if(G.scene==='sleep'){ sleepTap(); return; }
@@ -109,11 +109,13 @@ function onTouchMove(x,y,id,hy){
   if(padId===id) setPad(x,hy);
   if(G.scene==='rhythm') rhythmMove(x,y,id);
   if(G.scene==='fishing') fishMove(x,y,id);
+  if(G.scene==='menu') menuMove(x,y,id);
 }
 function onTouchEnd(id){
   if(padId===id){ padId=null; padVec={x:0,y:0}; }
   btnHeld=false; btnBHeld=false;
   if(G.scene==='fishing') fishUp(id);
+  if(G.scene==='menu') menuUp(id);
   if(G.scene==='rhythm') rhythmRelease(id);
 }
 /* the pad's direction, and how far it's pushed (padAmp, 0 just past the dead zone to 1
