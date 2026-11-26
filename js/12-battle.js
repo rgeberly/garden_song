@@ -245,28 +245,25 @@ function drawSpellFx2(kind,k,ax,ay){
     return true;
   }
   if(kind==='req'){
-    /* Wasp Requiem: a swarm of glowing wasps spirals in on the pests, then poison blooms over each */
-    if(k<0.6) for(let i=0;i<12;i++){ const a=i*0.52+k*10, r=(70-k*70)*(0.7+0.3*Math.sin(i)), x=EX+Math.cos(a)*r, y=EY+10+Math.sin(a)*r*0.55;
-      const tx=EX+Math.cos(a-0.35)*(r+6), ty=EY+10+Math.sin(a-0.35)*(r+6)*0.55;
-      glowPath([[tx,ty],[x,y]],'#e8a020',1.4,0.6); glowAt(x,y,5,'#ffc030',0.9);
-      b.fillStyle='#2a1a0a'; b.beginPath(); b.ellipse(x,y,1.8,1.2,a,0,TAU); b.fill(); }
+    /* Wasp Requiem: a swarm of glowing wasps spirals in on every pest, then poison blooms over each */
+    if(k<0.6) liveFoes().forEach((f,n)=>{ const p=foeSpot(f), cx=p.x, cy=p.y-p.lift-52*p.s+10, sc=p.s;
+      for(let i=0;i<10;i++){ const a=i*0.63+k*10+n*1.3, r=(60-k*60)*(0.7+0.3*Math.sin(i+n))*sc, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r*0.55;
+        const tx=cx+Math.cos(a-0.35)*(r+6), ty=cy+Math.sin(a-0.35)*(r+6)*0.55;
+        glowPath([[tx,ty],[x,y]],'#e8a020',1.4,0.6); glowAt(x,y,5,'#ffc030',0.9);
+        b.fillStyle='#2a1a0a'; b.beginPath(); b.ellipse(x,y,1.8,1.2,a,0,TAU); b.fill(); } });
     onceAt(A,'bloom',k,0.55,()=>foeMids().forEach(p=>{ glow({x:p.x,y:p.y,ring:true,r0:4,r1:30,w:3,life:420,col:'#a8e050'});
       for(let i=0;i<9;i++) glow({x:p.x+rnd(-14,14),y:p.y+rnd(-10,8),vx:rnd(-0.03,0.03),vy:-rnd(0.01,0.04),size:rnd(6,10),life:rnd(700,1000),col:i%3?'#8ccf40':'#b070e0',a:0.7,fin:true}); }));
     return true;
   }
   if(kind==='thorn'){
-    /* Thorn Nocturne: dark thorns lit by moonlight burst up under the pests, then sink away */
-    const rise=k<0.75?Math.min(1,k*1.8):Math.max(0,1-(k-0.75)/0.25), base=EY+46;
-    if(rise>0){ b.save(); b.globalAlpha=0.45*rise; b.fillStyle='#1a1028'; b.beginPath(); b.ellipse(EX+2,base,56,7,0,0,TAU); b.fill(); b.restore(); }  /* the broken ground */
-    for(let i=0;i<9;i++){ const x=EX-46+i*11.5+Math.sin(i*3.1)*3, h=rise*(58+((i*13)%28)), lean=Math.sin(i*1.9)*0.25;
-      if(h<2) continue;
-      const tip=[x+h*lean,base-h], g=b.createLinearGradient(x,base,tip[0],tip[1]);
-      g.addColorStop(0,'#1e1230'); g.addColorStop(0.6,'#5a3a86'); g.addColorStop(1,'#d8c8f8');
-      b.fillStyle=g; b.beginPath(); b.moveTo(x-4.5,base); b.quadraticCurveTo(x+h*lean*0.4-2,base-h*0.5,tip[0],tip[1]);
-      b.quadraticCurveTo(x+h*lean*0.4+2,base-h*0.5,x+4.5,base); b.fill();
-      glowAt(tip[0],tip[1],5,'#e0d0ff',0.6*rise); }
-    if(k>0.6&&k<0.85) glowAt(EX,EY,90,'#c8b0f0',(0.85-k)/0.25*0.45);
-    emitEvery(A,'petal',60,()=>{ if(k<0.85) glow({x:EX+rnd(-50,50),y:EY-rnd(20,50),vx:rnd(-0.02,0.02),vy:rnd(0.02,0.05),size:rnd(2,3),life:900,col:'#e0d0ff',fin:true}); });
+    /* Thorn Nocturne: the ground darkens under every pest and petals of moonlight fall;
+       then with each of its hits a cluster of thorns bursts up under that pest (thornBurst) */
+    const gather=Math.min(1,k/0.55)*(k<0.85?1:Math.max(0,1-(k-0.85)/0.15));
+    liveFoes().forEach(f=>{ const p=foeSpot(f); b.save(); b.globalAlpha=0.35*gather; b.fillStyle='#1a1028';
+      b.beginPath(); b.ellipse(p.x,p.y-2,34*p.s*gather,5*p.s,0,0,TAU); b.fill(); b.restore(); });
+    if(k>0.55&&k<0.8) glowAt(EX,EY,90,'#c8b0f0',(0.8-k)/0.25*0.35);
+    emitEvery(A,'petal',60,()=>{ if(k<0.85){ const L=liveFoes(), f=L[ri(0,Math.max(0,L.length-1))]; if(!f) return; const p=foeSpot(f);
+      glow({x:p.x+rnd(-40,40),y:p.y-rnd(60,110)*p.s,vx:rnd(-0.02,0.02),vy:rnd(0.02,0.05),size:rnd(2,3),life:900,col:'#e0d0ff',fin:true}); } });
     return true;
   }
   if(kind==='lull'){
@@ -317,6 +314,27 @@ function drawSpellFx2(kind,k,ax,ay){
     return true;
   }
   return false;
+}
+/* FX2, Thorn Nocturne: a cluster of moonlit thorns bursts up under pest f (one per hit) */
+const THORN_MS=620;
+function thornBurst(f){ const p=foeSpot(f); (B.thorns||(B.thorns=[])).push({x:p.x,y:p.y-1,s:p.s,t:0,seed:Math.random()*100});
+  glow({x:p.x,y:p.y-30*p.s,ring:true,r0:6,r1:34*p.s,w:3,life:360,col:'#c8b0f0'}); }
+function drawThorns(dt){
+  const L=B.thorns; if(!L||!L.length) return;
+  L.forEach(T=>{ T.t+=dt; const t=T.t, rise=t<110?1-Math.pow(1-t/110,3):t<300?1:Math.max(0,1-(t-300)/(THORN_MS-300));
+    if(rise<=0) return;
+    b.save(); b.globalAlpha=0.5*rise; b.fillStyle='#1a1028'; b.beginPath(); b.ellipse(T.x,T.y,30*T.s,5*T.s,0,0,TAU); b.fill(); b.restore();
+    /* five slim thorns fanning outward, the middle ones tallest */
+    for(let i=0;i<5;i++){ const r=Math.sin(T.seed+i*7.3), off=(i-2)/2, x=T.x+off*16*T.s+r*2,
+        h=rise*(62-Math.abs(off)*18+((i*13+T.seed)%14))*T.s, lean=off*0.42+r*0.08, w=2.8*T.s;
+      if(h<2) continue;
+      const tip=[x+h*lean,T.y-h], mid=[x+h*lean*0.35,T.y-h*0.5], g=b.createLinearGradient(x,T.y,tip[0],tip[1]);
+      g.addColorStop(0,'#1e1230'); g.addColorStop(0.55,'#4a2e72'); g.addColorStop(1,'#cbb6f4');
+      b.fillStyle=g; b.beginPath(); b.moveTo(x-w,T.y); b.quadraticCurveTo(mid[0]-w*0.6,mid[1],tip[0],tip[1]);
+      b.quadraticCurveTo(mid[0]+w*0.6,mid[1],x+w,T.y); b.fill();
+      b.strokeStyle='rgba(230,215,255,0.55)'; b.lineWidth=0.8; b.beginPath(); b.moveTo(x+w*0.3,T.y-h*0.15); b.quadraticCurveTo(mid[0]+w*0.2,mid[1],tip[0],tip[1]); b.stroke();
+      glowAt(tip[0],tip[1],5,'#e0d0ff',0.6*rise); } });
+  B.thorns=L.filter(T=>T.t<THORN_MS);
 }
 /* FX2: HP coming back: a ring of light at their feet and a column of rising motes */
 function healFx(id){
@@ -757,6 +775,7 @@ function useSong(mv,f){
         /* hits at whoever's still there, a moment apart (every one lands: see flurry) */
         const cm=useCharge('kaitlyn'), got=[];
         flurry(mv.hits,(t,up)=>{ const dmg=songHit(t,cm);
+          if(FX2&&mv.fx==='thorn') thornBurst(t);
           hitFoe(t,dmg,""); got.push(up&&t.hp<=0?dmg+" (it runs off)":String(dmg));
           B.log=mv.name+": "+got.join(", ")+"!"+pc+(cm>1?"  A focused blow!":""); });
       } else if(mv.pow>0&&f){
@@ -1740,6 +1759,7 @@ function drawBattle(dt){
   B.fx.forEach(f=>{ f.t-=dt; f.x+=f.vx*dt; f.y+=f.vy*dt; f.vy+=dt*f.g;
     b.globalAlpha=Math.min(1,f.t/300); px(b,Math.round(f.x),Math.round(f.y),3,3,f.col); b.globalAlpha=1; });
   B.fx=B.fx.filter(f=>f.t>0);
+  drawThorns(dt);
   drawGlow(dt);
   b.restore();                                   /* (the shake ends here: the windows stay put) */
 

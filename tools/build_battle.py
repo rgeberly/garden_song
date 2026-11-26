@@ -9,6 +9,11 @@ The cells are made bigger than 190x196 so the jump and the high kick fit: the ol
 are padded evenly left and right and at the top only, so they draw exactly where they
 did (the game anchors each cell at its bottom centre).
 
+The victory row was painted smaller than the rest of her (her shorts, the same in every
+pose, cover about 680 px there and about 900 in her stance, ready and flute frames, so a
+factor of about 1.15; from her feet to the top of her hair that's 162 against 188). It's
+enlarged by VICTORY_SCALE about her feet, so she stays planted where she stood.
+
     python tools/build_battle.py
 """
 import json, os, re
@@ -19,9 +24,10 @@ ART = r'C:\kaitlyns-garden-song-art\party\Kaitlyn'
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OLD_CW, OLD_CH, OLD_N = 190, 196, 14
 OLD_ROWS = ['kick', 'kick2', 'flute', 'victory']
-CW, CH = 234, 220                  # the new cells
+CW, CH = 234, 224                  # the new cells (tall enough for the victory row's raised fist)
 KARATE_CELL, KARATE_COLS, KARATE_STEP = 512, 7, 2
 GROUND = 470                       # her feet in the karate sheet's first frame (cell px)
+VICTORY_SCALE = 1.15
 
 
 def bbox(a):
@@ -39,6 +45,16 @@ def shrink(a, k):
     al2 = np.clip(s[..., 3:4] / 255, 1e-6, 1)
     out = np.dstack([s[..., :3] / al2, s[..., 3:4]])
     out[..., 3:4][s[..., 3:4] < 1] = 0
+    return np.clip(out + 0.5, 0, 255).astype(np.uint8)
+
+
+def enlarge(a, k):
+    """Scale an RGBA picture up by k smoothly, without dark fringes (colour weighted by alpha)."""
+    f = a.astype(np.float32); al = f[..., 3:4] / 255
+    pre = np.dstack([f[..., :3] * al, f[..., 3:4]])
+    s = cv2.resize(pre, (round(a.shape[1] * k), round(a.shape[0] * k)), interpolation=cv2.INTER_CUBIC)
+    s = np.clip(s, 0, None); al2 = np.clip(s[..., 3:4] / 255, 1e-6, 1)
+    out = np.dstack([s[..., :3] / al2, s[..., 3:4]]); out[..., 3:4][s[..., 3:4] < 1] = 0
     return np.clip(out + 0.5, 0, 255).astype(np.uint8)
 
 
@@ -70,7 +86,15 @@ def main():
     sheet = np.zeros((CH * len(rows), CW * max(OLD_N, len(cells)), 4), np.uint8)
     for r in range(len(OLD_ROWS)):
         for i in range(OLD_N):
-            paste(sheet, old[r * OLD_CH:(r + 1) * OLD_CH, i * OLD_CW:(i + 1) * OLD_CW], i * CW + pad_x, r * CH + pad_y)
+            src = old[r * OLD_CH:(r + 1) * OLD_CH, i * OLD_CW:(i + 1) * OLD_CW]
+            if OLD_ROWS[r] == 'victory':
+                # enlarged about her feet (the old rows' foot point, the same in every frame)
+                big = enlarge(src, VICTORY_SCALE)
+                cell = np.zeros((CH, CW, 4), np.uint8)
+                paste(cell, big, round(mid_x - (kx0 + kx1) / 2 * VICTORY_SCALE), round(feet_y - ky1 * VICTORY_SCALE))
+                sheet[r * CH:(r + 1) * CH, i * CW:(i + 1) * CW] = cell
+            else:
+                paste(sheet, src, i * CW + pad_x, r * CH + pad_y)
     r = len(OLD_ROWS)
     for i, c in enumerate(cells):
         # a frame whose feet drift below the ground is lifted back onto it (jumps stay up)

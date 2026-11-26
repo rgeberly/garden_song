@@ -39,7 +39,7 @@ const ASSET_MUS={
  "fallwinter_mountain": "assets/audio/music_fallwinter_mountain.mp3"
 };
 const ANIM_META={"cw": 85, "ch": 192, "foot": 173, "dirs": ["up", "northeast", "east", "southeast", "down"], "rows": [{"dir": "up", "anim": "idle", "n": 8}, {"dir": "up", "anim": "walk", "n": 24}, {"dir": "northeast", "anim": "idle", "n": 8}, {"dir": "northeast", "anim": "walk", "n": 24}, {"dir": "east", "anim": "idle", "n": 8}, {"dir": "east", "anim": "walk", "n": 24}, {"dir": "southeast", "anim": "idle", "n": 8}, {"dir": "southeast", "anim": "walk", "n": 24}, {"dir": "down", "anim": "idle", "n": 8}, {"dir": "down", "anim": "walk", "n": 24}]};
-const BATL_META={"cw": 234, "ch": 220, "rows": [{"name": "kick", "n": 14}, {"name": "kick2", "n": 14}, {"name": "flute", "n": 14}, {"name": "victory", "n": 14}, {"name": "karate", "n": 16}]};
+const BATL_META={"cw": 234, "ch": 224, "rows": [{"name": "kick", "n": 14}, {"name": "kick2", "n": 14}, {"name": "flute", "n": 14}, {"name": "victory", "n": 14}, {"name": "karate", "n": 16}]};
 const POSE_META={"cw": 130, "ch": 196};
 const FROG_META={"cw": 57, "ch": 68, "n": 4};
 const ASSET_META={"ow": {"cw": 150, "ch": 208}, "bt": {"cw": 150, "ch": 196}, "pw": 244, "ph": 312, "en": {"cw": 165, "ch": 135, "order": ["beetle", "wasp", "rat", "crab", "raccoon", "saddleback"]}};
