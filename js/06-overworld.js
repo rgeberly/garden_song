@@ -238,7 +238,7 @@ function drawWorld(){
       else if(p.sp){ if(p.sungDay===G.day) drawSungGlow(b,p,x,y);
         if(p.stage>0) groundShadow(b,c=>drawPlant(c,0,0,p.sp,p.stage,p.tree),x,y,p.tree?14:8);
         drawPlant(b,x,y,p.sp,p.stage,p.tree);
-        drawMeter(b,x,y+(p.tree?26:14),p.growth/plantNeed(p),p.stage>=3);
+        drawMeter(b,x,y+(p.tree?26:14),p.growth/plantNeed(p),p.stage>=3,p.health);
         if(p.sungDay===G.day) drawSungNote(b,p,x,y); } }}); });
   Object.keys(DECOR_SPOT).forEach(id=>{ if(!G.yard[id])return;
     const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>{

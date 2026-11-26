@@ -529,12 +529,28 @@ function drawSoil(c,x,y){
   c.globalAlpha=1;
   px(c,x-5,y-2,10,1,'#9c6c44');
 }
-function drawMeter(c,cx,cy,pct,ready){
-  const w=26;
-  px(c,cx-w/2-2,cy-2,w+4,8,'#241a12'); px(c,cx-w/2,cy,w,4,'#5a4a34');
-  if(ready) px(c,cx-w/2,cy,w,4,Math.floor(Date.now()/300)%2?'#ffe08a':'#f0c44a');
-  else { px(c,cx-w/2,cy,Math.round(w*clamp(pct,0,1)),4,'#7bc44a');
-         px(c,cx-w/2,cy,Math.round(w*clamp(pct,0,1)),2,'#a8e070'); }
+/* a plant's meter: its growth (the bar), and under it its health (0..100) in a thin second
+   bar, green to orange to red, blinking when nearly gone. Soft
+   rounded pills over a see-through backing, each with a little shine along its top. */
+function pill(c,x,y,w,h,fill){ if(w<=0) return; c.fillStyle=fill; c.beginPath(); c.roundRect(x,y,Math.max(w,h),h,h/2); c.fill(); }
+function drawMeter(c,cx,cy,pct,ready,health){
+  const w=26, hurt=health!==undefined, x0=cx-w/2;     /* hurt: there's a health bar to draw */
+  c.save();
+  pill(c,x0-2,cy-2,w+4,hurt?10.5:8,'rgba(24,16,10,0.42)');                 /* the backing */
+  pill(c,x0,cy,w,4,'rgba(255,255,255,0.14)');                              /* the empty track */
+  if(ready){ const glow=0.5+0.5*Math.sin(Date.now()/240);
+    c.shadowColor='rgba(255,220,120,'+(0.5+0.4*glow)+')'; c.shadowBlur=4;
+    const g=c.createLinearGradient(0,cy,0,cy+4); g.addColorStop(0,'#fff0a8'); g.addColorStop(1,'#e8b440');
+    pill(c,x0,cy,w,4,g); c.shadowBlur=0; }
+  else { const fw=w*clamp(pct,0,1);
+    if(fw>0){ const g=c.createLinearGradient(0,cy,0,cy+4); g.addColorStop(0,'#b8ec7a'); g.addColorStop(1,'#5aa83a');
+      pill(c,x0,cy,fw,4,g); } }
+  pill(c,x0+1,cy+0.6,(ready?w:w*clamp(pct,0,1))-2,1.1,'rgba(255,255,255,0.45)');   /* the shine */
+  if(hurt){ const h=clamp(health/100,0,1), col=h>0.6?['#d8f070','#9ac83a']:h>0.3?['#ffc070','#e08a30']:['#ff8a70','#d8402e'];
+    pill(c,x0,cy+5.2,w,2.6,'rgba(255,255,255,0.12)');
+    if(h>0.2||Math.floor(Date.now()/250)%2){ const g=c.createLinearGradient(0,cy+5.2,0,cy+7.8); g.addColorStop(0,col[0]); g.addColorStop(1,col[1]);
+      pill(c,x0,cy+5.2,Math.max(2.6,w*h),2.6,g); } }
+  c.restore();
 }
 function drawStall(c,x,y){
   px(c,x-24,y-36,48,6,'#2b1c12');
