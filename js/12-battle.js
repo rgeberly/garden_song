@@ -274,12 +274,7 @@ function drawSpellFx2(kind,k,ax,ay){
     const bo=Math.abs(Math.sin(G.t/180))*4; glowAt(ax+34,ay-30-bo,18,'#a8e890',0.35); drawFrog(b,ax+34,ay-26-bo,G.t,0);
     return true;
   }
-  if(kind==='kick'||kind==='lunge'){
-    /* a swoosh of light ahead of the blow (the hit itself has its own flash and sparks) */
-    if(k>0.3&&k<0.62){ const q=(k-0.3)/0.32, P=[]; for(let i=0;i<=14;i++){ const a=-1.3+2.2*(i/14)*Math.min(1,q*1.6); P.push([EX-30+Math.cos(a)*30,EY+18+Math.sin(a)*24]); }
-      glowPath(P,'#fff0c0',2.6,Math.sin(q*Math.PI)); }
-    return true;
-  }
+  if(kind==='kick'||kind==='lunge') return true;       /* a blow: its mark comes as it lands (drawMarks) */
   if(kind==='meditate'||kind==='focus'){
     /* calm rings of light settling round them, and motes rising (warm ones for Focus) */
     const fo=kind==='focus', C=fo?['#ffb070','#ffe0a0']:['#9ad4ff','#c8f0b0'];
@@ -335,6 +330,119 @@ function drawThorns(dt){
       b.strokeStyle='rgba(230,215,255,0.55)'; b.lineWidth=0.8; b.beginPath(); b.moveTo(x+w*0.3,T.y-h*0.15); b.quadraticCurveTo(mid[0]+w*0.2,mid[1],tip[0],tip[1]); b.stroke();
       glowAt(tip[0],tip[1],5,'#e0d0ff',0.6*rise); } });
   B.thorns=L.filter(T=>T.t<THORN_MS);
+}
+/* ---------- hit marks (FX2) ----------
+   What a blow leaves where it lands, by what made it: Ivy's two fangs, Tituba's claw
+   rake, Tex's big chomp, Kaitlyn's kick (a burst; Karate Kick's bigger), Tiny One's beak
+   jabs, and the pests' bites, pinches, claws, pecks, stings and bashes on the party. Each
+   plays on its own clock (B.marks) from the moment of the hit. dir: 1 when the blow comes
+   from the left (the party hitting a pest), -1 from the right (a pest hitting the party). */
+const MARK_MS={fangs:620,claws:480,chomp:560,kick:360,karate:460,beak:320,pinch:520,sting:620,bash:400,bite:520};
+/* each member's own hit (their regular attack), and skills that hit like it */
+const ATTACK_MARK={kaitlyn:'kick',ivy:'fangs',tituba:'claws',tex:'chomp'};
+const SKILL_MARK={peck:'beak',pounce:'claws',dswipe:'claws',slam:'bash'};
+/* the pests' blows, by their effect */
+const FOE_MARK={bite:'bite',pinch:'pinch',claw:'claws',peck:'beak',bash:'bash',dive:'bash',sting:'sting',spines:'sting'};
+function hitMark(type,x,y,s,dir,opt){ if(!FX2||!MARK_MS[type]) return;
+  (B.marks||(B.marks=[])).push({type,x,y,s:s||1,dir:dir||1,t:0,seed:Math.random()*100,...opt});
+  if(type==='chomp'||type==='karate') quake(type==='karate'?5:3.5,260); }
+/* on a pest (where a blow lands on it), or on a member; MARK_SCALE: how big they all are */
+const MARK_SCALE=1.6;
+function markFoe(type,f,opt){ const r=foeBox(f); hitMark(type,r.x+r.w*0.42,r.y+r.h*0.5,foeSpot(f).s*MARK_SCALE,1,opt); }
+function markMember(type,id,opt){ const s=slotOf(id); hitMark(type,s.x+6*s.s,(s.y+headOf(id))/2,s.s*MARK_SCALE,-1,opt); }
+const easeOut=q=>1-Math.pow(1-clamp(q,0,1),3);
+function drawMarks(dt){
+  const L=B.marks; if(!L||!L.length) return;
+  L.forEach(M=>{ M.t+=dt; const T=MARK_MS[M.type], q=M.t/T; if(q>=1) return;
+    const x=M.x, y=M.y, s=M.s, dir=M.dir, out=q<0.55?1:1-(q-0.55)/0.45;     /* out: fades over the last part */
+    b.save(); b.lineCap='round'; b.lineJoin='round';
+    if(M.type==='fangs'){
+      /* two curved fangs stab in, then two glowing punctures and drips of venom */
+      const stab=easeOut(M.t/110), lift=(1-stab)*-14*s;
+      for(const side of [-1,1]){ const fx=x+side*7*s, tip=y+6*s, top=tip-22*s+lift;
+        if(M.t<260){ b.globalAlpha=M.t<200?1:1-(M.t-200)/60;
+          b.fillStyle='#fbf6ff'; b.strokeStyle='#8a6ab0'; b.lineWidth=1;
+          b.beginPath(); b.moveTo(fx-4*s,top); b.quadraticCurveTo(fx-3*s,tip-8*s+lift,fx+side*1.5*s,tip+lift);
+          b.quadraticCurveTo(fx+3*s,tip-10*s+lift,fx+4*s,top); b.closePath(); b.fill(); b.stroke(); b.globalAlpha=1; }
+        if(stab>=1){ glowAt(fx+side*1.5*s,tip,7*s,'#ff7090',out*0.9); glowAt(fx+side*1.5*s,tip,3*s,'#ffffff',out); } }
+      if(M.t>=110&&!M.drip){ M.drip=true;
+        for(const side of [-1,1]) for(let i=0;i<3;i++) glow({x:x+side*8.5*s,y:y+7*s,vx:rnd(-0.01,0.01),vy:rnd(0.02,0.05),g:0.0002,size:rnd(2,3),life:rnd(500,800),col:i%2?'#8fe07a':'#c8f0a0'}); }
+    } else if(M.type==='claws'){
+      /* three curved slashes raked across, drawn in fast, then thinning away (silver for
+         the party, red for a pest) */
+      const col=dir>0?'#c8d8ff':'#ff8a7a';
+      for(let i=0;i<3;i++){ const d=clamp((M.t-i*30)/90,0,1); if(d<=0) continue;
+        /* spaced across the line of the slash (perpendicular to it), 11 px apart */
+        const px_=0.68*(i-1)*11*s, py_=-0.73*(i-1)*11*s*dir;
+        const P=[]; for(let j=0;j<=10;j++){ const u=j/10*d; P.push([x+(-16+u*32)*s*dir+px_, y+(-16+u*30)*s+py_*dir*dir-Math.sin(u*Math.PI)*4*s]); }
+        glowPath(P,col,1.7*s*(0.4+0.6*out),out); }
+    } else if(M.type==='chomp'){
+      /* an old tortoise's toothless beak, in profile facing the pest: a horn upper beak with a
+         strong hook at its front snaps down onto a short, chunky lower one */
+      const snap=easeOut(M.t/150), gap=(1-snap)*20*s, w=20*s, d=dir;
+      b.globalAlpha=M.t<300?1:out; b.save(); b.translate(x,y); b.scale(d,1);
+      b.fillStyle='#a08a5a'; b.strokeStyle='#3e3220'; b.lineWidth=1.3;
+      b.beginPath(); b.moveTo(-w,-gap-11*s); b.quadraticCurveTo(w*0.2,-gap-16*s,w*0.8,-gap-9*s);    /* over the top */
+      b.quadraticCurveTo(w*1.15,-gap-4*s,w*0.95,-gap+8*s);                                        /* down into the hook */
+      b.quadraticCurveTo(w*0.75,-gap+1*s,w*0.45,-gap-1*s); b.lineTo(-w,-gap-2*s); b.closePath(); b.fill(); b.stroke();
+      b.strokeStyle='#e4d0a0'; b.lineWidth=1.6; b.beginPath(); b.moveTo(-w*0.8,-gap-11.5*s); b.quadraticCurveTo(w*0.2,-gap-14.5*s,w*0.75,-gap-8*s); b.stroke();
+      b.fillStyle='#8c7848'; b.strokeStyle='#3e3220'; b.lineWidth=1.3;
+      b.beginPath(); b.moveTo(-w,gap+1*s); b.lineTo(w*0.5,gap+1*s); b.quadraticCurveTo(w*0.45,gap+7*s,-w*0.1,gap+8.5*s);
+      b.quadraticCurveTo(-w*0.6,gap+9*s,-w,gap+8*s); b.closePath(); b.fill(); b.stroke();
+      b.restore(); b.globalAlpha=1;
+      if(snap>=1&&!M.shut){ M.shut=true; glow({x:x,y:y,ring:true,r0:6*s,r1:36*s,w:4,life:380,col:'#ffe8b0'});
+        for(let i=0;i<8;i++){ const a=rnd(0,TAU); glow({x:x,y:y,vx:Math.cos(a)*0.12,vy:Math.sin(a)*0.08,drag:0.1,size:rnd(2.5,4),life:rnd(300,450),col:'#ffe0a0',streak:true}); } }
+    } else if(M.type==='bite'){
+      /* a pest's bite: two curved jaw lines snap together, each with a row of small needle teeth */
+      const snap=easeOut(M.t/110), gap=(1-snap)*14*s+1.5*s, R=15*s, a=M.t<260?1:out;
+      for(const up of [-1,1]){
+        const jaw=u=>[x+(u-0.5)*2*R, y+up*gap+up*Math.sin(u*Math.PI)*R*0.4];
+        const P=[]; for(let j=0;j<=12;j++) P.push(jaw(j/12));
+        glowPath(P,'#ff8a7a',1.6*s,a);
+        b.globalAlpha=a; b.fillStyle='#fffaf6';
+        for(let i=1;i<=5;i++){ const [tx,ty]=jaw(i/6), len=(3.6+Math.sin(i*1.7)*0.8)*s;
+          b.beginPath(); b.moveTo(tx-1*s,ty); b.lineTo(tx,ty-up*len); b.lineTo(tx+1*s,ty); b.closePath(); b.fill(); }
+        b.globalAlpha=1; }
+      if(snap>=1&&!M.shut){ M.shut=true; glow({x:x,y:y,ring:true,r0:4*s,r1:22*s,w:2.5,life:300,col:'#ffb0a0'}); }
+    } else if(M.type==='pinch'){
+      /* a pinch: two slender crescent pincers close from either side */
+      const snap=easeOut(M.t/120), gap=(1-snap)*16*s+2*s, a=M.t<260?1:out;
+      for(const side of [-1,1]){
+        /* each pincer: an outer and inner curve meeting in points at top and bottom */
+        const cx=x+side*gap, outer=[], inner=[];
+        for(let j=0;j<=12;j++){ const u=j/12, yy=y+(u-0.5)*26*s, bow=Math.sin(u*Math.PI);
+          outer.push([cx+side*bow*11*s,yy]); inner.push([cx+side*bow*6*s,yy]); }
+        b.globalAlpha=a; b.fillStyle='#e06a50'; b.strokeStyle='#7a2a20'; b.lineWidth=1;
+        b.beginPath(); b.moveTo(outer[0][0],outer[0][1]); outer.forEach(p=>b.lineTo(p[0],p[1]));
+        inner.slice().reverse().forEach(p=>b.lineTo(p[0],p[1])); b.closePath(); b.fill(); b.stroke();
+        b.globalAlpha=1; glowPath(inner,'#ffc0a8',1*s,a*0.8); }
+      if(snap>=1&&!M.shut){ M.shut=true; glow({x:x,y:y,ring:true,r0:4*s,r1:22*s,w:2.5,life:300,col:'#ffb0a0'}); }
+    } else if(M.type==='kick'||M.type==='karate'||M.type==='bash'){
+      /* a comic-style impact: spikes of light bursting out from the point of contact */
+      const big=M.type==='karate', col=M.type==='bash'?'#ffd0c0':big?'#ffb050':'#fff0b0', n=big?14:10, k=easeOut(M.t/(big?160:120));
+      b.save(); b.globalCompositeOperation='lighter';
+      for(let i=0;i<n;i++){ const a=i/n*TAU+M.seed, len=(big?40:28)*s*(0.7+0.3*Math.sin(i*2.7+M.seed))*k, r0=6*s*k;
+        const w=(big?6:4.5)*s*out, ca=Math.cos(a), sa=Math.sin(a)*0.8;
+        b.globalAlpha=out; b.fillStyle=hexA(col,0.9);
+        b.beginPath(); b.moveTo(x+ca*r0-sa*w,y+sa*r0+ca*w*0.8); b.lineTo(x+ca*(r0+len),y+sa*(r0+len)); b.lineTo(x+ca*r0+sa*w,y+sa*r0-ca*w*0.8); b.fill(); }
+      b.restore(); glowAt(x,y,(big?22:16)*s,'#ffffff',out*(1-q));
+      if(big&&M.t<200) for(let i=0;i<6;i++){ const yy=y+(i-2.5)*9*s, l=(30+(i*7)%20)*s; glowPath([[x-60*s*dir,yy],[x-60*s*dir-l*dir,yy]],'#ffd080',1.4,1-M.t/200); }
+    } else if(M.type==='beak'){
+      /* a quick sharp jab: a wedge darting in, and a little star */
+      const k=easeOut(M.t/80), ox=x+(M.jx||0)*s, oy=y+(M.jy||0)*s, back=(1-k)*14*s*dir;
+      if(M.t<160){ b.globalAlpha=1-M.t/160; b.fillStyle='#ffe0a0'; b.strokeStyle='#8a5a20'; b.lineWidth=1;
+        b.beginPath(); b.moveTo(ox-back-10*s*dir,oy-4*s); b.lineTo(ox-back,oy); b.lineTo(ox-back-10*s*dir,oy+4*s); b.closePath(); b.fill(); b.stroke(); b.globalAlpha=1; }
+      if(k>=1) for(let i=0;i<4;i++){ const a=i*Math.PI/2+M.seed; glowPath([[ox,oy],[ox+Math.cos(a)*9*s*out,oy+Math.sin(a)*9*s*out]],'#ffe8a0',1.4*s,out); }
+    } else if(M.type==='sting'){
+      /* a puncture that glows, and a ring of venom spreading from it */
+      const k=easeOut(M.t/100);
+      if(M.t<160) glowPath([[x+18*s*(1-k)*-dir+4*s*-dir,y-3*s*(1-k)],[x,y]],'#e0e0e0',1.6*s,1);
+      glowAt(x,y,6*s,'#c070ff',out); glowAt(x,y,2.5*s,'#ffffff',out);
+      if(k>=1&&!M.ring){ M.ring=true; glow({x:x,y:y,ring:true,r0:3*s,r1:22*s,w:2.5,life:520,col:'#b070e0'});
+        for(let i=0;i<5;i++) glow({x:x+rnd(-6,6)*s,y:y+rnd(-4,4)*s,vy:-rnd(0.01,0.03),size:rnd(3,5),life:rnd(500,700),col:'#a060d0',a:0.7,fin:true}); }
+    }
+    b.restore(); b.globalAlpha=1; });
+  B.marks=L.filter(M=>M.t<MARK_MS[M.type]);
 }
 /* ---------- effect sheets (EFFECTS: animations made in Effekseer, tools/build_effects.py) ----------
    Loaded the first time they're wanted. A sheet made on black is drawn as added light, so
@@ -751,7 +859,7 @@ function kick(f,pow,name,row,shouts,shout,dur){
   anim('kick',dur||1100,()=>{
     if(missed('kaitlyn')) return;
     focus(f); const cm=useCharge('kaitlyn'), dmg=soften(kickPower(pow)*rnd(0.85,1.15)*cm,foeDef(f));
-    burst(EX-20,EY+16,'#ffe6a0',16,0.19); burst(EX-30,EY+34,'#d8c49a',12,0.13);
+    if(FX2) markFoe(row==='karate'?'karate':'kick',f); else { burst(EX-20,EY+16,'#ffe6a0',16,0.19); burst(EX-30,EY+34,'#d8c49a',12,0.13); }
     hitFoe(f,dmg,name+" lands for "+dmg+"!"+(cm>1?"  A focused blow!":""));
   },{tgt:f});
 }
@@ -765,7 +873,7 @@ function doAttack(f){
     if(missed(id)) return;
     focus(f); const cm=useCharge(id), power=statOf(id,'str')*1.5*I.pow*weakMul(id)*cm*(wears(id,'fangpolish')?1.5:1);
     const dmg=soften(power*rnd(0.85,1.15),foeDef(f));
-    burst(EX-20,EY+20,'#ffe6a0',14,0.17);
+    if(FX2&&ATTACK_MARK[id]) markFoe(ATTACK_MARK[id],f); else burst(EX-20,EY+20,'#ffe6a0',14,0.17);
     hitFoe(f,dmg,I.name+"'s "+I.attack+" hits for "+dmg+"!"+(cm>1?"  A focused blow!":""));
     if(f.hp<=0||!I.venom) return;
     foeStatus(f,'venom',venomDmg(id));
@@ -954,6 +1062,7 @@ function useSkill(sk,f,to){
       const cm=useCharge(id), got=[], took=[]; let hitN=0;
       flurry(sk.pecks,(t,up)=>{
         if(sheet) sheetHit(sheet,t,hitN++,sk.pecks);
+        else if(FX2&&SKILL_MARK[sk.id]) markFoe(SKILL_MARK[sk.id],t,{jx:rnd(-10,10),jy:rnd(-10,10)});
         if(sk.steal&&up){ const r=trySteal(id,t); if(r.k) took.push(GOODS[r.k].name); }
         if(has(id,'blind')&&Math.random()<0.5){ focus(t); pop("miss",EX,EY-10,'#e8eef8'); got.push("miss"); }
         else { const dmg=soften(statOf(id,sk.stat||'agi')*(sk.full?1.5:1)*sk.pow*weakMul(id)*cm*rnd(0.85,1.15),foeDef(t));
@@ -1000,6 +1109,7 @@ function useSkill(sk,f,to){
     if(sk.burst){ if(f.st.venom) bm*=3; if(f.st.poison>0) bm*=2; if(bm>1){ f.st.venom=null; f.st.poison=0; } }
     const dmg=soften(statOf(id,st)*1.5*sk.pow*cm*bm*weakMul(id)*rnd(0.9,1.1),foeDef(f),magic);
     B.critUp=sk.crit||0;
+    if(FX2&&SKILL_MARK[sk.id]) markFoe(SKILL_MARK[sk.id],f);
     hitFoe(f,dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(bm>1?"  The venom bursts! (x"+bm+")":"")+(cm>1?"  A focused blow!":""));
     B.critUp=0;
     if(f.hp>0&&sk.bind&&Math.random()<sk.bind){ f.st.bound=1; B.log+="  It's held fast!"; }
@@ -1085,6 +1195,10 @@ function pickWeighted(list){ let t=list.reduce((a,s)=>a+s.w,0)*Math.random();
 function foeHits(f,sk,targets,charged,cover){
   if(!B||B.over) return;
   const F=f.st; focus(f);
+  if(FX2&&(sk.kind==='guard'||sk.kind==='charge'||sk.kind==='heal')){ const r=foeBox(f), cx=r.x+r.w/2, cy=r.y+r.h*0.6;
+    if(sk.kind==='guard') glow({x:cx,y:cy,ring:true,r0:r.w*0.7,r1:r.w*0.45,w:3,life:600,col:'#9ad4ff'});
+    else for(let i=0;i<12;i++) glow({x:cx+rnd(-r.w/2,r.w/2),y:r.y+r.h-rnd(0,8),vy:-rnd(0.03,0.07),size:rnd(2.5,4),life:rnd(600,900),
+      col:sk.kind==='charge'?(i%2?'#ff7050':'#ffc070'):(i%2?'#8fe07a':'#e8ffd8'),fin:true}); }
   if(sk.kind==='guard'){ F.guard=1; B.log="The "+f.name+" uses "+sk.name+". Hits on it are halved until its next turn!"; return; }
   if(sk.kind==='charge'){ F.charge=1; B.log="The "+f.name+" gathers its strength..."; return; }
   if(sk.kind==='heal'){ const h=Math.round(f.maxhp*sk.heal); f.hp=Math.min(f.maxhp,f.hp+h);
@@ -1115,6 +1229,7 @@ function foeHits(f,sk,targets,charged,cover){
       const S=B.st[id]; if(S&&S.sleep>0&&M.hp>0&&Math.random()<0.4){ S.sleep=0; lines.push(name+" wakes up!"); }
       pop("-"+dmg,s.x,headOf(id),'#ff8a8a');
       if(FX2){ (B.mhit||(B.mhit={}))[id]={t:0,big:!!charged}; impactFx(s.x+8*s.s,(s.y+headOf(id))/2,charged,'hurt');
+        if(FOE_MARK[sk.fx]) markMember(FOE_MARK[sk.fx],id,{jx:rnd(-6,6),jy:rnd(-6,6)});
         B.stopT=Math.max(B.stopT||0,charged?110:60); quake(charged?4:1.8,charged?300:180); }
       else burst(s.x,s.y-80,'#ff9a8a',8);
       if(sk.drain){ const h=Math.round(dmg*sk.drain); f.hp=Math.min(f.maxhp,f.hp+h); pop("+"+h,EX,EY-10,'#8fe07a'); }
@@ -1570,8 +1685,8 @@ function drawFoeFx(fx,k,targets){
     b.beginPath(); b.moveTo(x1,y1); b.lineTo(x2,y2); b.stroke(); b.globalAlpha=1;
     if(soft) glowPath([[x1,y1],[x2,y2]],col,w*0.8,(a===undefined?1:a)*0.5); };
   if(['bash','pinch','bite','peck','claw','dive'].includes(fx)){
-    /* slashes, bite marks or an impact star where it lands */
-    if(on) T.forEach(p=>{ const a=1-hit;
+    /* slashes, bite marks or an impact star where it lands (FX2: the hit marks, drawMarks) */
+    if(on&&!FX2) T.forEach(p=>{ const a=1-hit;
       if(fx==='claw') for(let i=0;i<3;i++) line(p.x-14+i*8,p.y-16,p.x-2+i*8,p.y+14,'#ffffff',2.5,a);
       else if(fx==='bite'||fx==='pinch'){ for(let i=0;i<4;i++){ dot(p.x-9+i*6,p.y-8+hit*6,2.2,'#ffffff',a); dot(p.x-9+i*6,p.y+8-hit*6,2.2,'#ffffff',a); } }
       else { for(let i=0;i<8;i++){ const an=i*0.785, r=6+hit*16; line(p.x+Math.cos(an)*r*0.4,p.y+Math.sin(an)*r*0.4,p.x+Math.cos(an)*r,p.y+Math.sin(an)*r,i%2?'#ffe08a':'#ffffff',2,a); } } });
@@ -1593,6 +1708,8 @@ function drawFoeFx(fx,k,targets){
   } else if(fx==='caw'||fx==='megaphone'){
     /* sound waves rolling from the pest over them */
     for(let i=0;i<4;i++){ const q=clamp(k*1.6-i*0.18,0,1); if(q<=0||q>=1) continue;
+      if(FX2){ const P=[]; for(let j=0;j<=16;j++){ const a=Math.PI*(0.75+0.5*j/16); P.push([from.x+20+Math.cos(a)*q*220,from.y+Math.sin(a)*q*220]); }
+        glowPath(P,fx==='caw'?'#8a7ad8':'#ffd24a',2.4,(1-q)*0.9); continue; }
       b.globalAlpha=(1-q)*0.8; b.strokeStyle=fx==='caw'?'#2a2a4a':'#ffd24a'; b.lineWidth=3;
       b.beginPath(); b.arc(from.x+20,from.y,q*220,Math.PI*0.75,Math.PI*1.25); b.stroke(); }
     b.globalAlpha=1;
@@ -1605,12 +1722,15 @@ function drawFoeFx(fx,k,targets){
     if(fx==='chill'&&k>0.6) T.forEach(p=>{ const q=(k-0.6)/0.4; for(let i=0;i<4;i++) dot(p.x+(from.x-p.x)*q+Math.sin(i+k*9)*6,p.y+(from.y-p.y)*q+i*3,2,'#8fe07a',1-q*0.5); });
   } else if(fx==='hearts'){
     along(Math.min(1,k*1.3),30).forEach((p,i)=>{ for(let j=0;j<3;j++){ const x=p.x+j*9-9, y=p.y+Math.sin(G.t/120+j)*4;
+      if(FX2) glowAt(x,y+2,9,'#ff8ab8',0.7);
       b.fillStyle='#ff8ab8'; b.beginPath(); b.arc(x-2,y,2.6,0,7); b.arc(x+2,y,2.6,0,7); b.fill();
       b.beginPath(); b.moveTo(x-4.6,y+1); b.lineTo(x,y+6); b.lineTo(x+4.6,y+1); b.fill(); } });
   } else if(fx==='zoom'){
     for(let i=0;i<8;i++){ const y=200+i*16, x=LW-(k*1.4%1)*LW*1.2+i*14; line(x,y,x+46,y,'#ffffff',2,0.6); }
   } else if(fx==='shell'){
     b.globalAlpha=Math.sin(k*Math.PI)*0.5; b.fillStyle='#c8ccd8'; b.beginPath(); b.ellipse(EX,EY+20,46,44,0,Math.PI,0); b.fill(); b.globalAlpha=1;
+    if(FX2){ const P=[]; for(let j=0;j<=20;j++){ const a=Math.PI+Math.PI*j/20; P.push([EX+Math.cos(a)*46,EY+20+Math.sin(a)*44]); }
+      glowPath(P,'#bfe0ff',2,Math.sin(k*Math.PI)*0.8); glowAt(EX-14,EY-6,10,'#ffffff',Math.sin(k*Math.PI)*0.5); }
   } else if(fx==='snack'){
     for(let i=0;i<8;i++) dot(EX+Math.cos(i*0.8+k*6)*30,EY+20-k*40+Math.sin(i)*8,2.5,i%2?'#8fe07a':'#ffe08a',1-k);
   } else if(fx==='steal'){
@@ -1792,6 +1912,7 @@ function drawBattle(dt){
     b.globalAlpha=Math.min(1,f.t/300); px(b,Math.round(f.x),Math.round(f.y),3,3,f.col); b.globalAlpha=1; });
   B.fx=B.fx.filter(f=>f.t>0);
   drawThorns(dt);
+  drawMarks(dt);
   drawSheets(dt);
   drawGlow(dt);
   b.restore();                                   /* (the shake ends here: the windows stay put) */

@@ -18,7 +18,22 @@ number ("catch fish 2") is another take of the same sound. These still play synt
 - [ ] Frog's healing croak (garden frogs fill everyone's HP)
 - [ ] Wading into the pool ("Ahh. Music Points restoring...")
 - [ ] Level up
-- [ ] Battle: a hit landing on a pest, a critical hit, a pest's attack landing, a pest winding up its move
+- [ ] Battle hits, a few generic ones the game can share (each matches a hit mark). A couple of takes
+      each ("kick hit 2") keeps them from sounding samey:
+  - [ ] `kick hit`: a blunt thump (Kaitlyn's kick, pests' headbutts and dives)
+  - [ ] `heavy hit`: a bigger, deeper thump (Karate Kick, Shell Slam, Grand Finale)
+  - [ ] `slash`: a quick claw swipe (Tituba's claws, pests' claws and Talon Rake)
+  - [ ] `bite`: a sharp snap of small teeth (Ivy's fangs, pests' bites and nips)
+  - [ ] `chomp`: a big, slow crunch (Tex's bite)
+  - [ ] `pinch`: a clack of pincers (crabs and beetles)
+  - [ ] `peck`: a tiny tap (Tiny One's pecks, birds)
+  - [ ] `sting`: a thin jab with a fizz (wasps, spines)
+  - [ ] `whoosh`: a swing through the air (any lunge or kick, before it lands)
+  - [ ] `miss`: a whiff (a blind miss, a dodge)
+  - [ ] `critical hit`: a bright extra crack on top of a hit
+  - [ ] `blocked`: a soft shield ping (Safe and Sound, a guarding pest)
+- [ ] Battle: a pest winding up its move, a pest running off, a member going down
+- [ ] Battle troubles: poison or venom taking hold, falling asleep, weakened, scared, bound; a heal chime
 - [ ] Battle: Focus, Meditate, eating a crop, the Pep meter filling up, the EXP tally ticking on the results
 - [ ] Battle voices for Ivy, Tituba and Tex's skills (Tiny One has his): e.g. Ivy's hiss (Ssssss),
       Tituba's Hiss and swipes, Tex's Shell Up and Slam
