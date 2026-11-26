@@ -49,7 +49,63 @@ const KARATE_SHOUTS=["Hi-YAH!","KIAI!","Hwaa-CHA!","Tatsumaki senpukyaku!","Aboy
 let B=null;
 const listAnd=L=>L.length<2?L.join(''):L.slice(0,-1).join(", ")+" and "+L[L.length-1];
 /* kinds: exactly which pests (for tests); otherwise friends of the pest may tag along */
-function startBattle(pest,kinds){
+/* ---------- into a battle ----------
+   The screen as it was freezes, flashes, and shatters: its pieces spin away from the
+   middle and fall into the dark, with streaks of light bursting out. The battle is set up
+   in the dark (startBattle, when BI_SETUP comes), then fades in over BI_FADE. Anything slow
+   to set up happens out of sight. */
+const BI_FLASH=170, BI_SETUP=900, BI_FADE=420, BI_COLS=7, BI_ROWS=12;
+let BI=null;
+function enterBattle(pest,kinds){
+  const cv=m.canvas, snap=document.createElement('canvas'); snap.width=cv.width; snap.height=cv.height;
+  snap.getContext('2d').drawImage(cv,0,0);
+  const W=cv.width, H=cv.height, ox=W/2, oy=H*0.45, pw=W/BI_COLS, ph=H/BI_ROWS, shards=[];
+  for(let r=0;r<BI_ROWS;r++) for(let c=0;c<BI_COLS;c++){
+    const x=c*pw, y=r*ph, cx=x+pw/2-ox, cy=y+ph/2-oy, d=Math.hypot(cx,cy)||1, sp=rnd(0.5,1.1)*W/1000;
+    shards.push({x,y,w:pw,h:ph,vx:cx/d*sp+rnd(-0.1,0.1)*W/1000,vy:cy/d*sp*0.7-rnd(0.1,0.35)*W/1000,
+      vr:rnd(-0.006,0.006),delay:(d/Math.hypot(ox,oy))*120+rnd(0,40)}); }
+  BI={t:0,pest,kinds,snap,shards,ox,oy,set:false};
+  G.scene='battleIn'; sfx('battle_start'); setMusic(PESTS[pest.species].boss?'boss':'battle');
+}
+/* drawn over the whole screen, after everything else */
+function drawBattleIn(dt){
+  const I=BI; if(!I) return; I.t+=dt;
+  const c=m, W=c.canvas.width, H=c.canvas.height, t=I.t;
+  c.save(); c.setTransform(1,0,0,1,0,0); c.fillStyle='#000'; c.fillRect(0,0,W,H);
+  if(t<BI_FLASH){                                 /* the frozen screen, flashing white */
+    c.drawImage(I.snap,0,0); c.fillStyle='rgba(255,255,255,'+(0.75*Math.sin(Math.PI*t/BI_FLASH))+')'; c.fillRect(0,0,W,H); }
+  else {
+    const g=W/1000*0.0016, k=t-BI_FLASH;
+    /* streaks of light bursting out from the middle */
+    c.globalCompositeOperation='lighter';
+    let sd=7; const r=()=>(sd=(sd*16807+11)%2147483647)/2147483647;
+    for(let i=0;i<26;i++){ const a=r()*TAU, len=(0.2+r()*0.5)*W, p=Math.min(1,k/260), fade=Math.max(0,1-k/520);
+      if(fade<=0) break; const r0=p*len*0.9, r1=r0+len*0.35*(1-p*0.5);
+      c.strokeStyle='rgba(255,240,200,'+(0.9*fade)+')'; c.lineWidth=(3+r()*5)*W/1000*SC; c.lineCap='round';
+      c.beginPath(); c.moveTo(I.ox+Math.cos(a)*r0,I.oy+Math.sin(a)*r0); c.lineTo(I.ox+Math.cos(a)*r1,I.oy+Math.sin(a)*r1); c.stroke(); }
+    c.globalCompositeOperation='source-over';
+    /* the pieces, spinning off and falling, shrinking and darkening as they go */
+    I.shards.forEach(s=>{ const u=Math.max(0,k-s.delay); if(u<=0){ c.drawImage(I.snap,s.x,s.y,s.w,s.h,s.x,s.y,s.w,s.h); return; }
+      const x=s.x+s.w/2+s.vx*u, y=s.y+s.h/2+s.vy*u+g*u*u, sc=Math.max(0,1-u/700), a=Math.max(0,1-u/620);
+      if(a<=0) return;
+      c.save(); c.translate(x,y); c.rotate(s.vr*u); c.scale(sc,sc); c.globalAlpha=a;
+      c.drawImage(I.snap,s.x,s.y,s.w,s.h,-s.w/2,-s.h/2,s.w,s.h);
+      c.strokeStyle='rgba(255,255,255,.55)'; c.lineWidth=2*W/1000*SC/2; c.strokeRect(-s.w/2,-s.h/2,s.w,s.h);
+      c.fillStyle='rgba(0,0,0,'+(1-a)*0.6+')'; c.fillRect(-s.w/2,-s.h/2,s.w,s.h);
+      c.restore(); });
+  }
+  c.restore();
+  /* in the dark: the battle is set up, then fades in */
+  if(t>=BI_SETUP&&!I.set){ I.set=true; startBattle(I.pest,I.kinds,true); BI=null; B.introT=0; }
+}
+/* the battle fading in from black (over the windows and buttons too) */
+function drawBattleFadeIn(dt){
+  if(!B||B.introT==null||B.introT>=BI_FADE) return;
+  B.introT+=Math.min(dt,40);
+  const c=m, a=1-clamp(B.introT/BI_FADE,0,1); if(a<=0) return;
+  c.save(); c.setTransform(1,0,0,1,0,0); c.fillStyle='rgba(0,0,0,'+a+')'; c.fillRect(0,0,c.canvas.width,c.canvas.height); c.restore();
+}
+function startBattle(pest,kinds,quiet){
   padVec={x:0,y:0}; padId=null; btnHeld=false;        /* a held pad must not scroll the menu */
   const slots=partySlots(), party=G.party.filter(id=>!isHurt(id)), boss=!!PESTS[pest.species].boss;
   const spot={}; slots.forEach((id,i)=>{ if(id) spot[id]=i; });       /* each one's spot (PARTY_SPOTS) */
@@ -84,8 +140,16 @@ function startBattle(pest,kinds){
      wane:null,                      /* the troubles to count down when the next one acts (see wane) */
      over:null,pops:[],fx:[],anim:null,shout:null};
   B.party.forEach(id=>B.st[id]={});
-  G.scene='battle'; setMusic(boss?'boss':'battle'); sfx('battle_start'); partyImg(); backdropImg();
-  setTimeout(nextActor,900);
+  G.scene='battle'; setMusic(boss?'boss':'battle'); if(!quiet) sfx('battle_start'); partyImg(); backdropImg();
+  foeLines();
+  setTimeout(nextActor,quiet?BI_FADE+400:900);
+}
+/* the pests' ground lines (see groundLine), worked out now, before the first frame: read
+   back in the middle of drawing one, each cost that frame tens of milliseconds */
+function foeLines(){
+  B.foes.forEach(f=>{ const p=foeSpot(f); if(p.lift) return;
+    const art=c=>drawEnemyArt(c,f.sp,0,0,p.s), rec=[]; silhouette(art,'#000',rec,true);
+    const key=rec.join('|'); if(!GROUND_LINE.has(key)){ const g=groundLine(art); if(g) GROUND_LINE.set(key,g); } });
 }
 const standing=id=>member(id).hp>0;
 const actor=()=>B.party[B.act];
@@ -1686,13 +1750,16 @@ function silhouette(draw,col,rec,shade){
    gap under the back foot; folding it along this line keeps both feet on their shadow.
    Flat (0,0) when it can't find two feet close enough in height. */
 const GROUND_LINE=new Map();
-/* (read from a copy kept for reading, so the shadow canvas itself never gets read back:
-   reading a canvas can make the browser draw it the slow way from then on) */
+/* draw(c) paints the sprite with its feet at 0,0. It's painted for this into a canvas
+   kept in ordinary memory (willReadFrequently), just the strip around its feet, and read
+   from there: reading back a canvas the graphics card draws (the shadow canvas, as this
+   used to) made the browser stop and wait for it, up to 50 ms at the start of a fight. */
 const PROBE=document.createElement('canvas'), probeC=PROBE.getContext('2d',{willReadFrequently:true});
-function groundLine(){
-  const R=SHADE_CV.res, top=Math.round((SHAPE_FY-48)*R), H=Math.round(58*R), W=SHADE_CV.cv.width;
+function groundLine(draw){
+  const R=SHADE_RES, top=Math.round((SHAPE_FY-48)*R), H=Math.round(58*R), W=SHAPE_W*R;
   if(PROBE.width!==W||PROBE.height!==H){ PROBE.width=W; PROBE.height=H; }
-  probeC.clearRect(0,0,W,H); probeC.drawImage(SHADE_CV.cv,0,top,W,H,0,0,W,H);
+  probeC.setTransform(1,0,0,1,0,0); probeC.globalAlpha=1; probeC.clearRect(0,0,W,H);
+  probeC.setTransform(R,0,0,R,SHAPE_FX*R,SHAPE_FY*R-top); draw(probeC); probeC.setTransform(1,0,0,1,0,0);
   const d=probeC.getImageData(0,0,W,H).data, bot=new Int32Array(W).fill(-1);
   for(let x=0;x<W;x++) for(let y=H-1;y>=0;y--) if(d[(y*W+x)*4+3]>100){ bot[x]=y; break; }
   let x1=-1; for(let x=0;x<W;x++) if(bot[x]>=0&&(x1<0||bot[x]>bot[x1])) x1=x;
@@ -1714,7 +1781,7 @@ function castShadow(draw,x,y,lift,a,line){
   if(l){ b.translate(x+l*0.45,y+l*0.12); b.transform(1,0,-SHADOW_K,-SHADOW_T*0.8,0,0); }
   else {
     const key=rec.join('|'); let g=line||GROUND_LINE.get(key);
-    if(!g){ g=groundLine()||[0,0]; if(GROUND_LINE.size>600) GROUND_LINE.clear(); GROUND_LINE.set(key,g); }
+    if(!g){ g=groundLine(draw)||[0,0]; if(GROUND_LINE.size>600) GROUND_LINE.clear(); GROUND_LINE.set(key,g); }
     const [ga,gb]=g, K=SHADOW_K, T=SHADOW_T;
     b.translate(x,y); b.transform(1+K*gb,gb*(1+T),-K,-T,K*ga,(1+T)*ga);
   }
@@ -1725,11 +1792,11 @@ function castShadow(draw,x,y,lift,a,line){
    pass for a foot and tip the whole shadow to a new angle (Tex's shifting as only his
    foot moved, Ivy's going to a thin slit, Tiny One's to a long streak). */
 const MEMBER_LINE=new Map();
-function memberLine(id){
-  const s=slotOf(id).s*(MEMBER_SIZE[id]||1), key=id+':'+s.toFixed(3);
+function memberLine(id,s){
+  if(s===undefined) s=slotOf(id).s*(MEMBER_SIZE[id]||1);
+  const key=id+':'+s.toFixed(3);
   let g=MEMBER_LINE.get(key); if(g) return g;
-  silhouette(c=>{ c.save(); c.scale(s,s); drawStance(c,id,0,0); c.restore(); },'#000',null,true);
-  g=groundLine(); if(!g) return null;                     /* the art isn't loaded yet */
+  g=groundLine(c=>{ c.save(); c.scale(s,s); drawStance(c,id,0,0); c.restore(); }); if(!g) return null;                     /* the art isn't loaded yet */
   if(Math.abs(g[1])>0.3) g=[0,0];          /* a steep one is a tail taken for a foot (Tiny One's): level instead */
   MEMBER_LINE.set(key,g); return g;
 }
@@ -1905,19 +1972,50 @@ const BACK_HORIZON={spring:0.50,summer:0.53,fall:0.53,winter:0.57,
 const backdropKey=()=>{ const s=season(), m='mountain_'+s;
   return G.area==='mountain'&&typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(m)?m:s; };
 const hasBackdrop=()=>typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(backdropKey());
-function backdropImg(){
-  const s=backdropKey(); if(!hasBackdrop()) return null;
+/* Everything a battle draws that's slow the first time, done ahead (when the game starts
+   and each new day), so a fight opens without a stall: the sprite sheets decoded, each
+   friend's ground line for every spot they could stand in (memberLine), and the HD
+   backdrops (hdPrebake). The first fight used to freeze for a quarter of a second. */
+function prebakeBattle(){
+  hdPrebake(); partyImg();
+  const sheets=[IMG_PARTY,IMG_EN,IMG_BATL,IMG_POSE,IMG_PT].filter(Boolean);
+  Promise.all(sheets.map(im=>im.decode?im.decode().catch(()=>{}):null)).then(()=>{
+    /* (drawn once, tiny, into the canvases a battle draws them into, so they're uploaded
+       and ready there too) */
+    /* (a corner at full size: drawn shrunk, the browser decodes a small copy instead) */
+    [SHADE_CV.c,FLASH_CV.c,b,probeC].forEach(c=>sheets.forEach(im=>{ try{ if(im.naturalWidth) c.drawImage(im,0,0,8,8,0,0,8,8); }catch(e){} }));
+    if(assetsReady<5) return;
+    allMembers().forEach(id=>PARTY_SPOTS.forEach(([,y])=>memberLine(id,depthScale(y)*(MEMBER_SIZE[id]||1))));
+    pestPool().forEach(sp=>groundLine(c=>drawEnemyArt(c,sp,0,0,1)));        /* (the pests' sheet, ready for reading too) */
+    /* and a shadow, a flyer's shadow and a flash drawn once, faintly (the next frame covers
+       them): the browser readies its way of drawing them, which took 40 ms the first time */
+    const st=c=>drawStance(c,'kaitlyn',0,0);
+    castShadow(st,180,240,0,0.01,[0,0.05]); castShadow(st,180,240,20,0.01); flashOver(st,180,240,0.01); });
+}
+/* a backdrop's picture (loading it the first time it's asked for) */
+function backImgFor(s){
   if(!BACK_IMG[s]){ BACK_IMG[s]=new Image(); BACK_IMG[s].src='assets/scenes/backdrop_'+s+'.jpg'; }
-  return BACK_IMG[s].complete&&BACK_IMG[s].naturalWidth?BACK_IMG[s]:null;
+  return BACK_IMG[s];
+}
+function backdropImg(){
+  if(!hasBackdrop()) return null; const im=backImgFor(backdropKey());
+  return im.complete&&im.naturalWidth?im:null;
+}
+/* where backdrop s's picture goes for the band T0..T1: covering it, its ground line
+   (BACK_HORIZON) on HORIZON. [x,y,w,h] in scene px. */
+function backPlace(im,s,T0,T1){
+  const f=BACK_HORIZON[s]||0.5, r=im.naturalWidth/im.naturalHeight;
+  const h=Math.max((T1-HORIZON)/(1-f),(HORIZON-T0)/f,LW/r), w=h*r;
+  return [(LW-w)/2,HORIZON-f*h,w,h];
 }
 function drawBattleBackdrop(dt){
   const P=BACKDROP[season()]||BACKDROP.spring, T0=BAND_TOP(), T1=BAND_BOT(), im=backdropImg();
   if(im){
-    const f=BACK_HORIZON[backdropKey()]||0.5, r=im.naturalWidth/im.naturalHeight;
-    const h=Math.max((T1-HORIZON)/(1-f),(HORIZON-T0)/f,LW/r), w=h*r;
+    const [x,y,w,h]=backPlace(im,backdropKey(),T0,T1);
     b.save(); b.imageSmoothingEnabled=true;
-    if(GFX.dof||GFX.bloom) b.drawImage(hdBackdrop(im,(LW-w)/2,HORIZON-f*h,w,h,T0,T1),0,T0,LW,T1-T0);   /* with depth of field and bloom (Settings > Graphics) */
-    else b.drawImage(im,(LW-w)/2,HORIZON-f*h,w,h); b.restore();
+    /* with depth of field and bloom (Settings > Graphics; made ahead, hdPrebake) */
+    if(GFX.dof||GFX.bloom) b.drawImage(hdBackdrop(im,x,y,w,h,T0,T1),0,T0,LW,T1-T0);
+    else b.drawImage(im,x,y,w,h); b.restore();
   } else if(!hasBackdrop()) drawnBackdrop(P,T0,T1);
   else { b.fillStyle='#000'; b.fillRect(0,T0,LW,T1-T0); }        /* its painting is still loading */
   backdropLife(P,T0,T1,dt);

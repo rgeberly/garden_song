@@ -251,7 +251,10 @@ function loop(now){
   else if(G.scene==='levelup') drawLevelUp(dt);
   else if(G.scene==='fishing') drawFishing(dt);
   /* the garden's HUD draws the deck itself; everywhere else it goes on top */
-  if(deckShown()&&G.scene!=='world'&&G.scene!=='ask') drawDeck();
+  if(deckShown()&&G.scene!=='world'&&G.scene!=='ask'&&G.scene!=='battleIn') drawDeck();
+  /* going into a battle: over everything */
+  if(G.scene==='battleIn') drawBattleIn(dt);
+  else if(G.scene==='battle') drawBattleFadeIn(dt);
   requestAnimationFrame(loop);
 }
 /* ---- loading screen: assets now arrive over the network ---- */

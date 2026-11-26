@@ -5,7 +5,8 @@
      middle where everyone stands stays sharp (HD_DOF)
    - bloom: the bright parts of the painting glow a little (HD_BLOOM)
    Both are baked once into a copy of the backdrop (hdBackdrop), so they cost nothing per
-   frame. Then, each frame:
+   frame; the season's copies are made ahead (hdPrebake: at the start, each new day, and
+   when a graphics setting changes), so a battle opens with them ready. Then, each frame:
    - a gentle grade, warm at the top and cool at the bottom (HD_GRADE)
    - shafts of sunlight slanting down from the upper left, swaying slowly, as strong as
      the daylight (HD_SHAFTS)
@@ -26,7 +27,9 @@ GFX_ITEMS.forEach(([k])=>GFX[k]=GFX_PRESETS[GFX_DEFAULT]);
 try{ const v=JSON.parse(localStorage.getItem('kgs-gfx')||'{}'); for(const k in GFX) if(v[k]>=0&&v[k]<=10) GFX[k]=Math.round(v[k]); }catch(e){}
 const gfxK=k=>GFX[k]/GFX_TUNED;                         /* 1 at the tuned strength */
 const HD=()=>GFX_ITEMS.some(([k])=>GFX[k]>0);            /* anything on at all */
-function setGfx(k,v){ GFX[k]=clamp(Math.round(v),0,10); try{ localStorage.setItem('kgs-gfx',JSON.stringify(GFX)); }catch(e){} }
+let gfxBakeT=0;
+function setGfx(k,v){ GFX[k]=clamp(Math.round(v),0,10); try{ localStorage.setItem('kgs-gfx',JSON.stringify(GFX)); }catch(e){}
+  clearTimeout(gfxBakeT); gfxBakeT=setTimeout(hdPrebake,250); }        /* (once the presses settle) */
 const gfxPreset=()=>{ for(const p in GFX_PRESETS) if(GFX_ITEMS.every(([k])=>GFX[k]===GFX_PRESETS[p])) return p; return 'custom'; };
 function gfxApplyPreset(p){ GFX_ITEMS.forEach(([k])=>setGfx(k,GFX_PRESETS[p])); }
 const GFX_PRESET_NAME={low:"Low",medium:"Medium",high:"High",custom:"Custom"};
@@ -69,10 +72,10 @@ function hdBloom(src){
 }
 /* the backdrop as placed (im at x,y w x h, in scene px), for the band T0..T1, with its
    depth of field and bloom baked in: worked out once per backdrop and band */
-let HD_BACK={key:null,cv:null};
+const HD_BACK=new Map(), HD_BACK_MAX=4;                    /* the last few made, newest last */
 function hdBackdrop(im,x,y,w,h,T0,T1){
   const key=im.src+'|'+[x,y,w,h,T0,T1].map(v=>v.toFixed(1)).join(',')+'|'+GFX.dof+','+GFX.bloom;
-  if(HD_BACK.key===key) return HD_BACK.cv;
+  if(HD_BACK.has(key)) return HD_BACK.get(key);
   const S=SC, W=LW*S, H=(T1-T0)*S, cv=hdCanvas(W,H), c=cv.getContext('2d');
   c.imageSmoothingEnabled=true; c.drawImage(im,x*S,(y-T0)*S,w*S,h*S);
   /* (both worked out at a quarter size: soft things anyway) */
@@ -90,7 +93,25 @@ function hdBackdrop(im,x,y,w,h,T0,T1){
   c.drawImage(m,0,0); }
   if(bloom){ c.globalCompositeOperation='lighter'; c.globalAlpha=HD_BLOOM.gain*bk; c.drawImage(bloom,0,0,W,H); }
   c.globalCompositeOperation='source-over'; c.globalAlpha=1;
-  HD_BACK={key,cv}; return cv;
+  try{ b.drawImage(cv,0,0,1,1); }catch(e){}      /* (drawn once, tiny, so the browser has it uploaded before a fight needs it) */
+  HD_BACK.set(key,cv); while(HD_BACK.size>HD_BACK_MAX) HD_BACK.delete(HD_BACK.keys().next().value);
+  return cv;
+}
+/* the band a battle will have (BAND_TOP and BAND_BOT as they are during one), from outside it */
+function battleBand(){ const off=IS_TOUCH?Math.max(0,(EXTRA-DECK_H)/2):EXTRA/2;
+  return [-off,(IS_TOUCH?SCREEN_H-DECK_H:SCREEN_H)-off]; }
+/* Make the season's battle backdrops (the garden's, and the mountain's if it has its own)
+   with their blur and bloom ahead of time, and the vignette and the light's pictures, so
+   nothing is worked out when a fight starts. A picture still loading is done when it
+   arrives. */
+function hdPrebake(){
+  if(typeof BACKDROPS==='undefined') return;
+  const [T0,T1]=battleBand(), s=season();
+  hdShaftImg(); hdVignetteFor(T0,T1);
+  if(!(GFX.dof||GFX.bloom)) return;
+  [s,'mountain_'+s].filter(k=>BACKDROPS.includes(k)).forEach(k=>{ const im=backImgFor(k);
+    const go=()=>{ if(im.naturalWidth) hdBackdrop(im,...backPlace(im,k,T0,T1),T0,T1); };
+    if(im.complete) go(); else im.addEventListener('load',go,{once:true}); });
 }
 /* a shaft of light: soft across its width, strongest at the top and fading as it falls */
 let HD_SHAFT=null;
@@ -132,12 +153,16 @@ function hdLight(dt,k){
 }
 /* the vignette: worked out once per band, laid over the scene last */
 let HD_VIG={key:null,cv:null};
+function hdVignetteFor(T0,T1){
+  const H=T1-T0, key=T0+'|'+T1; if(HD_VIG.key===key) return;
+  const cv=hdCanvas(180,H/2), c=cv.getContext('2d'), R=Math.hypot(90,H/4);
+  c.save(); c.translate(90,H/4); c.scale(1,H/4/Math.max(90,H/4)*1.15);
+  const g=c.createRadialGradient(0,0,R*0.35,0,0,R*1.05); g.addColorStop(0,'rgba(12,6,24,0)'); g.addColorStop(0.6,'rgba(12,6,24,.35)'); g.addColorStop(1,'rgba(12,6,24,1)');
+  c.fillStyle=g; c.fillRect(-200,-H,400,H*2); c.restore(); HD_VIG={key,cv};
+}
 function hdVignette(){
-  const T0=BAND_TOP(), T1=BAND_BOT(), H=T1-T0, key=T0+'|'+T1;
-  if(HD_VIG.key!==key){ const cv=hdCanvas(180,H/2), c=cv.getContext('2d'), R=Math.hypot(90,H/4);
-    c.save(); c.translate(90,H/4); c.scale(1,H/4/Math.max(90,H/4)*1.15);
-    const g=c.createRadialGradient(0,0,R*0.35,0,0,R*1.05); g.addColorStop(0,'rgba(12,6,24,0)'); g.addColorStop(0.6,'rgba(12,6,24,.35)'); g.addColorStop(1,'rgba(12,6,24,1)');
-    c.fillStyle=g; c.fillRect(-200,-H,400,H*2); c.restore(); HD_VIG={key,cv}; }
+  const T0=BAND_TOP(), T1=BAND_BOT(), H=T1-T0;
+  hdVignetteFor(T0,T1);
   if(!GFX.vignette) return;
   b.save(); b.globalAlpha=Math.min(1,HD_VIGNETTE*gfxK('vignette')); b.imageSmoothingEnabled=true; b.drawImage(HD_VIG.cv,0,T0,LW,H); b.restore();
 }

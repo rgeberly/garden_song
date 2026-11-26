@@ -334,7 +334,7 @@ function updateMountainPests(dt){
   if(G.mtnT<=0){ G.mtnT=rnd(9000,15000)/diff().spawn; if(G.mtnPests.length<MTN_MAX) spawnMtnPest(); }
   for(const p of G.mtnPests){
     const near=Math.hypot(p.x-P.x,p.y-(P.y+6));
-    if(near<20){ startBattle(p); return true; }
+    if(near<20){ enterBattle(p); return true; }
     if(near<110) p.roam={x:P.x,y:P.y+6};                    /* it's seen her */
     else if(!p.roam||Math.hypot(p.roam.x-p.x,p.roam.y-p.y)<6||p.stuck>600){ p.stuck=0; p.roam=null;
       for(let i=0;i<10;i++){ const x=p.x+rnd(-120,120), y=p.y+rnd(-120,120); if(!placeSolid(x,y+9)){ p.roam={x,y}; break; } } }

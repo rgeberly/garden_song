@@ -367,6 +367,7 @@ function doorstep(){
 function wakeUp(){
   const before=season();
   G.day++; G.clock=WAKE_AT; ripenPlants(); restartTrack('battle');   /* a new day's first fight starts its theme fresh */
+  prebakeBattle();                                 /* (a new season's battle backdrops, a new friend's shadows) */
   /* a night's sleep: everyone rested, and the pests have wandered off */
   G.party.forEach(id=>{ const M=member(id); M.hp=M.maxhp; M.mp=memberMaxMp(id); });
   G.pests=[];

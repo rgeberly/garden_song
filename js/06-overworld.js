@@ -4,7 +4,7 @@
 /* into the garden with whatever game is loaded (see the title's menu in 13-main.js) */
 function startGame(){ G.scene='world'; initMusic(); setMusic(areaMusic());
   if(ALL_TEST) everythingTest();
-  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); partyImg(); }
+  say("Plant several beds — songs carry across the garden."); preloadSeasonMaps(); shopArtImg(); partyImg(); prebakeBattle(); }
 /* "near" checks take a reach factor: 1 for what A/J acts on, PROMPT_REACH for when the
    overhead prompt shows, so prompts only appear once she is right beside something */
 const PROMPT_REACH=0.5;
@@ -157,7 +157,7 @@ function updateWorld(dt){
   if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul/diff().spawn; spawnPest(); }
   const meanLv=G.party.reduce((a,id)=>a+member(id).lv,0)/G.party.length;
   for(const p of G.pests){
-    if(Math.hypot(p.x-P.x,p.y-(P.y+6))<20){ startBattle(p); return; }
+    if(Math.hypot(p.x-P.x,p.y-(P.y+6))<20){ enterBattle(p); return; }
     /* a pest well below the party (more than TIMID_GAP levels) turns tail when she comes near */
     const near=Math.hypot(p.x-P.x,p.y-P.y);
     p.flee=!PESTS[p.species].boss&&(p.lv||PESTS[p.species].lv)<meanLv-TIMID_GAP&&near<TIMID_NEAR;
