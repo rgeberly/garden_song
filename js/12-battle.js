@@ -1050,10 +1050,163 @@ function useSong(mv,f){
 function playRally(s){
   B.turn='busy'; B.act=B.party.indexOf('kaitlyn'); G.pep=0;
   startRhythm(null,{notes:0,name:s.name,mp:0,song:s.song,section:s.sec,pep:s,cb:acc=>{
-    G.scene='battle'; B.menu='cmd'; playOne('flute',0.5);
-    B.log=s.name;
-    anim(s.pow?'hymn':'lull',1500,()=>rallyLands(s,acc),{tgt:s.pow?liveFoes()[0]:null,heal:!s.pow&&!s.bindAll});
+    G.scene='battle'; B.menu='cmd'; B.log=""; startUlt(s,acc);
   }});
+}
+/* ---------- the Pep Rally's "ultimate" moment ----------
+   After the rhythm game: a flash, and the field goes dark behind everyone, with focus
+   lines rushing in on Kaitlyn and staves of notes waving past. A cut-in sweeps across
+   (her portrait, the song's name, notes racing by) with a whoosh, a boom and a bright
+   chord (a recording, sfx/pep cutin.wav, if there is one). Then she plays on the dark
+   stage, notes and comic pops flying off her flute, and as the song lands there's a flash
+   and the light comes back.
+   Times from the start: the cut-in slides in over ULT_IN, starts to go at ULT_OUT and is
+   gone at ULT_GONE, when she starts to play (for ULT_PLAY); the dark lifts over ULT_FADE
+   once the song lands. */
+const ULT_IN=260, ULT_OUT=1300, ULT_GONE=1520, ULT_PLAY=1800, ULT_FADE=450;
+function startUlt(s,acc){
+  B.ult={t:0,s,acc,seed:Math.floor(Math.random()*9999)+1,notes:[],pops:[],lit:null,lastPop:0};
+  B.critT=200; duckMusic(3.6); ultStinger();
+}
+function ultStinger(){
+  if(sfx('pep_cutin')>0||!AC) return;
+  const t=AC.currentTime;
+  /* a whoosh: noise through a filter sweeping up */
+  const nz=AC.createBufferSource(), bp=AC.createBiquadFilter(), ng=AC.createGain();
+  nz.buffer=noiseBuf; bp.type='bandpass'; bp.Q.value=1.1; bp.frequency.setValueAtTime(350,t); bp.frequency.exponentialRampToValueAtTime(5200,t+0.3);
+  ng.gain.setValueAtTime(0.0001,t); ng.gain.exponentialRampToValueAtTime(0.55,t+0.14); ng.gain.exponentialRampToValueAtTime(0.001,t+0.42);
+  nz.connect(bp); bp.connect(ng); ng.connect(sfxGain); nz.start(t); nz.stop(t+0.45);
+  /* a deep boom as it lands */
+  const o=AC.createOscillator(), og=AC.createGain(); o.type='sine';
+  o.frequency.setValueAtTime(150,t+0.2); o.frequency.exponentialRampToValueAtTime(38,t+0.75);
+  og.gain.setValueAtTime(0.0001,t); og.gain.setValueAtTime(0.0001,t+0.19); og.gain.exponentialRampToValueAtTime(0.7,t+0.21); og.gain.exponentialRampToValueAtTime(0.001,t+0.85);
+  o.connect(og); og.connect(sfxGain); o.start(t); o.stop(t+0.9);
+  /* and a bright chord, rolled up quickly, that rings */
+  [1046.5,1318.5,1568,2093].forEach((f,i)=>{ const o=AC.createOscillator(), g=AC.createGain(), st=t+0.2+i*0.03;
+    o.type=i%2?'triangle':'square'; o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,st); g.gain.exponentialRampToValueAtTime(i%2?0.13:0.045,st+0.02); g.gain.exponentialRampToValueAtTime(0.001,st+1.1);
+    o.connect(g); g.connect(sfxGain); o.start(st); o.stop(st+1.15); });
+}
+/* moves the moment on; returns how dark the stage is (0 once it's over) */
+function updateUlt(dt){
+  const U=B.ult; if(!U) return 0;
+  U.t+=dt;
+  if(!U.played&&U.t>=ULT_GONE){ U.played=true; const s=U.s; playOne('flute',0.5); B.log=s.name;
+    anim(s.pow?'hymn':'lull',ULT_PLAY,()=>{ rallyLands(s,U.acc); U.lit=U.t; B.critT=320; quake(6,360); },
+      {tgt:s.pow?liveFoes()[0]:null,heal:!s.pow&&!s.bindAll}); }
+  if(U.lit!==null&&U.t-U.lit>=ULT_FADE){ B.ult=null; return 0; }
+  return U.lit!==null?1-(U.t-U.lit)/ULT_FADE:Math.min(1,U.t/160);
+}
+/* a music note, drawn smooth: head, stem and flag, or two joined by a beam (sz: its height) */
+function ultNote(c,x,y,sz,col,rot,two){
+  c.save(); c.translate(x,y); c.rotate(rot||0); c.fillStyle=col; c.strokeStyle=col;
+  const r=sz*0.2, sx=r*1.05;
+  c.beginPath(); c.ellipse(0,0,r*1.25,r*0.9,-0.4,0,TAU); c.fill();
+  if(two){ c.beginPath(); c.ellipse(sz*0.62,-sz*0.12,r*1.25,r*0.9,-0.4,0,TAU); c.fill(); }
+  c.lineWidth=Math.max(0.8,sz*0.09);
+  c.beginPath(); c.moveTo(sx,0); c.lineTo(sx,-sz);
+  if(two){ c.moveTo(sz*0.62+sx,-sz*0.12); c.lineTo(sz*0.62+sx,-sz*1.12); c.stroke();
+    c.lineWidth=sz*0.18; c.beginPath(); c.moveTo(sx,-sz+sz*0.08); c.lineTo(sz*0.62+sx,-sz*1.12+sz*0.08); }
+  else { c.stroke(); c.beginPath(); c.moveTo(sx,-sz); c.quadraticCurveTo(sx+sz*0.45,-sz*0.72,sx+sz*0.3,-sz*0.4); }
+  c.stroke(); c.restore();
+}
+const ULT_COLS=['#ffe08a','#ff9ad0','#a8e0ff','#b8f0a0'];
+/* the dark stage, over the backdrop and behind everyone: deep purple round Kaitlyn going
+   black at the edges, focus lines rushing in on her (dealt afresh every few frames), and
+   two staves of notes waving past */
+function drawUltStage(a){
+  const U=B.ult, T0=BAND_TOP(), T1=BAND_BOT(), H=T1-T0, P=slotOf('kaitlyn'), cx=P.x, cy=P.y-44*P.s;
+  b.save(); b.globalAlpha=a*0.94;
+  const g=b.createRadialGradient(cx,cy,8,cx,cy,H*0.85); g.addColorStop(0,'#4a1a5e'); g.addColorStop(0.45,'#1a0a28'); g.addColorStop(1,'#040208');
+  b.fillStyle=g; b.fillRect(-10,T0,LW+20,H);
+  let sd=Math.floor(U.t/55)*7919+U.seed; const r=()=>(sd=(sd*16807+11)%2147483647)/2147483647;
+  b.fillStyle='#ffffff';
+  for(let i=0;i<58;i++){ const an=r()*TAU, w=0.004+r()*0.014, r0=62+r()*80, R=H*1.3;
+    b.globalAlpha=a*(0.1+r()*0.28);
+    b.beginPath(); b.moveTo(cx+Math.cos(an)*r0,cy+Math.sin(an)*r0);
+    b.lineTo(cx+Math.cos(an-w)*R,cy+Math.sin(an-w)*R); b.lineTo(cx+Math.cos(an+w)*R,cy+Math.sin(an+w)*R); b.fill(); }
+  const notes=[];
+  b.globalAlpha=1; b.globalCompositeOperation='lighter'; b.lineWidth=0.9;
+  for(let k=0;k<2;k++){ const y0=T0+H*(0.2+k*0.36), ph=U.t/320+k*2.2, dir=k?-1:1, wav=x=>Math.sin(x/62+ph)*15*dir;
+    b.strokeStyle=k?'rgba(255,130,200,'+(0.4*a)+')':'rgba(255,215,120,'+(0.4*a)+')';
+    for(let l=0;l<5;l++){ b.beginPath(); for(let x=-12;x<=LW+12;x+=8){ const y=y0+l*4.2+wav(x); x===-12?b.moveTo(x,y):b.lineTo(x,y); } b.stroke(); }
+    for(let n=0;n<6;n++){ const span=LW+80, x=((n*67+U.t*0.3*dir)%span+span)%span-40;
+      notes.push([x,y0+8.4+wav(x)+((n*3)%5-2)*2.1,k,n]); } }
+  b.restore();
+  notes.forEach(([x,y,k,n])=>{ glowAt(x,y-4,9,k?'#ff8ac8':'#ffd860',a*0.55); b.globalAlpha=a; ultNote(b,x,y,10,k?'#ffd0ea':'#fff2c0',0,n%3===0); });
+  b.globalAlpha=1;
+}
+/* in front of everyone while she plays: notes flying off her flute, and comic pops */
+function drawUltFront(dt,a){
+  const U=B.ult, T0=BAND_TOP(), H=BAND_BOT()-T0, P=slotOf('kaitlyn'), fx=P.x+16*P.s, fy=P.y-66*P.s;
+  if(U.played&&U.lit===null){
+    if(Math.random()<dt/55) U.notes.push({x:fx,y:fy,vx:rnd(-0.02,0.2),vy:rnd(-0.16,-0.03),t:0,life:rnd(650,1050),col:ULT_COLS[ri(0,3)],rot:rnd(-0.5,0.5),vr:rnd(-0.004,0.004),sz:rnd(8,13)});
+    if(U.t-U.lastPop>330&&U.pops.length<3){ U.lastPop=U.t;
+      U.pops.push({x:rnd(36,LW-36),y:rnd(T0+30,T0+H*0.55),t:0,r:rnd(18,26),rot:rnd(-0.35,0.35),col:ULT_COLS[ri(0,3)],word:['♪','♫','!!','♪!'][ri(0,3)]}); }
+  }
+  U.notes.forEach(n=>{ n.t+=dt; n.x+=n.vx*dt; n.y+=n.vy*dt; n.rot+=n.vr*dt; const q=1-n.t/n.life;
+    glowAt(n.x+2,n.y-n.sz*0.5,n.sz,n.col,q*a*0.7); b.globalAlpha=Math.max(0,q*a); ultNote(b,n.x,n.y,n.sz,n.col,n.rot,n.sz>11); });
+  U.notes=U.notes.filter(n=>n.t<n.life);
+  U.pops.forEach(p=>{ p.t+=dt; const sc=p.t<120?p.t/120*1.25:p.t<200?1.25-0.25*(p.t-120)/80:1, al=p.t>420?1-(p.t-420)/140:1;
+    if(al<=0) return;
+    b.save(); b.translate(p.x,p.y); b.rotate(p.rot); b.scale(sc,sc); b.globalAlpha=al*a;
+    b.beginPath(); for(let i=0;i<28;i++){ const an=i/28*TAU, rr=i%2?p.r*0.62:p.r*(i%4?1:1.18); b.lineTo(Math.cos(an)*rr,Math.sin(an)*rr*0.8); } b.closePath();
+    b.fillStyle='#fffbe8'; b.fill(); b.lineWidth=1.6; b.strokeStyle='#2a1430'; b.stroke();
+    b.beginPath(); for(let i=0;i<28;i++){ const an=i/28*TAU, rr=(i%2?p.r*0.62:p.r)*0.72; b.lineTo(Math.cos(an)*rr,Math.sin(an)*rr*0.8); } b.closePath();
+    b.fillStyle=p.col; b.fill();
+    b.font='bold '+Math.round(p.r*0.9)+'px '+FONT; b.textAlign='center'; b.textBaseline='middle'; b.lineJoin='round'; b.lineWidth=2.4; b.strokeStyle='#2a1430';
+    b.strokeText(p.word,0,1); b.fillStyle='#ffffff'; b.fillText(p.word,0,1);
+    b.restore(); });
+  U.pops=U.pops.filter(p=>p.t<560); b.globalAlpha=1;
+}
+/* The cut-in, over everything (windows too), on the screen canvas so her portrait stays
+   sharp: a tilted band sweeping in from the right, plum to pink to gold, with streaks and a
+   staff of notes racing through it, her portrait sliding in at the left with two
+   afterimages, and the song's name slamming in at the right. It squashes away at ULT_OUT. */
+function drawUltBand(){
+  const U=B.ult; if(!U||U.t>=ULT_GONE) return;
+  const t=U.t, T0=BAND_TOP(), T1=BAND_BOT(), cy=T0+(T1-T0)*0.4, BH=96;
+  const e=1-Math.pow(1-clamp(t/ULT_IN,0,1),3), o=clamp((t-ULT_OUT)/(ULT_GONE-ULT_OUT),0,1);
+  const h=BH*(1-o*o), slide=(1-e)*LW*1.35-o*o*LW*0.25; if(h<1) return;
+  m.save(); m.scale(SC,SC); m.translate(LW/2+slide,cy); m.rotate(-0.075);
+  const X0=-LW*0.75, W=LW*1.5;
+  /* its glow and rims */
+  m.fillStyle='rgba(255,240,200,.9)'; m.fillRect(X0,-h/2-3,W,h+6);
+  m.fillStyle='#ffd24a'; m.fillRect(X0,-h/2-1.6,W,h+3.2);
+  m.save(); m.beginPath(); m.rect(X0,-h/2,W,h); m.clip();
+  const g=m.createLinearGradient(-LW/2,0,LW/2,0);
+  g.addColorStop(0,'#2a0a3a'); g.addColorStop(0.32,'#9a1a5a'); g.addColorStop(0.62,'#f0506a'); g.addColorStop(1,'#ffb43c');
+  m.fillStyle=g; m.fillRect(X0,-h/2,W,h);
+  /* slanted darker bars and white streaks racing left */
+  m.fillStyle='rgba(20,0,30,.16)';
+  for(let i=0;i<20;i++){ const x=X0+((i*34-t*0.22)%(34*20)+34*20)%(34*20); m.beginPath(); m.moveTo(x,-h/2); m.lineTo(x+14,-h/2); m.lineTo(x-8,h/2); m.lineTo(x-22,h/2); m.fill(); }
+  let sd=U.seed; const r=()=>(sd=(sd*16807+11)%2147483647)/2147483647;
+  m.fillStyle='#ffffff';
+  for(let i=0;i<30;i++){ const y=(r()-0.5)*h*0.95, len=30+r()*90, sp=1.1+r()*1.4, x=X0+((r()*W-t*sp)%W+W)%W;
+    m.globalAlpha=0.18+r()*0.45; m.fillRect(x,y,len,0.5+r()*1.3); }
+  m.globalAlpha=1;
+  /* a staff across its lower part, notes racing along it */
+  const sy=h*0.16; m.strokeStyle='rgba(255,236,170,.55)'; m.lineWidth=0.7;
+  for(let l=0;l<5;l++){ m.beginPath(); m.moveTo(X0,sy+l*4); m.lineTo(X0+W,sy+l*4); m.stroke(); }
+  for(let n=0;n<9;n++){ const x=X0+((n*57-t*0.55)%W+W)%W; ultNote(m,x,sy+4+((n*5)%7-3)*2,11,n%2?'#fff2c0':'#ffffff',0,n%3===1); }
+  /* her portrait, two afterimages trailing it */
+  const im=IMG_PT; if(im.complete&&im.naturalWidth){
+    const ph=BH*1.62, pw=ph*im.naturalWidth/im.naturalHeight, pin=1-Math.pow(1-clamp((t-60)/300,0,1),3);
+    const px0=-LW/2+4-(1-pin)*120+t*0.012, py=-10-0.39*ph;
+    m.imageSmoothingEnabled=true;
+    [[-26,0.16],[-13,0.3]].forEach(([dx,al])=>{ m.globalAlpha=al*pin; m.drawImage(im,px0+dx,py,pw,ph); });
+    m.globalAlpha=1; m.drawImage(im,px0,py,pw,ph); }
+  m.restore();
+  /* the song's name, slammed in from the right */
+  const nk=clamp((t-140)/200,0,1), nx=LW/2-12+Math.pow(1-nk,3)*220, name=U.s.name.toUpperCase()+"!";
+  let size=32; m.font='italic bold '+size+'px '+FONT; const tw=m.measureText(name).width;
+  if(tw>LW*0.6){ size=Math.floor(size*LW*0.6/tw); m.font='italic bold '+size+'px '+FONT; }
+  m.textAlign='right'; m.textBaseline='alphabetic'; m.lineJoin='round';
+  m.globalAlpha=nk*(1-o); m.lineWidth=5; m.strokeStyle='#2a0a24'; m.strokeText(name,nx,h*0.02+6);
+  const tg=m.createLinearGradient(0,-size*0.6,0,6); tg.addColorStop(0,'#ffffff'); tg.addColorStop(1,'#ffe48a');
+  m.fillStyle=tg; m.fillText(name,nx,h*0.02+6);
+  m.font='bold 12px '+FONT; m.lineWidth=3; m.strokeText("★ PEP RALLY ★",nx-4,-size*0.78+6); m.fillStyle='#ffd24a'; m.fillText("★ PEP RALLY ★",nx-4,-size*0.78+6);
+  m.globalAlpha=1; m.restore();
 }
 function rallyLands(s,acc){
   const pc="  ("+Math.round(acc*100)+"%)", up=B.party.filter(standing);
@@ -1957,7 +2110,8 @@ function inspectLayout(){
   I.lines.forEach(l=>wrapLines(l.t,l.size,INSPECT.w-INSPECT.pad*2).forEach((t,i)=>rows.push({...l,t:i&&l.t.startsWith("•")?"   "+t:t})));
   return {I,rows,h:40+rows.length*15+20};
 }
-function drawBattle(dt){
+function drawBattle(dt){ drawBattleScene(dt); drawUltBand(); }
+function drawBattleScene(dt){
   if(B.stopT>0){ B.stopT-=dt; dt=0; }          /* FX2 hit-stop: a blow freezes everything for a moment */
   if(B.turn==='player') B.readyT+=dt;
   let k=0;
@@ -1979,6 +2133,7 @@ function drawBattle(dt){
     else { const q=B.quake.mag*B.quake.t/B.quake.ms; qx=Math.round(rnd(-1,1)*q); qy=Math.round(rnd(-1,1)*q*0.6); } }
   b.save(); b.translate(qx,qy);
   drawBattleBackdrop(dt);
+  const ultA=updateUlt(dt); if(ultA>0) drawUltStage(ultA);
   /* the pests, back to front: shadow, sprite, and a white flash when hit or about to
      use a special move. One lunges at whoever it attacks (further for a dive, a dash
      for zoomies). */
@@ -2026,6 +2181,7 @@ function drawBattle(dt){
     const r=mrc(p.id); if(r>0.3) flashOver(c=>drawMember(c,p.id,0,0,k),p.x,p.y,(r-0.3)/0.7);
   });
   tintBand(b,BAND_TOP(),BAND_BOT());       /* the hour's light over the field and everyone on it (the effects shine on top) */
+  if(B.ult&&ultA>0) drawUltFront(dt,ultA);
   if(A){ focus(A.foe); drawFoeFx(A.fx,k,A.targets); }
   else if(B.anim&&who&&!behind&&fxOn){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
   drawStatusTags();
@@ -2117,7 +2273,7 @@ function drawBattle(dt){
     if(list){
       const R=W.list, pep=B.menu==='pep', title=B.menu==='items'?"Items":pep?"Pep Rally":PARTY_INFO[id].skills;
       TS(title,R.x+12,R.y+15,23,'#ffe08a',null,true);
-      TS(B.menu==='items'?"from your basket":pep?"the meter is full!":"HP "+member(id).hp+"   MP "+member(id).mp+"/"+memberMaxMp(id),R.x+R.w-12,R.y+15,19,'#c8d4ff','right');
+      TS(B.menu==='items'?"from your basket":pep?"":"HP "+member(id).hp+"   MP "+member(id).mp+"/"+memberMaxMp(id),R.x+R.w-12,R.y+15,19,'#c8d4ff','right');
       if(!L.length) TS(B.menu==='items'?"Nothing to eat yet — harvest some crops!":"No skills learned yet.",
         R.x+R.w/2,R.y+SUB_Y0+30,20,'#aab6e8','center');
       L.slice(B.top,B.top+SUB_ROWS).forEach((x,j)=>{ const i=B.top+j, y=R.y+SUB_Y0+j*SUB_ROW+15, sel=i===B.sub;

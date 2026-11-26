@@ -162,6 +162,7 @@ const SFX={}, SFX_LOOP_VOL=0.22; let sfxKey=null, sfxAnim=null, sfxOn=false;
 function initSfx(){
   if(sfxOn) return; sfxOn=true;
   for(const k in ASSET_SFX){
+    if(k.startsWith('idle_')) continue;              /* her standing breaths: no longer played */
     try{ const a=new Audio(ASSET_SFX[k]); a.loop=true; a.volume=SFX_LOOP_VOL*volK('sfx'); a.preload='auto'; SFX[k]=a; }
     catch(e){}
   }

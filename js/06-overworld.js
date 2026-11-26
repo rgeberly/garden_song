@@ -129,11 +129,7 @@ function walk(dt,speed,blocked){
     P.moving=false; P.running=false; P.walkT=0;
     P.idleT=(P.idleT||0)+dt; P.animT=P.idleT;
   }
-  if(sfxOn){
-    // idle has its breathing loop; walking is silent (no footstep loop)
-    const want=P.moving?'walk':'idle';
-    if(want!==sfxAnim){ sfxAnim=want; setSfx(P.moving?null:'idle_'+DIRMAP[P.dir&7][0]); }
-  }
+  /* (no breathing loop while she stands: the map has enough sounds now) */
 }
 function updateWorld(dt){
   tickClock(dt);

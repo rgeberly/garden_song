@@ -37,6 +37,7 @@ number ("catch fish 2") is another take of the same sound. These still play synt
       `trouble sleep` (something silly and confused), `trouble weak`, `trouble scared`, `trouble blind`,
       `trouble bound`; and a heal chime
 - [ ] `stamp`: the rating stamped on at the end of a song (a made-up thump until then)
+- [ ] `pep cutin`: the Pep Rally's cut-in sweeping across, like an ultimate move (whoosh, boom and a bright chord made up until then)
 - [ ] Battle: Focus, Meditate, eating a crop, the Pep meter filling up, the EXP tally ticking on the results
 - [ ] Battle voices for Ivy, Tituba and Tex's skills (Tiny One has his): e.g. Ivy's hiss (Ssssss),
       Tituba's Hiss and swipes, Tex's Shell Up and Slam
