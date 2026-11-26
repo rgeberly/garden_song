@@ -1543,7 +1543,7 @@ function groundLine(){
   const d=probeC.getImageData(0,0,W,H).data, bot=new Int32Array(W).fill(-1);
   for(let x=0;x<W;x++) for(let y=H-1;y>=0;y--) if(d[(y*W+x)*4+3]>100){ bot[x]=y; break; }
   let x1=-1; for(let x=0;x<W;x++) if(bot[x]>=0&&(x1<0||bot[x]>bot[x1])) x1=x;
-  if(x1<0) return [0,0];
+  if(x1<0) return null;                                  /* nothing drawn (yet) */
   let x2=-1; for(let x=0;x<W;x++) if(bot[x]>=0&&Math.abs(x-x1)>=12*R&&(x2<0||bot[x]>bot[x2])) x2=x;
   if(x2<0||bot[x1]-bot[x2]>14*R) return [0,0];          /* one foot only, or the other is in the air */
   const L=(x,y)=>[x/R-SHAPE_FX,(top+y)/R-SHAPE_FY], [ax,ay]=L(x1,bot[x1]), [bx,by]=L(x2,bot[x2]);
@@ -1553,19 +1553,32 @@ function groundLine(){
 /* its shadow on the ground at x,y; lift: how high it hovers (the shadow drops further
    away and fainter). Folded along the ground line through its feet (see groundLine). */
 const SHADOW_K=0.55, SHADOW_T=0.26;
-/* flat: a level shadow (no ground line), for a little bird whose tail can look like a
-   second foot (it tipped Tiny One's shadow into a long streak) */
-function castShadow(draw,x,y,lift,a,flat){
+/* line: a ground line to fold along (a party member's, from their stance), instead of
+   working one out from this frame */
+function castShadow(draw,x,y,lift,a,line){
   const rec=lift?null:[], S=silhouette(draw,'#14200c',rec,true), l=lift||0;
   b.save(); b.globalAlpha=a*(l?0.75:1);
   if(l){ b.translate(x+l*0.45,y+l*0.12); b.transform(1,0,-SHADOW_K,-SHADOW_T*0.8,0,0); }
   else {
-    const key=rec.join('|'); let g=flat?[0,0]:GROUND_LINE.get(key);
-    if(!g){ g=groundLine(); if(GROUND_LINE.size>600) GROUND_LINE.clear(); GROUND_LINE.set(key,g); }
+    const key=rec.join('|'); let g=line||GROUND_LINE.get(key);
+    if(!g){ g=groundLine()||[0,0]; if(GROUND_LINE.size>600) GROUND_LINE.clear(); GROUND_LINE.set(key,g); }
     const [ga,gb]=g, K=SHADOW_K, T=SHADOW_T;
     b.translate(x,y); b.transform(1+K*gb,gb*(1+T),-K,-T,K*ga,(1+T)*ga);
   }
   b.drawImage(S,-SHAPE_FX,-SHAPE_FY,SHAPE_W,SHAPE_H); b.restore();
+}
+/* A party member's ground line, worked out once from their standing pose and kept for
+   every pose. Worked out frame by frame, a raised foot, a lowered head or a tail could
+   pass for a foot and tip the whole shadow to a new angle (Tex's shifting as only his
+   foot moved, Ivy's going to a thin slit, Tiny One's to a long streak). */
+const MEMBER_LINE=new Map();
+function memberLine(id){
+  const s=slotOf(id).s*(MEMBER_SIZE[id]||1), key=id+':'+s.toFixed(3);
+  let g=MEMBER_LINE.get(key); if(g) return g;
+  silhouette(c=>{ c.save(); c.scale(s,s); drawStance(c,id,0,0); c.restore(); },'#000',null,true);
+  g=groundLine(); if(!g) return null;                     /* the art isn't loaded yet */
+  if(Math.abs(g[1])>0.3) g=[0,0];          /* a steep one is a tail taken for a foot (Tiny One's): level instead */
+  MEMBER_LINE.set(key,g); return g;
 }
 function flashOver(draw,x,y,a){
   if(a<=0) return;
@@ -2001,12 +2014,7 @@ function drawBattle(dt){
   const mrc=id=>{ const h=B.mhit&&B.mhit[id]; return h&&h.t<300?1-h.t/300:0; };
   if(B.mhit) for(const id in B.mhit){ B.mhit[id].t+=dt; if(B.mhit[id].t>400) delete B.mhit[id]; }
   placed.forEach(p=>{ const r=mrc(p.id); if(r) p.x-=Math.round(r*r*(B.mhit[p.id].big?12:8)); });
-  /* (Tiny One gets a soft round shadow under him: cast along the ground, a little bird
-     stretched out long, tail to beak, made a thin streak off to one side) */
-  placed.forEach(p=>{ if(p.id==='tiny'){ const s=slotOf('tiny').s*(MEMBER_SIZE.tiny||1), g=b.createRadialGradient(0,0,0,0,0,20*s);
-      g.addColorStop(0,'rgba(20,32,12,.42)'); g.addColorStop(1,'rgba(20,32,12,0)');
-      b.save(); b.translate(p.x+2,p.y); b.scale(1,0.34); b.fillStyle=g; b.beginPath(); b.arc(0,0,20*s,0,TAU); b.fill(); b.restore(); }
-    else castShadow(c=>drawMember(c,p.id,0,0,k),p.x,p.y,0,0.32); });
+  placed.forEach(p=>{ const g=memberLine(p.id); castShadow(c=>drawMember(c,p.id,0,0,k),p.x,p.y,0,0.32,g); });
   /* Meditate's and Focus's rings and motes go behind the party */
   const behind=B.anim&&who&&(B.anim.kind==='meditate'||B.anim.kind==='focus');
   if(behind&&fxOn) drawSpellFx(B.anim.kind,k,who.x,who.y);
