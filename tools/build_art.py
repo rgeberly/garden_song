@@ -793,7 +793,9 @@ def main():
     for k, f in named_pics('backdrops'):
         k = '_'.join(k.split()); backs.append(k)
         save_jpg(f, os.path.join(ROOT, 'assets', 'scenes', 'backdrop_' + k + '.jpg'))
-    bg = find_pic(os.path.join(SRC, 'rhythm', 'background 2')) or find_pic(os.path.join(SRC, 'rhythm', 'background'))
+    # the newest version wins: background 3, then 2, then the first
+    bg = (find_pic(os.path.join(SRC, 'rhythm', 'background 3')) or find_pic(os.path.join(SRC, 'rhythm', 'background 2'))
+          or find_pic(os.path.join(SRC, 'rhythm', 'background')))
     if bg: save_jpg(bg, os.path.join(ROOT, 'assets', 'scenes', 'rhythm_bg.jpg'))
     nmeta = []
     gems = find_pic(os.path.join(SRC, 'rhythm', 'notes'))

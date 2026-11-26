@@ -21,6 +21,11 @@ const GOODS={
   pinecone:   {name:"Pinecone",         value:8,  kind:'forage', season:'winter', col:'#8a6a3a', flavor:"Nature's little wooden ornament."},
   winterberry:{name:"Winterberries",    value:20, kind:'forage', season:'winter', col:'#d8203a', eat:{mp:6}, flavor:"Bright red cheer in the snow."},
   snowdrop:   {name:"Snowdrop",         value:24, kind:'forage', season:'winter', col:'#f4f8ff', flavor:"The first flower brave enough to face winter."},
+  /* the rare flowers at the top of Bramble Peak, one for each season (SUMMIT_FLOWER) */
+  mtnlily:    {name:"Alpine Lily",      value:150,kind:'forage', rare:true, season:'spring', col:'#f4a8c8', flavor:"A pink lily that only opens on the very top of the mountain, in the first warm days of spring."},
+  edelweiss:  {name:"Edelweiss",        value:150,kind:'forage', rare:true, season:'summer', col:'#f4f2e6', flavor:"Woolly white stars that grow where hardly anything else will. Climbers wear them for luck."},
+  gentian:    {name:"Sunset Gentian",   value:150,kind:'forage', rare:true, season:'fall',   col:'#5a6ae0', flavor:"A deep blue trumpet that blooms at the summit as the leaves turn. Bluer than the sky it grows under."},
+  frostrose:  {name:"Frost Rose",       value:150,kind:'forage', rare:true, season:'winter', col:'#c8e4ff', flavor:"Petals edged in frost, blooming in the snow at the peak. It never quite thaws."},
   /* fish: power = how hard it fights; seasons it bites in (all if none); night: only after dark */
   minnow:     {name:"Minnow",           value:8,  kind:'fish', col:'#a8b8c8', power:0.5, w:5, flavor:"Small fry. Literally."},
   perch:      {name:"Yellow Perch",     value:22, kind:'fish', col:'#e8c84a', power:0.8, w:4, flavor:"Yellow, stripy and a little grumpy."},
@@ -361,12 +366,22 @@ const gatherSpots=()=>G.area==='mountain'&&G.daily.spots&&G.daily.gatherDay===G.
 /* what grows at spot i today (the same all day), or null if it's been picked */
 function gatherAt(i){
   if((G.daily.picked||[]).includes(i)) return null;
-  const opts=Object.keys(GOODS).filter(k=>GOODS[k].kind==='forage'&&GOODS[k].season===season());
+  const opts=Object.keys(GOODS).filter(k=>GOODS[k].kind==='forage'&&!GOODS[k].rare&&GOODS[k].season===season());
   let s=(G.day*7919+i*104729)%2147483647; s=(s*16807)%2147483647;
   const q=tinyGather(s); if(q) return q;        /* twigs and pinestraw for Tiny One's nest */
   if(s%5===0) return null;                    /* not every spot has something every day */
   return opts[s%opts.length];
 }
+/* The summit: on some days (SUMMIT_P, the same all day) the season's rare flower blooms at
+   the very top of the trail. Once picked it's gone until another day. */
+const SUMMIT={x:480,y:104}, SUMMIT_P=0.35;
+const SUMMIT_FLOWER={spring:'mtnlily',summer:'edelweiss',fall:'gentian',winter:'frostrose'};
+function summitBloom(){
+  if(G.area!=='mountain'||(G.daily.picked||[]).includes('summit')||G.daily.gatherDay!==G.day) return null;
+  let s=(G.day*92821+17)%2147483647; s=(s*16807)%2147483647; s=(s*16807)%2147483647;
+  return (s%1000)/1000<SUMMIT_P?SUMMIT_FLOWER[season()]:null;
+}
+const nearSummit=(f=1)=>!!summitBloom()&&Math.hypot(G.player.x-SUMMIT.x,G.player.y+8-SUMMIT.y)<28*f;
 function nearGather(f=1){
   const S=gatherSpots(); if(!S) return -1;
   return S.findIndex(([x,y],i)=>gatherAt(i)&&Math.hypot(G.player.x-x,G.player.y+8-y)<26*f);
@@ -395,6 +410,8 @@ function placeInteract(){
   if(who){ const lines=personLines(who).map(t=>({say:'npc',who,text:t}));
     if(who.shop) lines.push({run:()=>openTownShop(who.shop,who)});
     playStory(lines); return; }
+  if(nearSummit()){ const k=summitBloom(); (G.daily.picked||(G.daily.picked=[])).push('summit'); G.goods[k]=(G.goods[k]||0)+1;
+    const nm=GOODS[k].name; say("Found "+(/^[aeiou]/i.test(nm)?"an ":"a ")+nm+"! A rare flower from the top of the mountain."); sfx('get_key_item'); passTime(5); autoSave(); return; }
   const g=nearGather();
   if(g>=0){ const k=gatherAt(g); G.daily.picked.push(g); G.goods[k]=(G.goods[k]||0)+1;
     say("Found "+GOODS[k].name+"!"+tinyFoundText(k)); sfx('pickup'); passTime(5); autoSave(); return; }
@@ -407,6 +424,7 @@ function placeLabel(){
   const fr=nearFriend(R); if(fr) return friendLabel(fr);
   const dr=nearTownDoor(R*1.6); if(dr) return doorOpen(dr)?PLACES[dr.to].name:"Closed";
   if(nearTinyEgg(R)) return "Check";
+  if(nearSummit(R)) return "Pick";
   if(nearGather(R)>=0) return "Gather";
   if(nearPond(R)) return season()==='winter'?"Frozen":G.rod?"Fish ("+FISH_MIN+" min)":"Fish (needs a rod)";
   return null;
@@ -536,6 +554,10 @@ function drawPlace(){
   ents.push(...friendPlaceEnts(cam));          /* Tituba by the Tipsy Toad */
   if(nearTinyEgg(9)) ents.push({y:TINY_EGG.y,f:()=>drawTinyEgg(b,TINY_EGG.x-cam.x,TINY_EGG.y-cam.y)});   /* Tiny One's egg, under the pine */
   if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
+  const sb=summitBloom();          /* the summit's rare flower, sparkling */
+  if(sb) ents.push({y:SUMMIT.y,f:()=>{ const x=SUMMIT.x-cam.x, y=SUMMIT.y-cam.y;
+    glowAt(x,y-10,16+Math.sin(G.t/260)*3,'#fff0c0',0.45); drawGatherSpot(b,x,y,sb);
+    for(let i=0;i<3;i++){ const q=(G.t/900+i/3)%1; glowAt(x+Math.sin(i*2.1+G.t/500)*12,y-8-q*22,2.2,'#ffffff',Math.sin(q*Math.PI)); } }});
   /* the pests, scaled like her here (shadow and all), around their feet */
   if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y, s=placeKait();
     b.save(); b.translate(x,y); b.scale(s,s); b.translate(-x,-y);

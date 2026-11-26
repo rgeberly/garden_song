@@ -267,10 +267,11 @@ const KICK_SHOUTS=["Hiya!","Take that!","May my boot aim true!","Not in MY garde
 const MOVES=[
   {id:'kick',  name:"Quick Kick",      lv:1, mp:0,  notes:0,  pow:0.55, heal:0, fx:'kick',
    flavor:"A quick, no-nonsense boot to the pest."},
-  {id:'sprout',name:"Sprout Strike",   lv:1, mp:3,  notes:4,  pow:0.9,  heal:0, fx:'sprout', song:true, weak:0.75,
-   flavor:"A peppy tune that makes roots burst up underfoot."},
+  /* Karate Kick first, before the songs, so it reads as a move of its own */
   {id:'karate',name:"Karate Kick",     lv:10,mp:0,  hpCost:0.1, pow:1.1, heal:0, fx:'kick',
    flavor:"Hi-YAH! She puts her whole heart (and a little of her health) into it."},
+  {id:'sprout',name:"Sprout Strike",   lv:1, mp:3,  notes:4,  pow:0.9,  heal:0, fx:'sprout', song:true, weak:0.75,
+   flavor:"A peppy tune that makes roots burst up underfoot."},
   {id:'lull',  name:"Frog Lullaby",    lv:3, mp:4,  notes:4,  pow:0,    heal:0.25,fx:'lull', song:true,
    flavor:"A croaky little bedtime song. The frogs harmonize, mostly in tune."},
   {id:'waltz', name:"Bramble Waltz",   lv:5, mp:6,  notes:6,  pow:1.5,  heal:0, fx:'waltz', song:true, bind:0.25,
@@ -340,6 +341,8 @@ const ALLY_SKILLS={
      desc:"Look into my eyesss... Puts one foe to sleep for 2-3 turns."},
     {id:'burst',    name:"Venom Burst",lv:12,mp:10, pow:1.1, burst:true,
      desc:"Wakes up all that venom at once. Ouch. One foe, power x1.1: triple if it has Venom, double if Poison, six times with both. Uses them up."},
+    {id:'deathroll',name:"Deathroll", lv:14,mp:14, pow:1.4, stat:'str', deathroll:true, rollHeal:0.3,
+     desc:"She coils tight and spins. A sleeping foe never wakes up (a boss takes six times the damage), and Ivy gets back 30% of her HP. Awake, a crushing hit, power x1.4 from Strength."},
   ],
   /* Tiny One. mend (one friend) and mendAll (everyone standing) heal that share of their
      own max HP; regen: {n,share}, everyone also gets that share back at the start of each

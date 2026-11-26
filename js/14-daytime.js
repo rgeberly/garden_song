@@ -102,6 +102,13 @@ function tintAt(hour){
   const t=clamp((hour-h0)/(h1-h0),0,1), A=hexRgb(c0), B=hexRgb(c1);
   return {rgb:A.map((v,k)=>Math.round(v+(B[k]-v)*t)), a:a0+(a1-a0)*t};
 }
+/* the colour of the hour over a band of a scene, y0 to y1 (battles and fishing: the same
+   light as the garden, so the time of day doesn't seem to change going in) */
+function tintBand(c,y0,y1){
+  const t=tintAt(G.clock/60); if(t.a<0.002) return;
+  c.save(); c.globalCompositeOperation='multiply'; c.globalAlpha=t.a;
+  c.fillStyle='rgb('+t.rgb.join(',')+')'; c.fillRect(-20,y0-20,LW+40,y1-y0+40); c.restore();
+}
 /* multiply the garden view by the colour of the hour (call inside the view clip) */
 function tintView(c){
   const t=tintAt(G.clock/60);

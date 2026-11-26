@@ -1,5 +1,5 @@
 # Garden Song to-do list
-What's still to make or do, as of Nov 15, 2026. Tick a box by changing `[ ]` to `[x]`.
+What's still to make or do, as of Nov 26, 2026. Tick a box by changing `[ ]` to `[x]`.
 
 ## Songs
 Rhythm game songs go in the art folder as `rhythm/songs/<name>_flute.wav` and `<name>_backing.wav`
@@ -33,7 +33,10 @@ number ("catch fish 2") is another take of the same sound. These still play synt
   - [ ] `critical hit`: a bright extra crack on top of a hit
   - [ ] `blocked`: a soft shield ping (Safe and Sound, a guarding pest)
 - [ ] Battle: a pest winding up its move, a pest running off, a member going down
-- [ ] Battle troubles: poison or venom taking hold, falling asleep, weakened, scared, bound; a heal chime
+- [ ] Battle troubles, one each (they play a made-up sound until then): `trouble poison`, `trouble venom`,
+      `trouble sleep` (something silly and confused), `trouble weak`, `trouble scared`, `trouble blind`,
+      `trouble bound`; and a heal chime
+- [ ] `stamp`: the rating stamped on at the end of a song (a made-up thump until then)
 - [ ] Battle: Focus, Meditate, eating a crop, the Pep meter filling up, the EXP tally ticking on the results
 - [ ] Battle voices for Ivy, Tituba and Tex's skills (Tiny One has his): e.g. Ivy's hiss (Ssssss),
       Tituba's Hiss and swipes, Tex's Shell Up and Slam
@@ -43,6 +46,7 @@ number ("catch fish 2") is another take of the same sound. These still play synt
 - [ ] Tiny One as a baby: begging, and gulping a worm
 
 ## Animations
+- [ ] Fix Ivy's victory animation
 - [ ] Tiny One: a singing animation for his songs and Tweet (they use his attack loop now)
 - [ ] Tituba curled up asleep (at night she stands on the quilt with sleeping Z's)
 - [ ] Townsfolk walking art (they're simple drawn stand-ins in town; only their portraits are art)
@@ -51,6 +55,9 @@ number ("catch fish 2") is another take of the same sound. These still play synt
 ## Pictures (prompts in `tools/perchance-prompts.md`)
 - [ ] Kaitlyn's talk-box faces: smile, sad, angry, concerned, questioning, determined, amazed
 - [ ] Collard Greens: young plant, grown plant and harvest pictures (it's the only crop drawn in code)
+- [ ] Redo the Blueberry seed picture
+- [x] Mature radish: the bulb's lower half now sits in a mound of soil (edited from the old picture, which is in the
+      art folder's `backup/`)
 - [ ] Mug of Cider and Hot Toddy pictures
 - [ ] Tituba's gear: Silver Claw Tips, Velvet Ribbon, Catnip Sachet, Moonstone Collar (the gear isn't in the game yet either)
 - [ ] Tex's gear: Old Oak Cane, Mossy Shell Cover, Sun-Warmed Stone, Shell Polish (likewise)

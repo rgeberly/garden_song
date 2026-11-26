@@ -5,21 +5,29 @@
    bite, set the hook by pulling the rod (swipe up, or W / up), then reel it in: on a touch screen wind the reel at the bottom right by circling
    your finger round it, and pull the rod back by dragging up over the bottom left (the
    rod rises; nothing else is drawn or said there); with keys hold J or Space to reel and
-   W / up to pull. Pulling the
-   rod back yanks the fish a good way closer (pump it: pull, ease down while
-   reeling, pull again) but both tighten the line, and the fish fights back in
-   bursts, running line out. Past DRAG the reel's drag lets line slip instead of
-   breaking it, so a snap is rare; a slack line (stop reeling) loses it. The fish roams
-   across the water and darts off in its bursts, splashing (and now and then leaping
-   clear). The usual pad and buttons are hidden here; Stop is top right.
+   W / up to raise the rod (S / down to lower it). The rod's angle sets the line's
+   tension, shown on the meter at the left, which has a green zone: keep the tension in it
+   while reeling to bring the fish in. The zone drifts as the fish fights and jumps when it
+   makes a run; how big it is depends on the fish's strength against the rod (a better rod
+   gives a bigger zone). Too tight (above the zone) for SNAP_MS and the line breaks; too
+   slack (below it) and the fish runs line out. The bar at the top is the line out: it
+   grows to the right as the fish takes line and shrinks as it's reeled in; if it reaches
+   the right end the fish gets away. Let go of the rod and it sinks on its own. The fish
+   roams across the water and darts off in its bursts, splashing (and now and then leaping
+   clear). The rod bends with the tension. The usual pad and buttons are hidden here; Stop
+   is top right.
    ================================================================ */
-const FISH_MIN=30, HOOK_MS=1100, SNAP_MS=2000, SLACK_MS=2600, THROW_MS=750;
-/* Rods and reels, bought one after another: reel, how fast it winds line in; drag, the
-   tension where its drag starts to slip; max, the strongest fish (power) it can land. */
+const FISH_MIN=30, HOOK_MS=1100, SNAP_MS=1600, THROW_MS=750, LINE_OUT=1.3;
+/* Rods and reels, bought one after another: reel, how fast it winds line in; zone, how big
+   the tension meter's green zone is (half its height, for an average fish); max, the
+   strongest fish (power) it can land. */
 const RODS=[null,
-  {name:"Bamboo Rod & Reel",  cost:250, reel:0.85,drag:0.8, max:1.8, about:"A starter set. Fine for most fish, but no match for the real bruisers."},
-  {name:"Spinning Rod & Reel",cost:800, reel:1.15,drag:0.88,max:2.3, about:"A proper spinning reel with a smooth drag. Lands a Golden Koi."},
-  {name:"Pro Rod & Reel",     cost:2000,reel:1.6, drag:0.95,max:99,  about:"Tournament grade. Nothing in these waters can out-pull it."}];
+  {name:"Bamboo Rod & Reel",  cost:250, reel:0.85,zone:0.13,max:1.8, about:"A starter set. Fine for most fish, but no match for the real bruisers."},
+  {name:"Spinning Rod & Reel",cost:800, reel:1.15,zone:0.17,max:2.3, about:"A proper spinning reel: a wider sweet spot, and it lands a Golden Koi."},
+  {name:"Pro Rod & Reel",     cost:2000,reel:1.6, zone:0.22,max:99,  about:"Tournament grade: the widest sweet spot, and nothing in these waters can out-pull it."}];
+/* the green zone's half-height for fish k on the rod: smaller for a stronger fish, much
+   smaller for one too strong for the rod */
+const zoneHalf=k=>{ const g=GOODS[k], R=rodNow(); return clamp(R.zone*clamp(1.3-0.24*g.power,0.5,1.15)*(g.power>R.max?0.55:1),0.05,0.26); };
 const rodNow=()=>RODS[G.rod||1];
 /* How long each fish is, in inches: [smallest usual, biggest usual, near-record], from
    typical sizes of the real species (a crab by its shell's width, an octopus arms and all,
@@ -40,9 +48,7 @@ function inchText(n,k){
   const r=Math.round(n), t=n>=48?Math.floor(r/12)+" ft"+(r%12?" "+r%12+" in":""):(n<10?Math.round(n*2)/2:r)+" in";
   return t+(k==='crab'?" across":"");
 }
-/* the reel's drag: past this tension the line slips out instead of breaking; the scale
-   of the tension gauge (it only snaps above 1, held there for SNAP_MS) */
-const T_MAX=1.15, dragAt=()=>rodNow().drag, FISH_FADE=400;
+const FISH_FADE=400;
 const REEL={x:280,r:64}, ROD={x:62,h:84}, FSTOP={x:LW-70,y:14,w:60,h:26};
 let FS=null;
 /* Where the line can meet the water: 'near' 0 (far away) to 1 (close by), 'side' -1..1
@@ -104,7 +110,7 @@ function fishCast(power){
 }
 /* pulling the rod: sets the hook on a bite, scares the fish off before one */
 function fishPull(){
-  if(FS.phase==='bite'){ FS.phase='reel'; FS.t=0; FS.lift=1; FS.leaps=leapsFor(FS.fish); FS.leapAt=rnd(500,1300); sfx('fishing_set_the_hook'); fishSplash(0.6,'fish_churnin'); return; }
+  if(FS.phase==='bite'){ FS.phase='reel'; FS.t=0; FS.lift=0.55; FS.zc=0.55; FS.zTo=0.55; FS.tension=0.55; FS.leaps=leapsFor(FS.fish); FS.leapAt=rnd(500,1300); sfx('fishing_set_the_hook'); fishSplash(0.6,'fish_churnin'); return; }
   if(FS.phase==='wait'){ FS.phase='lost'; FS.t=0; FS.msg="Too soon — you scared it off."; }
 }
 function fishHook(){
@@ -125,7 +131,7 @@ function fishTouch(x,y,id){
   if(!FS) return;
   if(x>FSTOP.x&&x<FSTOP.x+FSTOP.w&&y>FSTOP.y+BAND_TOP()&&y<FSTOP.y+FSTOP.h+BAND_TOP()){ endFishing("You reel in your line."); return; }
   if(FS.phase==='reel'&&inReel(x,y)){ FS.reelId=id; FS.lastA=Math.atan2(y-reelY(),x-REEL.x); return; }
-  if(FS.phase==='reel'&&inRod(x,y)){ FS.rodId=id; FS.rodY0=y; return; }
+  if(FS.phase==='reel'&&inRod(x,y)){ FS.rodId=id; FS.rodY0=y; FS.lift0=FS.lift; return; }
   /* a swipe: up to cast, or to pull the rod and set the hook */
   if(FS.phase==='ready'||FS.phase==='wait'||FS.phase==='bite'){ FS.sw={id,x,y}; return; }
   fishHook();
@@ -134,7 +140,7 @@ function fishTouch(x,y,id){
 function fishMove(x,y,id){
   if(FS&&FS.sw&&FS.sw.id===id&&(FS.phase==='wait'||FS.phase==='bite')&&FS.sw.y-y>30){ FS.sw=null; fishPull(); return; }
   if(FS&&FS.sw&&FS.sw.id===id&&FS.phase==='ready') FS.charge=clamp((FS.sw.y-y)/220,0,1);
-  if(FS&&FS.rodId===id){ FS.liftWant=clamp((FS.rodY0-y)/ROD.h*1.4,0,1); return; }
+  if(FS&&FS.rodId===id){ FS.liftWant=clamp(FS.lift0+(FS.rodY0-y)/ROD.h*1.1,0,1); return; }
   if(!FS||FS.reelId!==id) return;
   const a=Math.atan2(y-reelY(),x-REEL.x);
   if(FS.lastA!==null){ let d=a-FS.lastA; if(d>Math.PI) d-=2*Math.PI; if(d<-Math.PI) d+=2*Math.PI; FS.spin+=Math.abs(d); FS.ang+=Math.abs(d); }
@@ -143,7 +149,7 @@ function fishMove(x,y,id){
 function fishUp(id){
   if(FS&&FS.sw&&FS.sw.id===id){ const sw=FS.sw; FS.sw=null;
     if(FS.phase==='ready'){ if(FS.charge>0.15) fishCast(0.3+FS.charge*0.7); else FS.charge=0; } }
-  if(FS&&FS.reelId===id){ FS.reelId=null; FS.lastA=null; } if(FS&&FS.rodId===id){ FS.rodId=null; FS.liftWant=0; } }
+  if(FS&&FS.reelId===id){ FS.reelId=null; FS.lastA=null; } if(FS&&FS.rodId===id){ FS.rodId=null; } }
 /* landing a fish: the splash is kept down, and the catch sound (one of the catch_fish takes)
    waits until it's over (it's loudest for its first 0.6 s, gone by about 1 s) */
 const CATCH_SPLASH=0.5, CATCH_SOUND_MS=1000;
@@ -182,34 +188,40 @@ function updateFishing(dt){
     const want=key?1:clamp(FS.spin/s/22,0,1.5); FS.spin=0;
     FS.reel+= (want-FS.reel)*Math.min(1,s*8);
     if(key) FS.ang+=s*9;
-    /* the rod: raising it pulls the fish in, lowering it doesn't push it back */
-    const up=keys['w']||keys['arrowup'];
-    if(FS.rodId===null) FS.liftWant=up?1:0;
-    const was=FS.lift; FS.lift+=(FS.liftWant-FS.lift)*Math.min(1,s*(FS.liftWant>FS.lift?5:3));
-    const yank=Math.max(0,FS.lift-was);
+    /* the rod: its angle sets the tension. Keys raise (W / up) and lower (S / down) it;
+       a finger drags it; left alone it sinks, faster while the fish makes a run */
+    const up=keys['w']||keys['arrowup'], down=keys['s']||keys['arrowdown'];
+    if(FS.rodId!==null) FS.lift+=(FS.liftWant-FS.lift)*Math.min(1,s*12);
+    else FS.lift=clamp(FS.lift+(up?1.1:down?-1.1:-(0.16+(FS.burst>0?0.16*g.power:0)))*s,0,1);
     /* the fish: a steady tug, with bursts that get stronger the bigger it is */
     FS.burst-=dt;
     if(FS.burst<=-ri(900,2400)/g.power){ FS.burst=ri(500,1100);
-      /* a new burst: it dashes off somewhere else with a splash, or leaps right out */
+      /* a new burst: it dashes off somewhere else with a splash, or leaps right out, and
+         the green zone jumps */
       FS.sideTo=clamp(FS.side+rnd(0.5,1.1)*(Math.random()<0.5?-1:1),-0.9,0.9);
+      FS.zTo=clamp(FS.zc+rnd(0.18,0.38)*(Math.random()<0.5?-1:1),0.22,0.82);
       fishSplash(0.35+g.power*0.25,'fish_churnin'); }
     /* a leap clear of the water: the first soon after the hook, the rest spread out */
     if(!FS.leap&&FS.leaps>0&&FS.t>=FS.leapAt){ FS.leaps--; FS.leap={t:0,dur:700,dir:Math.random()<0.5?-1:1}; fishSplash(0.8,'fish_jump');
       FS.leapAt=FS.t+(FISH_LEAPS[FS.fish]==='many'?rnd(1200,2600):rnd(2000,4000)); }
     FS.pull=g.power*(FS.burst>0?0.9:0.3+0.15*Math.sin(FS.t/300));
-    /* the fish runs (harder in a burst), reeling and pulling the rod bring it in */
-    const RD=rodNow(), DRAG=dragAt(), strong=g.power>RD.max;
-    let target=FS.reel*0.45+FS.pull*0.35+FS.lift*0.25, slip=0;
-    if(target>DRAG){ slip=(target-DRAG)*0.3*s; target=DRAG+(target-DRAG)*0.3; }      /* the drag gives */
-    FS.slipping=slip>0;
-    FS.dist=clamp(FS.dist-(FS.reel*0.22*RD.reel*s+yank*0.14)*(1.15-FS.pull*0.25)+FS.pull*0.11*s+slip,strong?0.3:0,1.3);
+    /* the green zone drifts about, and moves fast in a run */
+    if(Math.abs(FS.zTo-FS.zc)<0.02) FS.zTo=clamp(FS.zc+rnd(-0.12,0.12),0.22,0.82);
+    FS.zc+=(FS.zTo-FS.zc)*Math.min(1,s*(FS.burst>0?1.6+0.5*g.power:0.6));
+    FS.zh=zoneHalf(FS.fish);
+    /* the tension follows the rod, with a little tug from the fish */
+    const want2=clamp(FS.lift+0.03*Math.sin(FS.t/140)+(FS.burst>0?0.04:0),0,1.05);
+    FS.tension+=(want2-FS.tension)*Math.min(1,s*9);
+    const RD=rodNow(), strong=g.power>RD.max, over=FS.tension>FS.zc+FS.zh, under=FS.tension<FS.zc-FS.zh;
+    FS.inZone=!over&&!under; FS.over=over; FS.under=under;
+    /* in the zone, reeling brings it in; out of it, reeling barely does; too slack and the
+       fish runs line out; it fights a little in its runs even so */
+    FS.dist=clamp(FS.dist-FS.reel*(FS.inZone?0.13:0.03)*RD.reel*s+(under?(0.08+0.05*g.power)*s:0)+(FS.burst>0?0.035*g.power*s:0),strong?0.3:0,LINE_OUT);
     /* a fish too strong for this rod can't be landed: it wins in the end */
     if(strong&&FS.t>9000){ FS.phase='lost'; FS.t=0; FS.msg="Snap! That "+g.name+" was too strong for this rod."; sfx('fishing_line_break'); return; }
-    FS.tension+=(target-FS.tension)*Math.min(1,s*3);
-    FS.snapT=FS.tension>1?FS.snapT+dt:Math.max(0,FS.snapT-dt*2);
-    FS.slackT=FS.tension<0.12?FS.slackT+dt:0;
+    FS.snapT=over?FS.snapT+dt:Math.max(0,FS.snapT-dt*1.5);
     if(FS.snapT>SNAP_MS){ FS.phase='lost'; FS.t=0; FS.msg="Snap! The line broke."; sfx('fishing_line_break'); }
-    else if(FS.slackT>SLACK_MS||FS.dist>=1.3){ FS.phase='lost'; FS.t=0; FS.msg="The line went slack and it got away."; }
+    else if(FS.dist>=LINE_OUT){ FS.phase='lost'; FS.t=0; FS.msg="It ran off with the line and got away."; sfx('fishing_casting'); }
     else if(FS.dist<=0){ FS.phase='caught'; FS.t=0; const L0=fishLength(FS.fish); FS.size=L0.len; FS.lunker=L0.big; fishSplash(1.2,'fish_jump',CATCH_SPLASH); setTimeout(()=>sfx('catch_fish'),CATCH_SOUND_MS);
       G.goods[FS.fish]=(G.goods[FS.fish]||0)+1;
       const L=G.lore.fish[FS.fish]||(G.lore.fish[FS.fish]={n:0,best:0}); L.n++; L.best=Math.max(L.best,FS.size);
@@ -285,13 +297,14 @@ function drawLure(x,y,a,k,alpha,deep){
   b.restore();
 }
 /* The line's tension meter at the left while reeling: a brushed-metal frame like the reel's,
-   coloured bands (top to bottom: snapping, the drag slipping, just right, slack) behind
-   glass, and a pointer at the tension; it glows red when the line is about to snap. */
+   and behind glass the green zone to keep the tension in (it moves as the fish fights),
+   too tight above it (red), too slack below (amber), and a pointer at the tension; it glows
+   red as the line gets close to snapping. */
 const LINE_METER={x:14,y:178,h:176,w:14};
 function drawLineMeter(x,y,h){
-  const w=LINE_METER.w, at=t=>y+clamp(1-t/T_MAX,0,1)*h, DRAG=dragAt(), ty=at(FS.tension);
+  const w=LINE_METER.w, at=t=>y+clamp(1-t,0,1)*h, ty=at(FS.tension), zt=at(FS.zc+FS.zh), zb=at(FS.zc-FS.zh);
   b.save();
-  if(FS.tension>1){ b.shadowColor='rgba(255,60,40,'+(0.6+0.4*Math.sin(G.t/90))+')'; b.shadowBlur=14; }
+  if(FS.snapT>0){ b.shadowColor='rgba(255,60,40,'+((0.6+0.4*Math.sin(G.t/90))*Math.min(1,FS.snapT/(SNAP_MS*0.5)))+')'; b.shadowBlur=14; }
   const m=b.createLinearGradient(x-6,0,x+w+6,0);                       /* the frame */
   m.addColorStop(0,'#3e4148'); m.addColorStop(0.25,'#c4c7cd'); m.addColorStop(0.5,'#8e9299'); m.addColorStop(0.8,'#d6d9de'); m.addColorStop(1,'#4a4d54');
   b.fillStyle=m; b.beginPath(); b.roundRect(x-6,y-12,w+12,h+24,9); b.fill(); b.restore();
@@ -300,9 +313,10 @@ function drawLineMeter(x,y,h){
     b.fillStyle='#b8bcc3'; b.beginPath(); b.arc(x+w/2-0.6,sy-0.6,1.4,0,7); b.fill(); });
   b.fillStyle='#0b0e14'; b.beginPath(); b.roundRect(x-1.5,y-1.5,w+3,h+3,6); b.fill();
   b.save(); b.beginPath(); b.roundRect(x,y,w,h,5); b.clip();
-  [['#c8322a','#ff7a62',y,at(1)],['#d8a420','#ffe27a',at(1),at(DRAG)],['#2f9e44','#8ff08a',at(DRAG),at(0.15)],['#d8a420','#ffe27a',at(0.15),y+h]]
-    .forEach(([c,hi,y0,y1])=>{ const g=b.createLinearGradient(x,0,x+w,0); g.addColorStop(0,c); g.addColorStop(0.45,hi); g.addColorStop(1,c);
-      b.fillStyle=g; b.fillRect(x,y0,w,y1-y0); b.fillStyle='rgba(0,0,0,.45)'; b.fillRect(x,y1-0.5,w,1); });
+  [['#7a2620','#b8503e',y,zt],['#2f9e44','#8ff08a',zt,zb],['#7a5a18','#b89040',zb,y+h]]
+    .forEach(([c,hi,y0,y1],i)=>{ const g=b.createLinearGradient(x,0,x+w,0); g.addColorStop(0,c); g.addColorStop(0.45,hi); g.addColorStop(1,c);
+      b.fillStyle=g; b.fillRect(x,y0,w,y1-y0); if(i<2){ b.fillStyle='rgba(0,0,0,.45)'; b.fillRect(x,y1-0.5,w,1); } });
+  if(FS.inZone){ b.fillStyle='rgba(200,255,190,'+(0.18+0.12*Math.sin(G.t/120))+')'; b.fillRect(x,zt,w,zb-zt); }   /* the zone glows while you're in it */
   const sh=b.createLinearGradient(0,y,0,y+h); sh.addColorStop(0,'rgba(0,0,0,.25)'); sh.addColorStop(0.1,'rgba(0,0,0,0)');
   sh.addColorStop(0.9,'rgba(0,0,0,0)'); sh.addColorStop(1,'rgba(0,0,0,.3)'); b.fillStyle=sh; b.fillRect(x,y,w,h);
   b.fillStyle='rgba(255,255,255,.28)'; b.fillRect(x+2,y+3,2.5,h-6);   /* the glass's shine */
@@ -312,14 +326,45 @@ function drawLineMeter(x,y,h){
   b.fillStyle='#ffffff'; b.beginPath(); b.roundRect(x-2,ty-1.5,w+4,3,1.5); b.fill();
   b.beginPath(); b.moveTo(x+w+5,ty); b.lineTo(x+w+12,ty-5.5); b.lineTo(x+w+12,ty+5.5); b.closePath();
   b.fillStyle='#15171b'; b.fill(); b.beginPath(); b.moveTo(x+w+6.5,ty); b.lineTo(x+w+11,ty-3.6); b.lineTo(x+w+11,ty+3.6); b.closePath();
-  b.fillStyle=FS.tension>1?'#ff7a62':FS.tension>DRAG?'#ffe27a':'#f4f6ff'; b.fill();
+  b.fillStyle=FS.over?'#ff7a62':FS.under?'#ffe27a':'#a8f0a0'; b.fill();
 }
 /* a bite: a buzz on a phone that can (not iPhones, whose browsers don't allow it) */
 function fishBuzz(){ try{ if(navigator.vibrate) navigator.vibrate([90,60,140]); }catch(e){} }
 /* where the line leaves the rod laid from x0,y0 to x1,y1 (the tip itself without a picture) */
 function rodEye(x0,y0,x1,y1){
-  if(!fishArtReady()||!FISH_ART.rod) return {x:x1,y:y1};
-  const a=fishArtNow('rod'); return rodToScreen(a,x0,y0,x1,y1,a[2]*ROD_EYE[0],a[3]*ROD_EYE[1]);
+  const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy)||1, bd=rodBend()*L;      /* (moved by the rod's bend) */
+  if(!fishArtReady()||!FISH_ART.rod) return {x:x1-dy/L*bd,y:y1+dx/L*bd};
+  const a=fishArtNow('rod'), e=rodToScreen(a,x0,y0,x1,y1,a[2]*ROD_EYE[0],a[3]*ROD_EYE[1]);
+  return {x:e.x-dy/L*bd,y:e.y+dx/L*bd};
+}
+/* how far the rod's tip bends toward the fish (a share of its length): with the tension
+   while reeling, a twitch on a bite, nearly straight otherwise */
+function rodBend(){
+  if(!FS) return 0;
+  if(FS.phase==='reel') return 0.05+0.2*clamp(FS.tension,0,1.05)+(FS.burst>0?0.03*Math.sin(G.t/50):0);
+  if(FS.phase==='bite') return 0.06+0.05*Math.abs(Math.sin(G.t/70));
+  return 0.01;
+}
+/* the rod's picture bent along a curve: cut into slices across its length, each laid at
+   its own place and angle on the curve (base x0,y0 to tip x1,y1, the tip pulled sideways
+   by bend, a share of its length, more toward the tip as a real rod bends) */
+const ROD_SLICES=14;
+function drawBentRod(x0,y0,x1,y1,bend){
+  if(!fishArtReady()||!FISH_ART.rod) return false;
+  const a=fishArtNow('rod'), [sx,sy,w,h]=a, [bx,by,tx,ty]=a.length>=8?a.slice(4):[w/2,h,w/2,0];
+  const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy), nx=-dy/L, ny=dx/L;       /* the side it bends to (toward the water) */
+  const s=L/Math.hypot(tx-bx,ty-by), picA=Math.atan2(ty-by,tx-bx);
+  const P=t=>[x0+dx*t+nx*bend*L*t*t, y0+dy*t+ny*bend*L*t*t], ang=t=>Math.atan2(dy+ny*bend*L*2*t,dx+nx*bend*L*2*t);
+  const ux=(tx-bx), uy=(ty-by), ul=Math.hypot(ux,uy), u=[ux/ul,uy/ul], n=[-u[1],u[0]], BIG=400;
+  b.save(); b.imageSmoothingEnabled=true;
+  for(let i=0;i<ROD_SLICES;i++){
+    const t0=i/ROD_SLICES, t1=(i+1)/ROD_SLICES, tm=(t0+t1)/2, [px,py]=P(tm);
+    const q0=[bx+ux*(t0-0.004),by+uy*(t0-0.004)], q1=[bx+ux*(t1+0.004),by+uy*(t1+0.004)], qm=[bx+ux*tm,by+uy*tm];
+    b.save(); b.translate(px,py); b.rotate(ang(tm)-picA); b.scale(s,s); b.translate(-qm[0],-qm[1]);
+    b.beginPath(); b.moveTo(q0[0]+n[0]*BIG,q0[1]+n[1]*BIG); b.lineTo(q1[0]+n[0]*BIG,q1[1]+n[1]*BIG);
+    b.lineTo(q1[0]-n[0]*BIG,q1[1]-n[1]*BIG); b.lineTo(q0[0]-n[0]*BIG,q0[1]-n[1]*BIG); b.closePath(); b.clip();
+    b.drawImage(IMG_FISHING,sx,sy,w,h,0,0,w,h); b.restore(); }
+  b.restore(); return true;
 }
 /* the pond picture for the season (scenes/fishing_<season>, or scenes/fishing; none for
    winter, when the pond is frozen and there's no fishing), once it has loaded; a drawn pond
@@ -393,8 +438,11 @@ function drawFishing(dt){
   else if(FS.phase==='cast'){ const q=clamp(FS.t/THROW_MS,0,1);
     fx=eye.x+(W.x-eye.x)*q; fy=eye.y+(W.y-eye.y)*q-Math.sin(q*Math.PI)*90; ws=0.9+(W.s-0.9)*q;
     lureA=Math.atan2((W.y-eye.y)-Math.cos(q*Math.PI)*Math.PI*90,W.x-eye.x); }   /* nose along its flight */
-  if(!drawFishingArt('rod',baseX,baseY,tipX,tipY)){
-    b.strokeStyle='#5a3a1e'; b.lineWidth=3; b.beginPath(); b.moveTo(baseX,baseY); b.lineTo(tipX,tipY); b.stroke(); }
+  const bend=rodBend();
+  if(!drawBentRod(baseX,baseY,tipX,tipY,bend)){
+    const dx=tipX-baseX, dy=tipY-baseY, L=Math.hypot(dx,dy);
+    b.strokeStyle='#5a3a1e'; b.lineWidth=3; b.beginPath(); b.moveTo(baseX,baseY);
+    b.quadraticCurveTo(baseX+dx*0.5,baseY+dy*0.5,tipX-dy/L*bend*L,tipY+dx/L*bend*L); b.stroke(); }
   /* the line, half see-through; in the water its end bobs (hard when something bites) */
   const inWater=FS.phase!=='cast'&&FS.phase!=='ready';
   const bob=!inWater?0:(FS.phase==='bite'?Math.sin(G.t/40)*4:Math.sin(G.t/400)*1.5)*ws;
@@ -435,10 +483,14 @@ function drawFishing(dt){
       b.beginPath(); b.arc(d.x,d.y,1.3*ws+0.4,0,7); b.fill(); });
     b.globalAlpha=1;
   }
+  tintBand(b,T0,T1);                       /* the hour's light, as in the garden (under the gauges) */
   /* tension (left) and distance (top) gauges */
   if(FS.phase==='reel'){
     drawLineMeter(LINE_METER.x,LINE_METER.y,LINE_METER.h);
-    gauge(70,T0+60,220,8,1.3-FS.dist,1.3,'#8fe07a','#e0ffd0');
+    /* the line out: more to the right as the fish takes line; all the way and it's gone */
+    const out=FS.dist/LINE_OUT, warn=out>0.78;
+    gauge(70,T0+60,220,8,FS.dist,LINE_OUT,warn?'#e8604a':'#6aa8e8',warn?'#ffb09a':'#c8e4ff');
+    const mx=70+220*clamp(out,0,1); glowAt(mx,T0+64,6,warn?'#ff8a70':'#a8d0ff',0.9);
   }
   /* the reel to wind */
   if(IS_TOUCH||FS.phase==='reel'){
@@ -480,9 +532,9 @@ function drawFishing(dt){
   else if(FS.phase==='bite'){ TO("!",fx,fy-18,64,'#ffe04a','center',true,2); say2(IS_TOUCH?"Swipe up — pull the rod!":"W / ↑ — pull the rod!",T0+40,24,'#ffe08a'); }
   else if(FS.phase==='reel'){
     TS("Line",LINE_METER.x+LINE_METER.w/2,LINE_METER.y-18,15,'#f4f6ff','center',true); TS("Reel it in!",180,T0+48,20,'#f4f6ff','center',true);
-    if(FS.tension>1) say2("Too tight — ease off!",T0+90,20,'#ff8a7a');
-    else if(FS.slipping) say2("Zzzz! The drag gives — keep reeling!",T0+90,20,'#ffe08a');
-    else if(FS.tension<0.15) say2("The line's slack — reel!",T0+90,20,'#ffe08a'); }
+    TS("in",64,T0+67,13,'#c8d4ff','right'); TS("away",296,T0+67,13,'#c8d4ff');
+    if(FS.over) say2(IS_TOUCH?"Too tight — lower the rod!":"Too tight — ease off! (S / ↓)",T0+90,20,'#ff8a7a');
+    else if(FS.under) say2(IS_TOUCH?"Too slack — raise the rod!":"Too slack — raise the rod! (W / ↑)",T0+90,20,'#ffe08a'); }
   else if(FS.phase==='caught'){ const g=GOODS[FS.fish];
     say2("You caught a "+g.name+"!",190,24,'#ffe08a'); say2(inchText(FS.size,FS.fish)+" · sells for "+goodsPrice(FS.fish)+"c",222,18,'#c8d4ff');
     if(FS.lunker) say2("That's a \"REEL\" lunker!",246,20,'#ffb04a');

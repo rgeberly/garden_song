@@ -39,6 +39,36 @@ The only crop still drawn in code. Like the other crops (`crops/Baby squash.png`
 | `shop items/Mug of Cider.png` | realistic studio product photo of a single thick glass mug of hot spiced apple cider, amber colored, with a cinnamon stick and a slice of apple, a little steam, isolated on a pure white background, centered |
 | `shop items/Hot Toddy.png` | realistic studio product photo of a single clear glass mug of hot toddy, golden tea with a slice of lemon, a cinnamon stick and a drizzle of honey, a little steam, isolated on a pure white background, centered |
 
+## The summit's rare flowers: Style **No style**, white background, Shape **Square**
+
+One blooms at the very top of Bramble Peak on some days, a different one each season. Until these
+arrive they show as a small drawn flower.
+
+| Save as | Description |
+|---|---|
+| `shop items/Alpine Lily.png` | realistic studio product photo of a single pink alpine lily flower with a short green stem and two leaves, delicate petals, isolated on a pure white background, centered |
+| `shop items/Edelweiss.png` | realistic studio product photo of a single edelweiss flower, woolly white star-shaped bracts with a yellow center, a short fuzzy stem, isolated on a pure white background, centered |
+| `shop items/Sunset Gentian.png` | realistic studio product photo of a single deep blue gentian flower, a trumpet-shaped bloom on a short green stem, isolated on a pure white background, centered |
+| `shop items/Frost Rose.png` | realistic studio product photo of a single pale icy blue rose with frost crystals on the edges of its petals, a short dark stem, isolated on a pure white background, centered |
+
+## Blueberry seeds: Style **No style**, white background, Shape **Square**
+
+A new seed packet, like the other crops' (`shop items/<Crop> seed`).
+
+| Save as | Description |
+|---|---|
+| `shop items/Blueberry seed.png` | realistic studio product photo of a small paper seed packet with a painted picture of ripe blueberries on a branch, a little garden label, isolated on a pure white background, centered |
+
+## Optional: the rhythm game's frame and stamp (drawn in code for now)
+
+The game draws a carved wooden rail down each side and stamps the rating on at the end. If
+you'd like painted ones instead, these would go in their place.
+
+| Save as | Description |
+|---|---|
+| `rhythm/rail.png` | a single tall narrow carved wooden pillar for a game border, warm honey-brown wood with flowing grain, a carved groove down the middle and small brass studs, perfectly straight and vertical, the whole pillar visible from end to end, isolated on a pure white background |
+| `rhythm/stamp.png` | a single round rubber ink stamp mark, a bold empty circle with a double rim like a teacher's grading stamp, bright red ink with slightly uneven printed edges, nothing written inside, isolated on a pure white background, centered |
+
 ## Ideas for Tituba and Tex (not in the game yet)
 
 The gear itself isn't in the game yet; prompts can come when it is.

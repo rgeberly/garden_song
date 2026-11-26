@@ -185,6 +185,15 @@ function countBeat(){
   const c=R_.count;
   return R_.time<c.start?-1:Math.min(COUNT_BEATS,Math.floor((R_.time-c.start)/c.beat));
 }
+/* a hit: a flash and a ring of light on the lane at the hit line, and sparks (gold for a
+   perfect, blue for a good), like the battles' */
+function hitBurst(lane,perfect){
+  const x=LANE_X0+lane*LANE_W+LANE_W/2-1.5, y=HITLINE, col=perfect?'#ffd860':'#8ac8ff';
+  glow({x,y,size:perfect?20:15,life:180,col:'#ffffff'});
+  glow({x,y,ring:true,r0:5,r1:perfect?30:22,w:perfect?3.5:2.5,life:340,col});
+  for(let i=0;i<(perfect?10:6);i++){ const a=-Math.PI*rnd(0.05,0.95), sp=rnd(0.08,0.22);
+    glow({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,drag:0.06,g:0.0004,size:rnd(2.4,3.8),life:rnd(320,520),col,streak:true}); }
+}
 function spawnFx(lane,kind){
   R_.fx.push({x:LANE_X0+lane*LANE_W+LANE_W/2+rnd(-14,14),y:HITLINE-9,
     vy:rnd(-0.082,-0.045),vx:rnd(-0.018,0.018),t:900,kind});
@@ -200,7 +209,7 @@ function laneDown(lane){
       best.done=true; const perfect=bd<60;
       if(perfect){ R_.perfect++; R_.shine=180; spawnFx(lane,'note'); spawnFx(lane,'note'); }
       else R_.good++;
-      R_.combo++; R_.maxcombo=Math.max(R_.maxcombo,R_.combo);
+      R_.combo++; R_.maxcombo=Math.max(R_.maxcombo,R_.combo); hitBurst(lane,perfect);
       R_.pop.push({t:650,txt:perfect?'PERFECT':'GOOD',x:LANE_X0+lane*LANE_W+LANE_W/2,
         c:perfect?'#ffe08a':'#a8e0ff'});
       if(!R_.chart.stem&&AC) flute(best.semi,AC.currentTime,.5,.85);   /* (the recorded flute is already playing) */
@@ -229,7 +238,7 @@ function cancelRhythm(){
   }
 }
 function rhythmTouch(x,y,id){
-  if(R_&&R_.done){ finishRhythm(); return; }
+  if(R_&&R_.done){ if(R_.stamped) finishRhythm(); return; }    /* (once the rating is stamped on) */
   const cy=CANCEL.y+BAND_TOP();            /* the Stop button rides at the top of the screen */
   if(x>CANCEL.x&&x<CANCEL.x+CANCEL.w&&y>cy&&y<cy+CANCEL.h){ cancelRhythm(); return; }
   if(y<165) return;
@@ -246,7 +255,7 @@ function rhythmRelease(id){
   R_.press[touches[id].lane]=0;
 }
 function rhythmKey(k){
-  if(R_&&R_.done){finishRhythm();return;}
+  if(R_&&R_.done){ if(R_.stamped) finishRhythm(); return; }
   if(k==='escape'){ cancelRhythm(); return; }   /* H is a lane here, so only Esc stops */
   if(k in KEYLANE) laneDown(KEYLANE[k]);
 }
@@ -304,9 +313,19 @@ function updateRhythm(dt){
       }
     }
   }
-  if(!R_.done&&R_.time>R_.chart.end){ R_.done=true;
+  if(R_.done&&!R_.stamped&&R_.time-R_.doneAt>=STAMP_MS){ R_.stamped=true; stampThump(); }
+  if(!R_.done&&R_.time>R_.chart.end){ R_.done=true; R_.doneAt=R_.time;
     if(rhythmAcc()>0.93){ R_.frogT=4000; if(AC){flute(21,AC.currentTime,.4,.7);
       flute(26,AC.currentTime+.14,.5,.7); flute(30,AC.currentTime+.28,.8,.7);} } }
+}
+/* the rating: blank for STAMP_MS after the song, then stamped on */
+const STAMP_MS=1000, STAMP_IN=170;
+function stampThump(){
+  sfx('stamp')>0||(()=>{ if(!AC) return; const t=AC.currentTime, o=AC.createOscillator(), g=AC.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(55,t+0.14);
+    g.gain.setValueAtTime(0.45,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.2); o.connect(g); g.connect(sfxGain); o.start(t); o.stop(t+0.22);
+    const nz=AC.createBufferSource(), f=AC.createBiquadFilter(), ng=AC.createGain(); nz.buffer=noiseBuf; f.type='lowpass'; f.frequency.value=900;
+    ng.gain.setValueAtTime(0.25,t); ng.gain.exponentialRampToValueAtTime(0.001,t+0.08); nz.connect(f); f.connect(ng); ng.connect(sfxGain); nz.start(t); nz.stop(t+0.1); })();
 }
 const rhythmAcc=()=>{ const tot=R_.perfect+R_.good+R_.miss||1;
   return (R_.perfect+R_.good*0.55)/tot; };
@@ -441,6 +460,44 @@ function drawHold(n,art,T0){
   b.arc(x,HITLINE,23,-Math.PI/2,-Math.PI/2+Math.PI*2*clamp(n.score/n.dur,0,1)+.001); b.stroke();
   b.restore();
 }
+/* a carved wooden rail down a margin, x to x+21: a rounded plank shaded across its width,
+   flowing grain, a carved groove down the middle, and a brass stud every so often */
+const RAIL_W=21, STUD_EVERY=54;
+function drawWoodRail(x,T0,T1,right){
+  const H=T1-T0, g=b.createLinearGradient(x,0,x+RAIL_W,0);
+  g.addColorStop(0,'#2e1e10'); g.addColorStop(0.18,'#6e4c2a'); g.addColorStop(0.45,'#a07a4c'); g.addColorStop(0.7,'#7c5832'); g.addColorStop(1,'#2a1a0c');
+  b.fillStyle=g; b.fillRect(x,T0,RAIL_W,H);
+  /* the grain: thin wavy darker lines running down it */
+  b.save(); b.beginPath(); b.rect(x+1,T0,RAIL_W-2,H); b.clip(); b.lineWidth=0.7;
+  for(let i=0;i<6;i++){ const gx=x+3+i*3.1; b.strokeStyle=i%2?'rgba(60,36,16,.38)':'rgba(190,150,100,.22)'; b.beginPath();
+    for(let y=T0;y<=T1;y+=6) b.lineTo(gx+Math.sin(y/37+i*1.9)*1.2+Math.sin(y/11+i)*0.4,y); b.stroke(); }
+  b.restore();
+  /* the carved groove, lit on one edge */
+  const cx=x+RAIL_W/2;
+  b.fillStyle='rgba(30,18,8,.55)'; b.fillRect(cx-1.6,T0,3.2,H);
+  b.fillStyle='rgba(230,200,150,.35)'; b.fillRect(right?cx-2.4:cx+1.6,T0,0.8,H);
+  /* the outer edge's highlight and the inner edge's shadow over the lanes */
+  b.fillStyle='rgba(255,230,190,.25)'; b.fillRect(right?x+RAIL_W-2:x+1,T0,1,H);
+  const sh=b.createLinearGradient(right?x:x+RAIL_W,0,right?x-5:x+RAIL_W+5,0); sh.addColorStop(0,'rgba(0,0,0,.35)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+  b.fillStyle=sh; b.fillRect(right?x-5:x+RAIL_W,T0,5,H);
+  /* brass studs, set in a little round recess */
+  for(let y=T0+STUD_EVERY/2-((T0%STUD_EVERY)+STUD_EVERY)%STUD_EVERY;y<T1+8;y+=STUD_EVERY){
+    b.fillStyle='rgba(30,18,8,.6)'; b.beginPath(); b.arc(cx,y,4.6,0,7); b.fill();
+    const s=b.createRadialGradient(cx-1.2,y-1.4,0.4,cx,y,3.6); s.addColorStop(0,'#fff2c0'); s.addColorStop(0.45,'#d8a840'); s.addColorStop(1,'#6a4a14');
+    b.fillStyle=s; b.beginPath(); b.arc(cx,y,3.6,0,7); b.fill(); }
+}
+/* the rating, stamped on like an ink stamp (scale and tilt as it lands), rank's colour */
+function drawStamp(rank,x,y){
+  const t=R_.time-R_.doneAt-STAMP_MS; if(t<0) return;
+  const q=Math.min(1,t/STAMP_IN), sc=1+(1-q)*(1-q)*1.6, col=rank==='S'?'#e8b030':rank==='A'?'#d84a3a':rank==='B'?'#4a88d8':'#7a8a9a';
+  b.save(); b.translate(x,y); b.rotate(-0.16); b.scale(sc,sc); b.globalAlpha=Math.min(1,q*1.4);
+  b.strokeStyle=col; b.lineWidth=3; b.beginPath(); b.roundRect(-30,-30,60,60,9); b.stroke();
+  b.lineWidth=1.2; b.beginPath(); b.roundRect(-25,-25,50,50,6); b.stroke();
+  b.fillStyle=col; b.font='bold 40px Verdana'; b.textAlign='center'; b.textBaseline='middle'; b.fillText(rank,0,2);
+  b.restore(); b.globalAlpha=1;
+  if(q>=1&&!R_.stampPuff){ R_.stampPuff=true; glow({x,y,ring:true,r0:24,r1:52,w:3,life:380,col});
+    for(let i=0;i<10;i++){ const a=rnd(0,TAU); glow({x:x+Math.cos(a)*30,y:y+Math.sin(a)*30,vx:Math.cos(a)*0.08,vy:Math.sin(a)*0.08,drag:0.1,size:rnd(2.4,3.6),life:rnd(300,500),col}); } }
+}
 function drawRhythm(){
   const grow=clamp(R_.combo/14,0,1), art=rhythmArt();
   const T0=BAND_TOP(), T1=BAND_BOT(), TH=T1-T0;     /* the full screen, on tall phones too */
@@ -492,15 +549,7 @@ function drawRhythm(){
     if(art.bg){ b.globalAlpha=.35; px(b,x,T0,1,TH,'#fff6d8'); px(b,x+LANE_W-4,T0,1,TH,'#fff6d8'); b.globalAlpha=1; }
     if(R_.flash[i]>0){ b.globalAlpha=R_.flash[i]/500; px(b,x,T0,LANE_W-3,TH,'#5ea8d8'); b.globalAlpha=1; } }
   /* carved wooden frame down both margins */
-  for(const fx of [0,LW-21]){
-    px(b,fx,T0,21,TH,'#3b2a18');
-    px(b,fx+3,T0,15,TH,'#7d5c34');
-    px(b,fx+3,T0,4,TH,'#a8845a');
-    for(let y=6-Math.ceil(-T0/27)*27;y<T1;y+=27){
-      px(b,fx+3,y,15,4,'#5e4526'); px(b,fx+5,y+8,11,11,'#8f6a3c');
-      px(b,fx+7,y+10,7,7,'#c9a05a');
-    }
-  }
+  for(const fx of [0,LW-21]) drawWoodRail(fx,T0,T1,fx>0);
   /* vine + leaves climbing the frame, growing with the combo: the painted vine (rhythm/vine),
      copies stacked up each side, uncovered from the bottom; a drawn one until it loads */
   const vine=rhythmPic('vine');
@@ -563,8 +612,9 @@ function drawRhythm(){
     } else if(HITLINE-((n.t-R_.time)/FALL)*HITLINE>T0-40) drawHold(n,art,T0);
   }
   R_.fx.forEach(f=>{ const a=Math.min(1,f.t/400);
-    if(f.kind==='note') noteGlyph(b,Math.round(f.x),Math.round(f.y),'#ffe08a',a);
-    else { b.globalAlpha=a; px(b,Math.round(f.x),Math.round(f.y),3,3,'#c8ffb0'); b.globalAlpha=1; } });
+    if(f.kind==='note'){ glowAt(f.x,f.y-2,9,'#ffd860',a*0.6); noteGlyph(b,Math.round(f.x),Math.round(f.y),'#ffe08a',a); }
+    else glowAt(f.x,f.y,4,'#c8ffb0',a); });
+  if(!R_.done) drawSceneGlow(16);          /* (once the song's over, over the rating panel instead) */
   px(b,0,T0,LW,46,'#101820'); px(b,0,T0+46,LW,2,'#2a3a48');   /* header pinned to the top edge */
   drawFluteIcon(b,LW-52,T0+26,1.3);
   if(!R_.done) rpgWin({x:CANCEL.x,y:CANCEL.y+T0,w:CANCEL.w,h:CANCEL.h});
@@ -574,9 +624,11 @@ function drawRhythm(){
     b.globalAlpha=.86; px(b,0,T0,LW,TH,'#0d1410'); b.globalAlpha=1;
     panel(36,150,288,180);
     if(R_.frogT>0){ const bo=Math.abs(Math.sin(G.t/220))*6;
-      drawFrog(b,168,292-bo,G.t,2);
+      drawFrog(b,74,292-bo,G.t,2);                        /* (to the side of the stamp) */
       for(let i=0;i<3;i++){ const a=G.t/300+i*2.1;
-        noteGlyph(b,Math.round(178+Math.cos(a)*33),Math.round(292-bo-6+Math.sin(a)*14),'#ffe08a',1); } }
+        noteGlyph(b,Math.round(84+Math.cos(a)*28),Math.round(292-bo-6+Math.sin(a)*14),'#ffe08a',1); } }
+    const acc=rhythmAcc(); drawStamp(acc>0.93?'S':acc>0.8?'A':acc>0.62?'B':acc>0.4?'C':'D',180,284);
+    drawSceneGlow(16);
   }
   blit();
   if(liveHold&&!liveHold.holding){
@@ -608,8 +660,7 @@ function drawRhythm(){
     TS("Song Complete",180,183,28,WIN_TXT.title,'center',true);
     TS("Accuracy   "+Math.round(acc*100)+"%",180,213,21,WIN_TXT.body,'center');
     TS("Max combo   "+R_.maxcombo,180,236,21,WIN_TXT.body,'center');
-    TS(rank,180,275,52,rank==='S'?WIN_TXT.gold:WIN_TXT.title,'center',true);
-    if(rank==='S') TS("the frogs approve!",180,320,19,WIN_TXT.good,'center',true);
-    else TS("tap to continue",180,315,17,WIN_TXT.dim,'center');
+    if(R_.stamped&&rank==='S') TS("the frogs approve!",180,327,19,WIN_TXT.good,'center',true);
+    else if(R_.stamped) TS("tap to continue",180,327,17,WIN_TXT.dim,'center');
   }
 }

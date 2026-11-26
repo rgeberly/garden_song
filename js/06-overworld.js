@@ -244,7 +244,10 @@ function drawWorld(){
     const [x,y]=DECOR_SPOT[id]; ents.push({y,f:()=>{
       groundShadow(b,c=>drawDecor(c,id,0,0,G.t),x-cam.x,y-cam.y,DECOR_SHADOW_W[id]||16);
       drawDecor(b,id,x-cam.x,y-cam.y,G.t); }}); });
-  FROGS.forEach(f=>ents.push({y:f.y,f:()=>drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k)}));
+  /* the frogs, each on its own shadow (a soft patch, and its shape laid along the ground away
+     from the sun, like everything else; its feet are 13 px below its spot) */
+  FROGS.forEach(f=>ents.push({y:f.y,f:()=>{ groundShadow(b,c=>drawFrog(c,-11,-24,G.t,f.k),f.x-cam.x,f.y+13-cam.y,8);
+    drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k); }}));
   G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3))}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
   /* Ivy, at her own size like Kaitlyn (the zoom undone around her) */

@@ -65,12 +65,16 @@ function drawCastFx(cam){
   const c=G.cast, k=clamp((c.t-(c.fxFrom||0))/CAST_MS,0,1), fx=c.t>=(c.fxFrom||0), P=G.player, kx=P.x-cam.x, ky=P.y-cam.y;
   /* notes floating up from the flute */
   for(let i=0;i<5;i++){ const p=(c.t/900+i/5)%1;
-    noteGlyph(b,Math.round(kx+14+Math.sin(p*6+i)*10+p*16),Math.round(ky-46-p*44),i%2?'#ffe08a':'#fff6d8',Math.sin(p*Math.PI)); }
+    const nx=kx+14+Math.sin(p*6+i)*10+p*16, ny=ky-46-p*44;
+    if(FX2) glowAt(nx,ny-2,7,'#ffd860',Math.sin(p*Math.PI)*0.6);
+    noteGlyph(b,Math.round(nx),Math.round(ny),i%2?'#ffe08a':'#fff6d8',Math.sin(p*Math.PI)); }
   if(!fx) return;                          /* the song's own effect waits for its end */
   if(c.id==='reprise'){
     /* a green wave rolls out across the garden, and every plant sends up sparks */
-    const r=k*560; b.globalAlpha=Math.max(0,1-k)*0.5; b.strokeStyle='#8fe07a'; b.lineWidth=5;
-    b.beginPath(); b.ellipse(kx,ky,r,r*0.62,0,0,7); b.stroke(); b.globalAlpha=1;
+    const r=k*560;
+    if(FX2){ const P=[]; for(let j=0;j<=48;j++){ const a=j/48*TAU; P.push([kx+Math.cos(a)*r,ky+Math.sin(a)*r*0.62]); } glowPath(P,'#8fe07a',3,Math.max(0,1-k)*0.8); }
+    else { b.globalAlpha=Math.max(0,1-k)*0.5; b.strokeStyle='#8fe07a'; b.lineWidth=5;
+      b.beginPath(); b.ellipse(kx,ky,r,r*0.62,0,0,7); b.stroke(); b.globalAlpha=1; }
     plots.forEach(p=>{ if(!active(p)||!p.sp) return;
       for(let i=0;i<6;i++){ const q=(c.t/700+i/6+p.x*0.01)%1, a=i*1.05+c.t/300;
         b.globalAlpha=Math.sin(q*Math.PI)*Math.min(1,k*3);
@@ -80,6 +84,7 @@ function drawCastFx(cam){
   } else if(c.id==='ward'){
     /* golden rings ripple outward from her */
     for(let i=0;i<3;i++){ const q=clamp(k*1.6-i*0.25,0,1); if(q<=0||q>=1) continue;
+      if(FX2){ const P=[]; for(let j=0;j<=48;j++){ const a=j/48*TAU; P.push([kx+Math.cos(a)*q*520,ky-10+Math.sin(a)*q*330]); } glowPath(P,i%2?'#fff0a0':'#ffc83a',4-i,(1-q)*0.9); continue; }
       b.globalAlpha=(1-q)*0.8; b.strokeStyle=i%2?'#fff0a0':'#ffc83a'; b.lineWidth=6-i;
       b.beginPath(); b.ellipse(kx,ky-10,q*520,q*330,0,0,7); b.stroke(); }
     b.globalAlpha=1;
