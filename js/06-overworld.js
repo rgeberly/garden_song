@@ -92,6 +92,18 @@ function spawnPest(){
   G.pests.push({species:sp,lv,x,y,target:planted.length?planted[ri(0,planted.length-1)]:null,hp:pestStats(sp,lv).hp,chew:0});
   if(sp==='hoa') say("The HOA President is inspecting your yard!");
 }
+/* In ?partytest or ?alltest, &pest=<species> (e.g. &pest=raccoon) keeps one of that pest in
+   the garden, a little way from Kaitlyn, at the party's level so it doesn't run off: a new
+   one comes a few seconds after each fight, to test it again and again. */
+const TEST_PEST=NO_SAVE&&(location.search.match(/[?&]pest=(\w+)/)||[])[1]||null;
+let testPestT=1500;
+function keepTestPest(dt){
+  if(!TEST_PEST||!PESTS[TEST_PEST]||G.pests.some(p=>p.species===TEST_PEST)) return;
+  testPestT-=dt; if(testPestT>0) return; testPestT=3000;
+  const P=G.player, lv=Math.round(G.party.reduce((a,id)=>a+member(id).lv,0)/G.party.length);
+  let x=P.x+90, y=P.y; if(solidAt(x,y)) x=P.x-90;
+  G.pests.push({species:TEST_PEST,lv,x,y,target:null,hp:pestStats(TEST_PEST,lv).hp,chew:0});
+}
 const WANDER_SPAWN=0.35;
 const TIMID_GAP=3, TIMID_NEAR=90;   /* see updateWorld */   /* chance a pest still comes when nothing is planted */
 function wanderSpot(){
@@ -153,6 +165,7 @@ function updateWorld(dt){
   for(const k of ['coffeeT','snackT','calmT','lureT']) if(G[k]>0) G[k]=Math.max(0,G[k]-dt);
   /* lantern and lemongrass keep pests away, muscadine draws them in */
   const pestMul=(G.yard.lantern?1.4:1)*(G.calmT>0?2:1)*(G.lureT>0?0.5:1);
+  keepTestPest(dt);
   G.pestTimer-=dt;
   if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul/diff().spawn; spawnPest(); }
   const meanLv=G.party.reduce((a,id)=>a+member(id).lv,0)/G.party.length;
@@ -164,7 +177,7 @@ function updateWorld(dt){
     if(p.flee){ const fx=(p.x-P.x)/(near||1), fy=(p.y-P.y)/(near||1), sp=0.05*dt;
       const nx=clamp(p.x+fx*sp,F(.06),F(.94)), ny=clamp(p.y+fy*sp,F(.2),F(.8));
       if(!solidAt(nx,p.y)) p.x=nx; if(!solidAt(p.x,ny)) p.y=ny;
-      p.face=fx>0; p.roam=null; continue; }
+      p.face=fx>0; p.roam=null; p.moving=true; continue; }
     if(!p.target||!p.target.sp||!active(p.target)){
       const growing=plots.filter(q=>active(q)&&q.sp);
       p.target=growing.length?growing[ri(0,growing.length-1)]:null;
@@ -173,7 +186,10 @@ function updateWorld(dt){
     if(!p.target&&(!p.roam||Math.hypot(p.roam.x-p.x,p.roam.y-p.y)<6)) p.roam=wanderSpot();
     const goal=p.target||p.roam, ddx=goal.x-p.x, ddy=goal.y-p.y, d=Math.hypot(ddx,ddy)||1;
     const spd=(p.species==='hoa'?0.017:0.024)*(p.slow||1)*(p.target?1:0.6);
-    if(d>9||!p.target){ p.x+=ddx/d*spd*dt; p.y+=ddy/d*spd*dt; p.face=false; }
+    p.moving=d>9||!p.target;
+    /* (facing the way it's heading, left or right: only a clear sideways step turns it, so it
+       doesn't flicker when walking straight up or down) */
+    if(p.moving){ p.x+=ddx/d*spd*dt; p.y+=ddy/d*spd*dt; if(Math.abs(ddx)>Math.abs(ddy)*0.25) p.face=ddx>0; }
     else if(p.target.sp){
       p.chew+=dt;
       if(p.chew>1600){ p.chew=0;
@@ -244,7 +260,7 @@ function drawWorld(){
      from the sun, like everything else; its feet are 13 px below its spot) */
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>{ groundShadow(b,c=>drawFrog(c,-11,-24,G.t,f.k),f.x-cam.x,f.y+13-cam.y,8);
     drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k); }}));
-  G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3))}));
+  G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3),p.moving)}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
   /* Ivy, at her own size like Kaitlyn (the zoom undone around her) */
   const bl=ivyHere();

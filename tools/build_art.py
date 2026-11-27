@@ -37,7 +37,7 @@ trimmed, shrunk to game size and packed into
     assets/scenes/<name>.jpg        story pictures, 1080 px wide
 with their positions written to js/data/art.js.
 """
-import cv2, numpy as np, os, sys, glob, json
+import cv2, numpy as np, os, re, sys, glob, json
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(ROOT), 'kaitlyns-garden-song-art')
@@ -116,7 +116,13 @@ HATCH_H = 90            # an egg hatching: the egg's height in sheet px
 # whose middle is below this share of the picture's height, at least this big (px).
 ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200), 'goat': (0.0, 1500), 'boar': (0.5, 2000), 'bear': (0.5, 2000)}
 # Enemy pictures with a transparency checkerboard painted in (no real transparency)
-ENEMY_CHECKERED = {'dung beetle', 'hoa president', 'raccoon'}
+ENEMY_CHECKERED = {'dung beetle', 'hoa president'}
+# Animated enemies (AutoSprite sheets, 256 px cells): enemies/<name>/<name>-<kind>-spritesheet.png
+# for these kinds. Kept at their own size and enlarged in the game (hard-edged pixel art), all
+# kinds at the scale that makes the battle stance's first frame the enemy's battle height. They
+# face left like the still pictures; ENEMY_ANIM_FLIP lists sheets drawn facing right.
+ENEMY_ANIM_KINDS = ('stance', 'walk', 'attack')
+ENEMY_ANIM_FLIP = set()
 # the town's shops and the bar, inside: maps/<room> (or a maps/<room>/ folder holding one
 # picture), painted like the house at 512 x 768, with maps/<room>_collision and
 # maps/<room>_transitions (the red patch: the doorway back to town)
@@ -744,6 +750,22 @@ def main():
             cv2.imwrite(os.path.join(OUT, 'portrait_' + out + '.png'), shrink(im, PORTRAIT_H / im.shape[0]),
                         [cv2.IMWRITE_PNG_COMPRESSION, 9])
             pfaces.append(out)
+    # expressions for talk: party/<Name>/<name>-portrait-<expression>.png|jpg, trimmed like the
+    # portrait and saved as portrait_<id>-<expression> ("battle shout" -> kaitlyn-battle-shout);
+    # one with a checkerboard painted in behind it has that cleared instead of white
+    for d in sorted(glob.glob(os.path.join(glob.escape(os.path.join(SRC, 'party')), '*', ''))):
+        mid = PARTY_IDS.get(os.path.basename(os.path.dirname(d)).strip().lower(), os.path.basename(os.path.dirname(d)).strip().lower())
+        if mid not in PARTY_IN_GAME: continue
+        for f in sorted(glob.glob(os.path.join(glob.escape(d), '*.*'))):
+            mm = re.match(r'.*portrait\s*-\s*(.+)$', os.path.splitext(os.path.basename(f))[0], re.I)
+            if not mm or os.path.splitext(f)[1].lower() not in PIC_EXT: continue
+            out = mid + '-' + re.sub(r'\s+', '-', mm.group(1).strip().lower())
+            a = load(f)
+            edge = np.concatenate([a[0, :, :3], a[-1, :, :3], a[:, 0, :3], a[:, -1, :3]])
+            im = trim(remove_checker(a) if np.median(edge, axis=0).min() < 235 else remove_white(a), 0)
+            cv2.imwrite(os.path.join(OUT, 'portrait_' + out + '.png'), shrink(im, PORTRAIT_H / im.shape[0]),
+                        [cv2.IMWRITE_PNG_COMPRESSION, 9])
+            pfaces.append(out)
     if pframes:
         psheet, ppos = pack(pframes)
         # lossy WebP (with alpha) is well under half the size of a PNG for these painted frames;
@@ -773,10 +795,32 @@ def main():
             im = shrink(im, s)
         ax, ay = foot(im)
         eframes.append((key, im)); emeta[key] = {'ax': ax, 'ay': ay}
+    # their animations: each kind's frames cut to one shared box, standing on the first
+    # frame's feet
+    eanim = {}
+    for name, (key, h) in ENEMIES.items():
+        folder = os.path.join(SRC, 'enemies', name)
+        sheets = {k: os.path.join(folder, '%s-%s-spritesheet.png' % (name, k)) for k in ENEMY_ANIM_KINDS}
+        sheets = {k: p for k, p in sheets.items() if os.path.exists(p)}
+        if 'stance' not in sheets: continue
+        A = {}
+        for ak, p in sheets.items():
+            fr = grid_frames(p, 256)
+            if (key, ak) in ENEMY_ANIM_FLIP: fr = [np.ascontiguousarray(f[:, ::-1]) for f in fr]
+            ax, ay = foot(fr[0])
+            for i, f in enumerate(fr): eframes.append(('%s %s %d' % (key, ak, i), f))
+            A[ak] = {'ax': ax, 'ay': ay, 'n': len(fr)}
+        x0, y0, x1, y1 = bbox(grid_frames(sheets['stance'], 256)[0])
+        A['k'] = round(h / (y1 - y0), 4)
+        eanim[key] = A
+        print('enemy animation', key, ', '.join('%s %d' % (k, A[k]['n']) for k in sheets), 'x%.2f' % A['k'])
     if eframes:
         esheet, epos = pack(eframes)
         cv2.imwrite(os.path.join(OUT, 'enemies.webp'), esheet, [cv2.IMWRITE_WEBP_QUALITY, 95])
         for k in emeta: emeta[k]['r'] = epos[k]
+        for key, A in eanim.items():
+            for ak in ENEMY_ANIM_KINDS:
+                if ak in A: A[ak]['f'] = [epos['%s %s %d' % (key, ak, i)] for i in range(A[ak].pop('n'))]
         print('enemies.webp', esheet.shape[1], 'x', esheet.shape[0], '-', ', '.join(sorted(emeta)))
 
     # battle backdrops (backdrops/<season>, and backdrops/mountain_<season> for fights on the
@@ -981,6 +1025,7 @@ def main():
         fh.write('const PARTY_ART=' + json.dumps(pmeta, separators=(',', ':')) + ';\n')
         fh.write('const PARTY_PORTRAITS=' + json.dumps(sorted(pfaces)) + ';\n')
         fh.write('const ENEMY_ART=' + json.dumps(emeta, separators=(',', ':')) + ';\n')
+        fh.write('const ENEMY_ANIM=' + json.dumps(eanim, separators=(',', ':')) + ';\n')
         fh.write('const NOTE_ART=' + json.dumps(nmeta, separators=(',', ':')) + ';\n')
         fh.write('const PLACE_MAPS=' + json.dumps(pmaps, separators=(',', ':')) + ';\n')
         fh.write('const GARDEN_ZONES=' + ('true' if tr else 'false') + ';\n')

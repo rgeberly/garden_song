@@ -80,7 +80,9 @@ function drawTalk(s,bottom){
   wipeBuf();
   panel(x,y,w,h);
   b.fillStyle='rgba(10,15,42,.55)'; b.beginPath(); b.roundRect(x+9,y+9,86,h-18,4); b.fill();
-  const im=portraitImg(s.face||(s.who?s.who.name.toLowerCase():s.say));       /* townsfolk by name; face: another portrait (a baby's) */
+  /* townsfolk by name; face: another portrait (a baby's, or Kaitlyn's expressions: kaitlyn-<expression>),
+     their usual one if it hasn't loaded */
+  const im=(s.face&&portraitImg(s.face))||portraitImg(s.who?s.who.name.toLowerCase():s.say);
   if(im){ const ph=h-22, pw=ph*im.naturalWidth/im.naturalHeight;
     b.save(); b.beginPath(); b.rect(x+9,y+9,86,h-18); b.clip(); b.imageSmoothingEnabled=true;
     b.drawImage(im,x+9+(86-pw)/2,y+11,pw,ph); b.restore(); }
@@ -163,36 +165,36 @@ function talkIvy(){
                                                                     :"Ssss! (Add "+PARTY_INFO.ivy.name+" to your party from the menu.)"}]);
 }
 const ivyMeets=()=>[
-  {say:'kaitlyn',text:"Oh no! This poor snake looks hurt..."},
-  {say:'kaitlyn',text:"...but maybe I can rehabilitate her. Let's get you inside, poor baby."},
+  {say:'kaitlyn',face:'kaitlyn-concerned',text:"Oh no! This poor snake looks hurt..."},
+  {say:'kaitlyn',face:'kaitlyn-determined',text:"...but maybe I can rehabilitate her. Let's get you inside, poor baby."},
   {fade:'out'},
   {run:()=>{ G.story.ivy='recover'; G.story.ivyDay=G.day; G.indoors=true; houseImg(); place(318,412,6); }},
   {fade:'in'},
-  {say:'kaitlyn',text:"You're so pretty, with your little ring around your neck. It's like a little golden necklace."},
-  {say:'kaitlyn',text:"...you're so fancy, I think I'll call you Bling!"},   /* (she hates it) */
+  {say:'kaitlyn',face:'kaitlyn-in-love',text:"You're so pretty, with your little ring around your neck. It's like a little golden necklace."},
+  {say:'kaitlyn',face:'kaitlyn-big-smile',text:"...you're so fancy, I think I'll call you Bling!"},   /* (she hates it) */
   {say:'ivy',label:"Snake",text:"HISSS!"},
-  {say:'kaitlyn',text:"Umm, then how about Ivy? Since you're a poisonous little creeper."},
+  {say:'kaitlyn',face:'kaitlyn-bashful',text:"Umm, then how about Ivy? Since you're a poisonous little creeper."},
   {say:'ivy',text:"...venomousss."},
-  {say:'kaitlyn',text:"(...huh? Am I hearing things?)"},
+  {say:'kaitlyn',face:'kaitlyn-side-eye',text:"(...huh? Am I hearing things?)"},
 ];
 const ivyLetGo=()=>[
   {say:'ivy',text:"Ssss!"},
-  {say:'kaitlyn',text:"Wow Ivy, you're looking much better! I'll miss you, but I think it's time to let you go."},
+  {say:'kaitlyn',face:'kaitlyn-warm-smile',text:"Wow Ivy, you're looking much better! I'll miss you, but I think it's time to let you go."},
   {fade:'out'},
   {run:()=>{ G.story.ivy='released'; G.indoors=false; place(IVY_FREE.x+30,IVY_FREE.y-8,6);
     Object.assign(BL,{x:IVY_FREE.x,y:IVY_FREE.y,tx:0,ty:0,wait:1400}); }},
   {fade:'in'},
-  {say:'kaitlyn',text:"Go on, Ivy! You're free now."},
+  {say:'kaitlyn',face:'kaitlyn-warm-smile',text:"Go on, Ivy! You're free now."},
 ];
 const ivyJoins=()=>[
   {say:'ivy',text:"Ssss! Sssss! ...sssss?"},
-  {say:'kaitlyn',text:"Huh? Are you saying...you want to stay with me?"},
+  {say:'kaitlyn',face:'kaitlyn-questioning',text:"Huh? Are you saying...you want to stay with me?"},
   {fade:'out',ms:900},
   {pic:'join_ivy'},
   {fade:'in',ms:2400},
-  {say:'kaitlyn',text:"Well, I could certainly use a helper! Let's look after each other from here on out, okay?"},
+  {say:'kaitlyn',face:'kaitlyn-big-smile',text:"Well, I could certainly use a helper! Let's look after each other from here on out, okay?"},
   {say:'ivy',text:"Yesssss!"},
-  {say:'kaitlyn',text:"What?! You can...talk?"},
+  {say:'kaitlyn',face:'kaitlyn-amazed',text:"What?! You can...talk?"},
   {say:'ivy',text:"Ssss...?"},
   {fade:'out',ms:900},
   {pic:null},

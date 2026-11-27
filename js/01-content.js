@@ -439,13 +439,15 @@ const M_HOA={O:'#2b1c12',v:'#2f6fc4',h:'#6b4a2a',F:'#f2cd9e',s:'#1a1410',
 /* a pest out in the garden: its battle picture, small, with a little bob (ghosts float) */
 /* a pest on the garden map; flip: facing right (the art faces left) */
 /* ph: its own phase, so each one bobs in its own steady rhythm */
-function drawPestWorld(c,sp,x,y,t,flip,ph){
-  const P=PESTS[sp], bob=Math.abs(Math.sin(t/180+(ph||0)))*(P.fly?3:1.5), lift=P.fly?8:0, s=P.boss?0.72:0.36;
+function drawPestWorld(c,sp,x,y,t,flip,ph,moving){
+  /* (one with animations walks while it moves, and stands in its battle stance while it stops to chew, instead of bobbing) */
+  const walk=enemyAnim(sp,'walk'), pose=walk?{kind:moving===false?'stance':'walk',t:t+(ph||0)*1000}:null;
+  const P=PESTS[sp], bob=walk?0:Math.abs(Math.sin(t/180+(ph||0)))*(P.fly?3:1.5), lift=P.fly?8:0, s=P.boss?0.72:0.36;
   /* its shadow: cast along the ground, or for a flyer a soft patch below it */
-  groundShadow(c,cc=>{ if(flip) cc.scale(-1,1); drawEnemyArt(cc,sp,0,0,s); },x,y,P.boss?20:9,lift);
+  groundShadow(c,cc=>{ if(flip) cc.scale(-1,1); drawEnemyArt(cc,sp,0,0,s,pose); },x,y,P.boss?20:9,lift);
   c.globalAlpha=P.night?.85:1;
   c.save(); if(flip){ c.translate(x,0); c.scale(-1,1); c.translate(-x,0); }
-  drawEnemyArt(c,sp,x,y-bob-lift,s);
+  drawEnemyArt(c,sp,x,y-bob-lift,s,pose);
   c.restore(); c.globalAlpha=1;
 }
 

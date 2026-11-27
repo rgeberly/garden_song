@@ -46,8 +46,8 @@ function drawTinyEgg(c,x,y){
   c.globalAlpha=tw*0.9; c.fillStyle='#ffffff'; c.fillRect(x+4,y-12,2,2); c.fillRect(x+3,y-11,4,0.8); c.globalAlpha=1;
 }
 const tinyEggFound=()=>[
-  {say:'kaitlyn',text:"Oh no! This egg must have fallen out of its nest. I can't believe it didn't break."},
-  {say:'kaitlyn',text:"Maybe I need to...rehabilitate it. I'll need to build a nest."},
+  {say:'kaitlyn',face:'kaitlyn-concerned',text:"Oh no! This egg must have fallen out of its nest. I can't believe it didn't break."},
+  {say:'kaitlyn',face:'kaitlyn-determined',text:"Maybe I need to...rehabilitate it. I'll need to build a nest."},
   {run:()=>{ G.story.tiny='egg'; addGood('egg');
     say("Got the Tiny Egg! Gather "+TINY_NEED+" Twigs and "+TINY_NEED+" Pinestraw on the trail."); sfx('get_key_item'); }},
 ];
@@ -106,18 +106,18 @@ const tinyBuildsNest=()=>[
   {run:()=>{ ['twig','pinestraw'].forEach(k=>{ G.goods[k]-=TINY_NEED; if(G.goods[k]<=0) delete G.goods[k]; });
     delete G.goods.egg; G.story.tiny='nest'; G.story.tinyNest=G.day; }},
   {fade:'in'},
-  {say:'kaitlyn',text:"There. A cozy nest, nice and warm by the fire. Sleep tight, little egg."},
+  {say:'kaitlyn',face:'kaitlyn-warm-smile',text:"There. A cozy nest, nice and warm by the fire. Sleep tight, little egg."},
 ];
 /* the egg hatches in the nest (its animation, once through, holding on the last frame), then the picture */
 const TINY_HATCH_MS=60;                       /* per frame */
 const tinyHatches=()=>[
-  {say:'kaitlyn',text:"Oh goodness! It's hatching!"},
+  {say:'kaitlyn',face:'kaitlyn-amazed',text:"Oh goodness! It's hatching!"},
   {run:()=>{ TINY_ANIM.hatch=G.t; }},
   {wait:((PARTY_ART.tiny&&PARTY_ART.tiny.hatch?PARTY_ART.tiny.hatch.f.length:0)*TINY_HATCH_MS)+900},
   {fade:'out',ms:900},
   {pic:'hatch_tiny_one'},
   {fade:'in',ms:2400},
-  {say:'kaitlyn',text:"Oh! Hello, tiny one. Sorry you had to come out of that cozy egg...but I'll take care of you now, okay?"},
+  {say:'kaitlyn',face:'kaitlyn-in-love',text:"Oh! Hello, tiny one. Sorry you had to come out of that cozy egg...but I'll take care of you now, okay?"},
   {say:'tiny',face:'tiny-baby',text:"Peep...?"},
   {fade:'out',ms:900},
   {pic:null},
@@ -127,9 +127,9 @@ const tinyHatches=()=>[
 ];
 const tinyJoins=()=>[
   {say:'tiny',text:"Tweet! Tweet tweet!"},
-  {say:'kaitlyn',text:"Look at you, all grown up! Want to come along with me?"},
+  {say:'kaitlyn',face:'kaitlyn-big-smile',text:"Look at you, all grown up! Want to come along with me?"},
   {say:'tiny',text:"Feed the babies! Hey baby! Whatcha doin'?"},
-  {say:'kaitlyn',text:"...I guess it's not as weird if a bird talks."},
+  {say:'kaitlyn',face:'kaitlyn-side-eye',text:"...I guess it's not as weird if a bird talks."},
   {run:()=>{ G.story.tiny='joined'; joinParty('tiny'); delete G.goods.worm; }},
   {popup:"Tiny One the little brown bird joins the party!",who:'tiny'},
 ];

@@ -82,11 +82,11 @@ function bestFish(){
 
 /* ---------- Tituba ---------- */
 const tituMeets=()=>[
-  {say:'kaitlyn',text:"Oh! Hello there, kitty. Aren't you a pretty thing?"},
+  {say:'kaitlyn',face:'kaitlyn-warm-smile',text:"Oh! Hello there, kitty. Aren't you a pretty thing?"},
   {say:'tituba',label:"Siamese cat",text:"..."},
-  {say:'kaitlyn',text:"Look at those big blue eyes. Are you lost? Do you have a home?"},
+  {say:'kaitlyn',face:'kaitlyn-questioning',text:"Look at those big blue eyes. Are you lost? Do you have a home?"},
   {say:'tituba',label:"Siamese cat",text:"Hmph."},
-  {say:'kaitlyn',text:"(She turned her nose up at me! Maybe someone at the Tipsy Toad knows about her.)"},
+  {say:'kaitlyn',face:'kaitlyn-side-eye',text:"(She turned her nose up at me! Maybe someone at the Tipsy Toad knows about her.)"},
   {run:()=>{ G.story.titu='aloof'; }},
 ];
 /* Gus, while she's still aloof */
@@ -95,20 +95,20 @@ const GUS_HINT=[
   "Folks call her Tituba...after a wicked witch. You can see the devil in her eyes. The only ones she's ever warmed up to are the fishermen, after a good day on the water, if you catch my meaning.",
 ];
 const tituFed=k=>[
-  {say:'kaitlyn',text:"I brought you something. A fresh "+GOODS[k].name+"!"},
+  {say:'kaitlyn',face:'kaitlyn-big-smile',text:"I brought you something. A fresh "+GOODS[k].name+"!"},
   {say:'tituba',label:"Siamese cat",text:"...!"},
   {run:()=>{ G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k]; }},
   /* her name: from Gus, or Kaitlyn's own idea if she never asked him */
-  G.story.tituHint?{say:'kaitlyn',text:"Ha! I knew it. You're not so tough after all, are you, Tituba?"}
-                  :{say:'kaitlyn',text:"Ha! I knew it. You're not so tough after all. You look like a Tituba to me."},
+  G.story.tituHint?{say:'kaitlyn',face:'kaitlyn-grin',text:"Ha! I knew it. You're not so tough after all, are you, Tituba?"}
+                  :{say:'kaitlyn',face:'kaitlyn-grin',text:"Ha! I knew it. You're not so tough after all. You look like a Tituba to me."},
   {fade:'out',ms:900},
   {pic:'meet_tituba'},
   {fade:'in',ms:2400},
-  {say:'kaitlyn',text:"Oh! Are you...walking me home?"},
+  {say:'kaitlyn',face:'kaitlyn-bashful',text:"Oh! Are you...walking me home?"},
   {say:'tituba',text:"Mrrp."},
-  {say:'kaitlyn',text:"Well, if you're coming with me, there's plenty more fish where that came from. Well...I have a fishing rod, anyway."},
+  {say:'kaitlyn',face:'kaitlyn-warm-smile',text:"Well, if you're coming with me, there's plenty more fish where that came from. Well...I have a fishing rod, anyway."},
   {say:'tituba',text:"...I'm just a cat."},
-  {say:'kaitlyn',text:"...Did you just say something?"},
+  {say:'kaitlyn',face:'kaitlyn-questioning',text:"...Did you just say something?"},
   {say:'tituba',text:"Mrrow?"},
   {fade:'out',ms:900},
   {pic:null},
@@ -119,26 +119,26 @@ const tituFed=k=>[
 
 /* ---------- Tex ---------- */
 const texMeets=()=>[
-  {say:'kaitlyn',text:"What on earth...? A tortoise?! Out here on the ice?"},
+  {say:'kaitlyn',face:'kaitlyn-amazed',text:"What on earth...? A tortoise?! Out here on the ice?"},
   {say:'tex',label:"Tortoise",text:"Sigh..."},
-  {say:'kaitlyn',text:"Oh, you poor thing! Hang on, I've got you!"},
+  {say:'kaitlyn',face:'kaitlyn-determined',text:"Oh, you poor thing! Hang on, I've got you!"},
   {fade:'out',ms:900},
   {pic:'meet_tex'},
   {fade:'in',ms:2400},
-  {say:'kaitlyn',text:"Okay...one, two, three...hup!"},
+  {say:'kaitlyn',face:'kaitlyn-battle-shout',text:"Okay...one, two, three...hup!"},
   {say:'tex',label:"Tortoise",text:"Hnnngghhh..."},
-  {say:'kaitlyn',text:"You're freezing! What are you doing out of your burrow in the middle of winter?"},
+  {say:'kaitlyn',face:'kaitlyn-concerned',text:"You're freezing! What are you doing out of your burrow in the middle of winter?"},
   {say:'tex',label:"Tortoise",text:"Sigh..."},
-  {say:'kaitlyn',text:"Come on, let's get you warmed up by the fire."},
+  {say:'kaitlyn',face:'kaitlyn-warm-smile',text:"Come on, let's get you warmed up by the fire."},
   {fade:'out',ms:900},
   {pic:null},
   {run:()=>{ G.story.tex='warm'; G.indoors=true; houseImg(); place(TEX_HEARTH.x+58,TEX_HEARTH.y+14,6); }},
   {fade:'in',ms:900},
   {say:'tex',label:"Tortoise",text:"Ahhh..."},
-  {say:'kaitlyn',text:"Bro...you're bigger than Texas. Maybe I'll call you Tex."},
+  {say:'kaitlyn',face:'kaitlyn-grin',text:"Bro...you're bigger than Texas. Maybe I'll call you Tex."},
   {say:'tex',text:"...mhmm."},
   {say:'tex',text:"Much obliged, puddin'. I'll be your plastron from here on out."},
-  {say:'kaitlyn',text:"...shell yeah, Tex."},
+  {say:'kaitlyn',face:'kaitlyn-big-smile',text:"...shell yeah, Tex."},
   {run:()=>{ G.story.tex='joined'; joinParty('tex'); }},
   {popup:"Tex the old tortoise joins the party!",who:'tex'},
 ];

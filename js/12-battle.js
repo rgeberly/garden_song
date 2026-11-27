@@ -148,6 +148,7 @@ function startBattle(pest,kinds,quiet){
    back in the middle of drawing one, each cost that frame tens of milliseconds */
 function foeLines(){
   B.foes.forEach(f=>{ const p=foeSpot(f); if(p.lift) return;
+    if(enemyAnim(f.sp,'stance')){ foeLine(f.sp,p.s); return; }
     const art=c=>drawEnemyArt(c,f.sp,0,0,p.s), rec=[]; silhouette(art,'#000',rec,true);
     const key=rec.join('|'); if(!GROUND_LINE.has(key)){ const g=groundLine(art); if(g) GROUND_LINE.set(key,g); } });
 }
@@ -1792,6 +1793,16 @@ function castShadow(draw,x,y,lift,a,line){
    pass for a foot and tip the whole shadow to a new angle (Tex's shifting as only his
    foot moved, Ivy's going to a thin slit, Tiny One's to a long streak). */
 const MEMBER_LINE=new Map();
+/* the same for a pest with animations: one line from the first frame of its battle stance, worked out
+   at its own size and scaled (a line y=a+b*x scales to y=a*s+b*x); null for one without */
+const FOE_LINE=new Map();
+function foeLine(sp,s){
+  if(!enemyAnim(sp,'stance')) return null;
+  let g=FOE_LINE.get(sp);
+  if(!g){ g=groundLine(c=>drawEnemyArt(c,sp,0,0,1,{kind:'stance',f:0})); if(!g) return null;
+    if(Math.abs(g[1])>0.3) g=[0,0]; FOE_LINE.set(sp,g); }
+  return [g[0]*s,g[1]];
+}
 function memberLine(id,s){
   if(s===undefined) s=slotOf(id).s*(MEMBER_SIZE[id]||1);
   const key=id+':'+s.toFixed(3);
@@ -1975,6 +1986,7 @@ const hasBackdrop=()=>typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(backdro
    backdrops (hdPrebake). The first fight used to freeze for a quarter of a second. */
 function prebakeBattle(){
   hdPrebake(); partyImg();
+  if(typeof PARTY_PORTRAITS!=='undefined') PARTY_PORTRAITS.forEach(portraitImg);        /* (every portrait, expressions too, for talk) */
   fishArtReady(); fishImg(); rhythmArt(); rhythmPic('vine'); rhythmPic('flute'); rhythmPic('rail'); rhythmPic('stamp');   /* (fishing's and the rhythm game's pictures, loading early too) */
   const sheets=[IMG_PARTY,IMG_EN,IMG_BATL,IMG_POSE,IMG_PT].filter(Boolean);
   Promise.all(sheets.map(im=>im.decode?im.decode().catch(()=>{}):null)).then(()=>{
@@ -1984,7 +1996,7 @@ function prebakeBattle(){
     [SHADE_CV.c,FLASH_CV.c,b,probeC].forEach(c=>sheets.forEach(im=>{ try{ if(im.naturalWidth) c.drawImage(im,0,0,8,8,0,0,8,8); }catch(e){} }));
     if(assetsReady<5) return;
     allMembers().forEach(id=>PARTY_SPOTS.forEach(([,y])=>memberLine(id,depthScale(y)*(MEMBER_SIZE[id]||1))));
-    pestPool().forEach(sp=>groundLine(c=>drawEnemyArt(c,sp,0,0,1)));        /* (the pests' sheet, ready for reading too) */
+    pestPool().forEach(sp=>{ groundLine(c=>drawEnemyArt(c,sp,0,0,1)); foeLine(sp,1); });        /* (the pests' sheet, ready for reading too) */
     /* and a shadow, a flyer's shadow and a flash drawn once, faintly (the next frame covers
        them): the browser readies its way of drawing them, which took 40 ms the first time */
     const st=c=>drawStance(c,'kaitlyn',0,0);
@@ -2219,16 +2231,19 @@ function drawBattleScene(dt){
     if(f.hitT!=null) f.hitT+=dt;
     const rc=FX2&&f.hitT!=null&&f.hitT<300?1-f.hitT/300:0;                /* FX2 recoil, 1 -> 0 */
     const p=foeSpot(f), me=A&&A.foe===f, sh=FX2?Math.round(rc*rc*(f.hitBig?12:8)):f.shake>0?Math.round(Math.sin(G.t/25)*3):0;
-    const eL=me&&!A.self?Math.round(Math.sin(k*Math.PI)*(A.fx==='dive'?-110:A.fx==='zoom'?-150:-38)):0;
+    /* a pest with animations stands in its battle stance, and plays its attack as it lunges (a shorter lunge:
+       the attack moves it forward too) */
+    const atk=me&&!A.self&&enemyAnim(f.sp,'attack'), pose=atk?{kind:'attack',f:k*atk.f.length}:{kind:'stance',t:G.t+f.slot*700};
+    const eL=me&&!A.self?Math.round(Math.sin(k*Math.PI)*(A.fx==='dive'?-110:A.fx==='zoom'?-150:atk?-18:-38)):0;
     const eY=me&&A.fx==='dive'?Math.round(Math.sin(k*Math.PI)*(40+p.lift)):0;
     /* ground pests stand still on their shadows; flyers hover and bob */
     const night=PESTS[f.sp].night, bob=p.lift?Math.sin(G.t/420+f.slot*2.1)*4:0;
-    const x=p.x+sh+eL, y=p.y-p.lift+bob+eY, art=c=>drawEnemyArt(c,f.sp,0,0,p.s);
-    castShadow(art,x,p.y,p.lift-eY,0.36*(1-f.fade));
+    const x=p.x+sh+eL, y=p.y-p.lift+bob+eY, art=c=>drawEnemyArt(c,f.sp,0,0,p.s,pose);
+    castShadow(art,x,p.y,p.lift-eY,0.36*(1-f.fade),foeLine(f.sp,p.s));
     b.globalAlpha=(1-f.fade)*(night?.88:1)*(me&&A.fx==='fade'?1-Math.sin(k*Math.PI)*0.7:1);
     const sq=rc*rc*(f.hitBig?0.18:0.12)*Math.cos((1-rc)*9);                /* a squash that springs back */
     if(sq){ b.save(); b.translate(x,y); b.scale(1+sq,1-sq); b.translate(-x,-y); }
-    drawEnemyArt(b,f.sp,x,y,p.s);
+    drawEnemyArt(b,f.sp,x,y,p.s,pose);
     b.globalAlpha=1;
     const prep=B.prep&&B.prep.f===f?Math.abs(Math.sin(B.prep.t/90))*0.75:0;
     flashOver(art,x,y,Math.max(f.flash/250,prep)*(1-f.fade));

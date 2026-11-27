@@ -261,9 +261,19 @@ function drawBattleRow(c,name,idx,cx,footY,zoom){
 }
 /* a pest from enemies.webp (made at its battle size), standing on cx,footY; s scales it
    (1 in battle, smaller on the garden map) */
-function drawEnemyArt(c,species,cx,footY,s){
-  const a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[species];
-  if(!a||!IMG_EN.complete||!IMG_EN.naturalWidth) return false;
+/* pose (for a pest with animations, ENEMY_ANIM): {kind:'stance'|'walk'|'attack', t: ms into
+   a loop, or f: the frame}; without one (or animations), its still picture */
+const ENEMY_FPS={stance:12,walk:18,attack:18};
+const enemyAnim=(sp,kind)=>typeof ENEMY_ANIM!=='undefined'&&ENEMY_ANIM[sp]&&ENEMY_ANIM[sp][kind]||null;
+function drawEnemyArt(c,species,cx,footY,s,pose){
+  if(!IMG_EN.complete||!IMG_EN.naturalWidth) return false;
+  const A=pose&&enemyAnim(species,pose.kind);
+  if(A){ const n=A.f.length, i=pose.f!=null?clamp(Math.floor(pose.f),0,n-1):Math.floor((pose.t||0)*ENEMY_FPS[pose.kind]/1000)%n;
+    const [sx,sy,w,h]=A.f[i], k=(s||1)*ENEMY_ANIM[species].k/SC;
+    c.save(); c.translate(cx,footY); c.scale(k,k); c.imageSmoothingEnabled=false;   /* (pixel art, enlarged hard-edged) */
+    c.drawImage(IMG_EN,sx,sy,w,h,-A.ax,-A.ay,w,h); c.restore();
+    return true; }
+  const a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[species]; if(!a) return false;
   const [sx,sy,w,h]=a.r, k=(s||1)/SC;
   c.save(); c.translate(cx,footY); c.scale(k,k); c.imageSmoothingEnabled=true;
   c.drawImage(IMG_EN,sx,sy,w,h,-a.ax,-a.ay,w,h); c.restore();

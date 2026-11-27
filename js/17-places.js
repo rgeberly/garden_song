@@ -337,10 +337,10 @@ function updateMountainPests(dt){
     if(near<110) p.roam={x:P.x,y:P.y+6};                    /* it's seen her */
     else if(!p.roam||Math.hypot(p.roam.x-p.x,p.roam.y-p.y)<6||p.stuck>600){ p.stuck=0; p.roam=null;
       for(let i=0;i<10;i++){ const x=p.x+rnd(-120,120), y=p.y+rnd(-120,120); if(!placeSolid(x,y+9)){ p.roam={x,y}; break; } } }
-    if(!p.roam) continue;
+    p.moving=false; if(!p.roam) continue;
     const dx=p.roam.x-p.x, dy=p.roam.y-p.y, d=Math.hypot(dx,dy)||1, sp=(near<110?0.03:0.02)*dt;
     const nx=p.x+dx/d*sp, ny=p.y+dy/d*sp;
-    if(placeSolid(nx,ny+9)) p.stuck=(p.stuck||0)+dt; else { p.x=nx; p.y=ny; p.face=dx>0; }
+    if(placeSolid(nx,ny+9)) p.stuck=(p.stuck||0)+dt; else { p.x=nx; p.y=ny; p.face=dx>0; p.moving=true; }
   }
   return false;
 }
@@ -499,7 +499,7 @@ function drawPlace(){
   /* the pests, scaled like her here (shadow and all), around their feet */
   if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y, s=placeKait();
     b.save(); b.translate(x,y); b.scale(s,s); b.translate(-x,-y);
-    drawPestWorld(b,p.species,x,y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3)); b.restore(); }}));
+    drawPestWorld(b,p.species,x,y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3),p.moving); b.restore(); }}));
   ents.push({y:G.player.y+9,f:()=>{
     const sx=G.player.x-cam.x, sy=G.player.y+12-cam.y;
     const K=placeKait()/WORLD_ZOOM;                 /* her size here, around her feet */
