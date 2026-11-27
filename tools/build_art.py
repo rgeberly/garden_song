@@ -116,7 +116,7 @@ HATCH_H = 90            # an egg hatching: the egg's height in sheet px
 # whose middle is below this share of the picture's height, at least this big (px).
 ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200), 'goat': (0.0, 1500), 'boar': (0.5, 2000), 'bear': (0.5, 2000)}
 # Enemy pictures with a transparency checkerboard painted in (no real transparency)
-ENEMY_CHECKERED = {'dung beetle', 'hoa president'}
+ENEMY_CHECKERED = {'hoa president'}
 # Animated enemies (AutoSprite sheets, 256 px cells): enemies/<name>/<name>-<kind>-spritesheet.png
 # for these kinds. Kept at their own size and enlarged in the game (hard-edged pixel art), all
 # kinds at the scale that makes the battle stance's first frame the enemy's battle height. They
@@ -815,7 +815,7 @@ def main():
         eanim[key] = A
         print('enemy animation', key, ', '.join('%s %d' % (k, A[k]['n']) for k in sheets), 'x%.2f' % A['k'])
     if eframes:
-        esheet, epos = pack(eframes)
+        esheet, epos = pack(eframes, 2048)       # (wide: WebP pictures can't be over 16383 px tall)
         cv2.imwrite(os.path.join(OUT, 'enemies.webp'), esheet, [cv2.IMWRITE_WEBP_QUALITY, 95])
         for k in emeta: emeta[k]['r'] = epos[k]
         for key, A in eanim.items():
