@@ -118,8 +118,10 @@ function startBattle(pest,kinds,quiet){
     for(let i=0;i<more;i++){ const pool=pestPool(); kinds.push(pool[ri(0,pool.length-1)]); } }
   const D=diff();                      /* the Settings tab's difficulty */
   const foes=kinds.map((sp,i)=>{ const lv=i?pestLevel(sp):(pest.lv||PESTS[sp].lv), S=pestStats(sp,lv);
+    const champ=i?rollChamp(sp):!!pest.champ;           /* (the one she walked into was grumpy on the map too) */
+    if(champ){ S.hp*=CHAMP.hp; S.atk*=CHAMP.atk; S.def*=CHAMP.def; S.xp=Math.round(S.xp*CHAMP.reward); S.coin=Math.round(S.coin*CHAMP.reward); }
     S.hp=Math.round(S.hp*D.hp); S.atk*=D.atk;
-    return {sp,lv,...S,maxhp:S.hp,hp:S.hp,name:PESTS[sp].name,boss:!!PESTS[sp].boss,
+    return {sp,lv,...S,maxhp:S.hp,hp:S.hp,name:(champ?"Grumpy ":"")+PESTS[sp].name,boss:!!PESTS[sp].boss,champ,
             slot:i,st:{},fade:0,flash:0,shake:0}; });
   /* the first pest keeps the middle spot; of the rest, flyers take the spots furthest back
      (they hover up into the sky there, not into whoever stands behind them) */
@@ -1511,12 +1513,15 @@ function foeTurn(f){
   if(F.bound>0){ F.bound--; B.log="The "+f.name+" can't move!"; setTimeout(nextActor,1400); return; }
   if(F.sleep>0){ F.sleep--; B.log="The "+f.name+" is asleep."; setTimeout(nextActor,1400); return; }
   if(F.scared>0){ F.scared--; if(Math.random()<0.5){ B.log="The "+f.name+" is too scared to move!"; setTimeout(nextActor,1400); return; } }
+  /* badly hurt (FURY_AT of its HP; half for a boss), it gets furious, once: hits harder from now on */
+  if(!f.mad&&f.hp<f.maxhp*(f.boss?0.5:FURY_AT)){ f.mad=true; f.atk*=FURY_ATK;
+    pop("Furious!",EX,EY-34,'#ff7a50'); burst(EX,EY,'#ff7050',10,0.12); }
   const charged=F.charge; F.charge=0;
   /* a charged-up pest always lets loose with its strongest hit */
-  const sk=charged?P.skills.filter(s=>s.kind==='hit').sort((a,z)=>z.pow-a.pow)[0]:pickWeighted(P.skills);
+  const sk=charged?P.skills.filter(s=>s.kind==='hit').sort((a,z)=>z.pow-a.pow)[0]:pickFoeSkill(f);
   const live=B.party.filter(standing);
   let targets=sk.kind==='all'?live:sk.kind==='multi'?Array.from({length:sk.hits},()=>live[ri(0,live.length-1)])
-               :sk.kind==='hit'||sk.kind==='steal'?[live[ri(0,live.length-1)]]:[];
+               :sk.kind==='hit'||sk.kind==='steal'?[pickFoeTarget(live)]:[];
   /* Tex's Cover: what's aimed at the one he covers (or anyone, with VitaShell) hits him
      (not a hit on everyone) */
   const C=B.cover, moved=t=>!!(C&&sk.kind!=='all'&&standing(C.by)&&t!==C.by&&(C.all||t===C.to));
@@ -1531,6 +1536,22 @@ function foeTurn(f){
     B.log=sk.name;
     blip(740,0.05,0.12,'triangle'); setTimeout(go,PREP_MS);
   } else go();
+}
+/* A pest's choice of move: it heals only when hurt (more when badly hurt) and braces more
+   when low; otherwise as its skills' weights say. */
+const FURY_AT=0.3, FURY_ATK=1.25;
+function pickFoeSkill(f){
+  const P=PESTS[f.sp], r=f.hp/f.maxhp;
+  const w=P.skills.map(s=>s.kind==='heal'?(r>0.7?0:r<0.35?s.w*4:s.w):s.kind==='guard'&&r<0.35?s.w*2:s.w);
+  let t=w.reduce((a,v)=>a+v,0)*Math.random();
+  for(let i=0;i<w.length;i++){ t-=w[i]; if(t<=0&&w[i]>0) return P.skills[i]; }
+  return P.skills[0];
+}
+/* who it goes for: often (FOCUS_WEAK) whoever is worst off, otherwise anyone */
+const FOCUS_WEAK=0.4;
+function pickFoeTarget(live){
+  if(Math.random()<FOCUS_WEAK) return live.slice().sort((a,z)=>member(a).hp/member(a).maxhp-member(z).hp/member(z).maxhp)[0];
+  return live[ri(0,live.length-1)];
 }
 function pickWeighted(list){ let t=list.reduce((a,s)=>a+s.w,0)*Math.random();
   for(const s of list){ t-=s.w; if(t<=0) return s; } return list[0]; }
@@ -1611,7 +1632,7 @@ function winRewards(){
   /* drops: each pest may leave an ordinary thing, or (rarely) a special one */
   const drops=B.stolen.slice();            /* what Tituba snitched is already in the basket */
   B.foes.forEach(f=>{ const D=PEST_DROPS[f.sp]; if(!D) return;
-    const k=Math.random()<RARE_P?D[1]:Math.random()<DROP_P?D[0]:null;
+    const k=Math.random()<RARE_P*(f.champ?CHAMP_RARE:1)?D[1]:f.champ||Math.random()<DROP_P?D[0]:null;
     if(k){ G.goods[k]=(G.goods[k]||0)+1; drops.push(k); } });
   B.win={xp,coins,bonus,seed,from,who:up,t:0,drops,tick:0};
   G.coins+=coins; if(seed) G.seeds[seed]=(G.seeds[seed]||0)+1;
@@ -1811,6 +1832,14 @@ function memberLine(id,s){
   g=groundLine(c=>{ c.save(); c.scale(s,s); drawStance(c,id,0,0); c.restore(); }); if(!g) return null;                     /* the art isn't loaded yet */
   if(Math.abs(g[1])>0.3) g=[0,0];          /* a steep one is a tail taken for a foot (Tiny One's): level instead */
   MEMBER_LINE.set(key,g); return g;
+}
+/* a grumpy pest's red edge: its shape in red, a little out on every side, under it */
+function champOutline(draw,x,y,a){
+  if(a<=0) return;
+  const S=silhouette(draw,'#ff4a2a');
+  b.save(); b.globalAlpha=Math.min(1,a);
+  for(const [dx,dy] of [[-1.5,0],[1.5,0],[0,-1.5],[0,1.5],[-1,-1],[1,-1],[-1,1],[1,1]]) b.drawImage(S,x-SHAPE_FX+dx,y-SHAPE_FY+dy,SHAPE_W,SHAPE_H);
+  b.restore();
 }
 function flashOver(draw,x,y,a){
   if(a<=0) return;
@@ -2243,6 +2272,8 @@ function drawBattleScene(dt){
     const night=PESTS[f.sp].night, bob=p.lift?Math.sin(G.t/420+f.slot*2.1)*4:0;
     const x=p.x+sh+eL, y=p.y-p.lift+bob+eY, art=c=>drawEnemyArt(c,f.sp,0,0,p.s,pose);
     castShadow(art,x,p.y,p.lift-eY,0.36*(1-f.fade),foeLine(f.sp,p.s));
+    if(f.champ&&f.fade<1){ const r=foeBox(f); b.globalAlpha=1-f.fade; champAura(b,x,y-r.h*0.45,r.h*0.5,G.t+f.slot*400);   /* a grumpy one glows, */
+      champOutline(art,x,y,(1-f.fade)*(0.65+0.25*Math.sin((G.t+f.slot*400)/260))); }                                       /* edged in red */
     b.globalAlpha=(1-f.fade)*(night?.88:1)*(me&&A.fx==='fade'?1-Math.sin(k*Math.PI)*0.7:1);
     const sq=rc*rc*(f.hitBig?0.18:0.12)*Math.cos((1-rc)*9);                /* a squash that springs back */
     if(sq){ b.save(); b.translate(x,y); b.scale(1+sq,1-sq); b.translate(-x,-y); }

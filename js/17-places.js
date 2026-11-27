@@ -323,7 +323,7 @@ function spawnMtnPest(){
   for(let i=0;i<30;i++){ const x=rnd(40,placeW(M)-40), y=rnd(160,placeH(M)-60);
     if(placeSolid(x,y+9)||Math.hypot(x-P.x,y-P.y)<180) continue;
     const sp=pool[ri(0,pool.length-1)], lv=pestLevel(sp);
-    G.mtnPests.push({species:sp,lv,x,y,hp:pestStats(sp,lv).hp,roam:null}); return; }
+    G.mtnPests.push({species:sp,lv,x,y,hp:pestStats(sp,lv).hp,roam:null,champ:rollChamp(sp)}); return; }
 }
 /* true when a fight starts */
 function updateMountainPests(dt){
@@ -499,7 +499,7 @@ function drawPlace(){
   /* the pests, scaled like her here (shadow and all), around their feet */
   if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y, s=placeKait();
     b.save(); b.translate(x,y); b.scale(s,s); b.translate(-x,-y);
-    drawPestWorld(b,p.species,x,y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3),p.moving); b.restore(); }}));
+    drawPestWorld(b,p.species,x,y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3),p.moving,p.champ); b.restore(); }}));
   ents.push({y:G.player.y+9,f:()=>{
     const sx=G.player.x-cam.x, sy=G.player.y+12-cam.y;
     const K=placeKait()/WORLD_ZOOM;                 /* her size here, around her feet */

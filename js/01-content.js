@@ -96,64 +96,64 @@ const PESTS={
     {name:"Bite",kind:'hit',pow:1,w:3,fx:'bite'},
     {name:"Gnaw",kind:'hit',pow:0.7,w:2,st:'weak',p:0.6,fx:'bite'},
     {name:"Pilfer",kind:'steal',w:1,fx:'steal'}]},
-  saddleback:{name:"Saddleback",hp:30, atk:7, def:4, agi:2,  xp:22, coin:9, min:2, col:'#8fc43a',lv:3,
+  saddleback:{name:"Saddleback",hp:47, atk:8, def:4, agi:2,  xp:22, coin:9, min:2, col:'#8fc43a',lv:3,
           about:"Cute little saddle, very rude spines. Do not pet.",skills:[
     {name:"Sting",kind:'hit',pow:1,w:3,st:'poison',p:0.7,fx:'sting'},
     {name:"Spine Burst",kind:'all',pow:0.6,w:2,st:'poison',p:0.3,fx:'spines'}]},
-  seagull:{name:"Seagull",      hp:28, atk:6, def:2, agi:12, xp:21, coin:9, min:2, col:'#e8eef4',lv:3,fly:true,
+  seagull:{name:"Seagull",      hp:45, atk:7, def:2, agi:12, xp:21, coin:9, min:2, col:'#e8eef4',lv:3,fly:true,
           about:"Miles from any beach and still screaming about chips.",skills:[
     {name:"Peck",kind:'hit',pow:1,w:3,fx:'peck'},
     {name:"Dive Bomb",kind:'hit',pow:1.6,w:2,miss:0.3,fx:'dive'},
     {name:"Snatch",kind:'steal',w:1,fx:'steal'}]},
-  ghost  :{name:"Shy Ghost",    hp:32, atk:5, def:2, agi:7,  xp:27, coin:10,min:2, col:'#bfe8e0',night:true,lv:3,fly:true,
+  ghost  :{name:"Shy Ghost",    hp:47, atk:6, def:2, agi:7,  xp:27, coin:10,min:2, col:'#bfe8e0',night:true,lv:3,fly:true,
           about:"Only comes out after dark. Probably just wants a friend.",skills:[
     {name:"Boo!",kind:'hit',pow:0.5,w:2,st:'scared',p:0.7,fx:'boo'},
     {name:"Chill Touch",kind:'hit',pow:1,w:3,drain:0.5,fx:'chill'},
     {name:"Fade Away",kind:'guard',w:1,fx:'fade'}]},
-  crab   :{name:"Hermit Crab",  hp:44, atk:5, def:8, agi:3,  xp:26, coin:10,min:3, col:'#c46a3a',lv:4,
+  crab   :{name:"Hermit Crab",  hp:69, atk:7, def:8, agi:3,  xp:26, coin:10,min:3, col:'#c46a3a',lv:4,
           about:"Lives in a borrowed shell and pinches first, asks later.",skills:[
     {name:"Pinch",kind:'hit',pow:1,w:3,fx:'pinch'},
     {name:"Shell Up",kind:'guard',w:1,fx:'shell'},
     {name:"Claw Crush",kind:'hit',pow:1.5,w:1,fx:'pinch'}]},
-  crow   :{name:"Spiteful Crow",hp:36, atk:7, def:3, agi:11, xp:28, coin:11,min:3, col:'#3a5aa8',lv:4,
+  crow   :{name:"Spiteful Crow",hp:57, atk:8, def:3, agi:11, xp:28, coin:11,min:3, col:'#3a5aa8',lv:4,
           about:"Clever, petty and remembers your face. Forever.",skills:[
     {name:"Peck",kind:'hit',pow:1,w:3,fx:'peck'},
     {name:"Mocking Caw",kind:'hit',pow:0.4,w:2,st:'blind',p:0.8,fx:'caw'},
     {name:"Talon Rake",kind:'all',pow:0.7,w:2,fx:'claw'}]},
-  raccoon:{name:"Raccoon",      hp:56, atk:8, def:5, agi:8,  xp:36, coin:14,min:4, col:'#8a8f96',lv:6,size:0.7,
+  raccoon:{name:"Raccoon",      hp:84, atk:12, def:5, agi:8,  xp:36, coin:14,min:4, col:'#8a8f96',lv:6,size:0.7,
           about:"A masked bandit with a gourmet taste for garbage.",skills:[
     {name:"Swipe",kind:'hit',pow:1,w:3,fx:'claw'},
     {name:"Trash Toss",kind:'all',pow:0.75,w:2,fx:'trash'},
     {name:"Snack Break",kind:'heal',heal:0.25,w:1,fx:'snack'}]},
-  woo    :{name:"Tricky Woo",   hp:60, atk:8, def:4, agi:13, xp:40, coin:16,min:4, col:'#f4f4f4',lv:7,
+  woo    :{name:"Tricky Woo",   hp:90, atk:13, def:4, agi:13, xp:40, coin:16,min:4, col:'#f4f4f4',lv:7,
           about:"The neighbors' dog. Too fast, too fluffy, too good at puppy eyes.",skills:[
     {name:"Nip",kind:'hit',pow:1,w:3,fx:'bite'},
     {name:"Puppy Eyes",kind:'hit',pow:0,w:2,st:'sleep',p:0.75,fx:'hearts'},
     {name:"Zoomies",kind:'multi',pow:0.6,hits:3,w:2,fx:'zoom'}]},
-  vghost :{name:"Vengeful Ghost",hp:80,atk:10,def:4, agi:9,  xp:55, coin:20,min:5, col:'#8ac4f0',night:true,lv:9,fly:true,
+  vghost :{name:"Vengeful Ghost",hp:110,atk:19,def:4, agi:9,  xp:55, coin:20,min:5, col:'#8ac4f0',night:true,lv:9,fly:true,
           about:"A ghost with a grudge. Something about a lost prize pumpkin.",skills:[
     {name:"Wail",kind:'all',pow:0.8,w:2,st:'scared',p:0.3,fx:'wail'},
     {name:"Spectral Grasp",kind:'hit',pow:1.1,w:3,drain:0.5,fx:'chill'},
     {name:"Curse",kind:'hit',pow:0.5,w:1,st:'weak',p:1,fx:'curse'},
     {name:"Gather Gloom",kind:'charge',w:1,fx:'gloom'}]},
   /* the mountain's own (where:'mountain': never in the garden) */
-  goat   :{name:"Mountain Goat",hp:52, atk:8, def:5, agi:10, xp:34, coin:13,min:1, col:'#d8d0c0',lv:5,where:'mountain',
+  goat   :{name:"Mountain Goat",hp:74, atk:10, def:5, agi:10, xp:34, coin:13,min:1, col:'#d8d0c0',lv:5,where:'mountain',
           about:"Will eat your hat, your map and your lunch. Then headbutt you for dessert.",skills:[
     {name:"Headbutt",kind:'hit',pow:1,w:3,fx:'bash'},
     {name:"Bleat",kind:'all',pow:0.3,w:2,st:'scared',p:0.4,fx:'caw'},
     {name:"Ram Charge",kind:'charge',w:1,fx:'gloom'}]},
-  boar   :{name:"Wild Boar",    hp:74, atk:10,def:6, agi:6,  xp:46, coin:18,min:1, col:'#6a5040',lv:7,where:'mountain',
+  boar   :{name:"Wild Boar",    hp:109, atk:14,def:6, agi:6,  xp:46, coin:18,min:1, col:'#6a5040',lv:7,where:'mountain',
           about:"Bristly, grumpy and built like a fridge. Snorts at everything, especially you.",skills:[
     {name:"Gore",kind:'hit',pow:1.1,w:3,fx:'bash'},
     {name:"Tusk Toss",kind:'hit',pow:1.5,w:1,miss:0.25,fx:'claw'},
     {name:"Mud Wallow",kind:'guard',w:1,fx:'shell'}]},
-  bear   :{name:"Black Bear",   hp:130,atk:13,def:7, agi:5,  xp:80, coin:30,min:1, col:'#2e2a2a',lv:10,where:'mountain',
+  bear   :{name:"Black Bear",   hp:176,atk:22,def:7, agi:5,  xp:80, coin:30,min:1, col:'#2e2a2a',lv:10,where:'mountain',
           about:"Mostly wants berries and naps. You are standing between it and both.",skills:[
     {name:"Swipe",kind:'hit',pow:1.1,w:3,fx:'claw'},
     {name:"Maul",kind:'hit',pow:1.7,w:1,fx:'bite'},
     {name:"Roar",kind:'all',pow:0.4,w:1,st:'scared',p:0.5,fx:'megaphone'},
     {name:"Honey Break",kind:'heal',heal:0.2,w:1,fx:'snack'}]},
-  hoa    :{name:"HOA President",hp:130,atk:12,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,size:1.4,lv:12,
+  hoa    :{name:"HOA President",hp:380,atk:26,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,size:1.4,lv:12,
           about:"Clipboard in hand and a bylaw for everything. Even your gnomes.",skills:[
     {name:"Citation",kind:'hit',pow:1.2,w:3,fx:'paper'},
     {name:"Noise Complaint",kind:'all',pow:0.8,w:2,fx:'megaphone'},
@@ -161,12 +161,29 @@ const PESTS={
     {name:"Bylaw Lecture",kind:'hit',pow:0,w:1,st:'sleep',p:0.8,fx:'paper'}]},
 };
 /* a pest's stats at a level: each level over its species' own (lv) adds a tenth */
+/* A pest above its own level grows the way the party does: its HP in step with the party's
+   (a straight line), its attack faster (the party's defence and HP both grow, so a hit must
+   grow with both to hurt as much: PEST_ATK_CURVE). Its reward grows with its attack. */
+const PEST_ATK_CURVE=L=>(4+L)*(18+1.4*L);
 function pestStats(sp,lv){
-  const P=PESTS[sp], d=Math.max(0,(lv||P.lv)-P.lv), k=1+0.1*d;
-  return {hp:Math.round(P.hp*k),atk:P.atk*k,def:P.def*(1+0.05*d),agi:P.agi+d*0.5,xp:Math.round(P.xp*k),coin:Math.round(P.coin*k)};
+  const P=PESTS[sp], b=P.lv, L=Math.max(b,lv||b), d=L-b, kh=(L+2)/(b+2), ka=PEST_ATK_CURVE(L)/PEST_ATK_CURVE(b);
+  return {hp:Math.round(P.hp*kh),atk:P.atk*ka,def:P.def*(1+0.06*d),agi:P.agi+d*0.5,xp:Math.round(P.xp*ka),coin:Math.round(P.coin*kh)};
 }
-/* the level a new pest turns up at: its own, or a little more as the garden grows */
-const pestLevel=sp=>PESTS[sp].lv+ri(0,Math.min(3,Math.floor((G.gardenLv-1)/2)));
+/* the party's level: the average of who's out */
+const partyLevel=()=>{ const L=(G.party||[]).map(id=>member(id)&&member(id).lv).filter(Boolean); return L.length?L.reduce((a,v)=>a+v,0)/L.length:1; };
+/* The level a new pest turns up at: near the party's (0-2 below), but never below its own and
+   at most PEST_LV_REACH above it, so the first garden pests stay small; or its own plus a
+   little as the garden grows, whichever is more. */
+const PEST_LV_REACH=8;
+function pestLevel(sp){
+  const b=PESTS[sp].lv, grown=b+ri(0,Math.min(3,Math.floor((G.gardenLv-1)/2)));
+  return Math.max(grown,Math.min(Math.round(partyLevel())-ri(0,2),b+PEST_LV_REACH));
+}
+/* Grumpy pests: now and then (CHAMP_P; never a boss) one turns up in a foul mood, glowing,
+   tougher (CHAMP) and worth more, with a better chance of its rare drop (CHAMP_RARE x RARE_P,
+   and always its ordinary one) */
+const CHAMP_P=0.06, CHAMP={hp:1.8,atk:1.3,def:1.2,reward:2.5}, CHAMP_RARE=4;
+const rollChamp=sp=>!PESTS[sp].boss&&Math.random()<CHAMP_P;
 /* what each pest may leave behind when it's beaten: [ordinary, rare] (GOODS keys), and
    the chances of each */
 const PEST_DROPS={beetle:['dungball','irishell'],wasp:['paperscrap','royaljelly'],rat:['button','lostring'],saddleback:['bristle','cocoon'],seagull:['gullfeather','stolenfry'],ghost:['ecto','locket'],crab:['shellshard','pearl'],crow:['blackfeather','spoon'],raccoon:['trinket','mask'],woo:['chewball','collar'],vghost:['wisp','ribbon'],goat:['goathair','bell'],boar:['tusk','truffle'],bear:['bearfur','honeycomb'],hoa:['citation','gavel']};
@@ -439,9 +456,15 @@ const M_HOA={O:'#2b1c12',v:'#2f6fc4',h:'#6b4a2a',F:'#f2cd9e',s:'#1a1410',
 /* a pest out in the garden: its battle picture, small, with a little bob (ghosts float) */
 /* a pest on the garden map; flip: facing right (the art faces left) */
 /* ph: its own phase, so each one bobs in its own steady rhythm */
+/* the warm, pulsing glow behind a grumpy pest (r: its size, about half its height) */
+function champAura(c,x,y,r,t){
+  const a=0.42+0.18*Math.sin(t/260), g=c.createRadialGradient(x,y,0,x,y,r*1.6);
+  g.addColorStop(0,'rgba(255,120,60,'+a+')'); g.addColorStop(0.55,'rgba(255,70,40,'+a*0.45+')'); g.addColorStop(1,'rgba(255,60,30,0)');
+  c.save(); c.globalCompositeOperation='lighter'; c.fillStyle=g; c.beginPath(); c.arc(x,y,r*1.6,0,7); c.fill(); c.restore();
+}
 /* flyers that walk on the ground on the map (still flying in battle): the seagull hops around after food */
 const MAP_WALKERS=['seagull'];
-function drawPestWorld(c,sp,x,y,t,flip,ph,moving){
+function drawPestWorld(c,sp,x,y,t,flip,ph,moving,champ){
   /* (one with animations walks while it moves, and stands in its battle stance while it stops to chew, instead of bobbing;
      a flyer that walks on the map, the seagull, stands still on its first walking frame instead, on the ground) */
   const P=PESTS[sp], onFoot=MAP_WALKERS.includes(sp), walk=enemyAnim(sp,'walk');
@@ -449,6 +472,8 @@ function drawPestWorld(c,sp,x,y,t,flip,ph,moving){
   const fly=P.fly&&!onFoot, bob=walk?0:Math.abs(Math.sin(t/180+(ph||0)))*(fly?3:1.5), lift=fly?8:0, s=P.boss?0.72:0.36;
   /* its shadow: cast along the ground, or for a flyer a soft patch below it */
   groundShadow(c,cc=>{ if(flip) cc.scale(-1,1); drawEnemyArt(cc,sp,0,0,s,pose); },x,y,P.boss?20:9,lift);
+  if(champ&&c===b){ champAura(c,x,y-bob-lift-8,14,t);          /* a grumpy one glows, edged in red */
+    champOutline(cc=>{ if(flip) cc.scale(-1,1); drawEnemyArt(cc,sp,0,0,s,pose); },x,y-bob-lift,0.65+0.25*Math.sin(t/260)); }
   c.globalAlpha=P.night?.85:1;
   c.save(); if(flip){ c.translate(x,0); c.scale(-1,1); c.translate(-x,0); }
   drawEnemyArt(c,sp,x,y-bob-lift,s,pose);

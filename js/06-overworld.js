@@ -89,7 +89,7 @@ function spawnPest(){
       y=e===2?F(.30):e===3?F(.72):ri(F(.30),F(.72));
   } while(solidAt(x,y)&&guard++<40);
   const lv=pestLevel(sp);
-  G.pests.push({species:sp,lv,x,y,target:planted.length?planted[ri(0,planted.length-1)]:null,hp:pestStats(sp,lv).hp,chew:0});
+  G.pests.push({species:sp,lv,x,y,target:planted.length?planted[ri(0,planted.length-1)]:null,hp:pestStats(sp,lv).hp,chew:0,champ:rollChamp(sp)});
   if(sp==='hoa') say("The HOA President is inspecting your yard!");
 }
 /* In ?partytest or ?alltest, &pest=<species> (e.g. &pest=raccoon) keeps one of that pest in
@@ -260,7 +260,7 @@ function drawWorld(){
      from the sun, like everything else; its feet are 13 px below its spot) */
   FROGS.forEach(f=>ents.push({y:f.y,f:()=>{ groundShadow(b,c=>drawFrog(c,-11,-24,G.t,f.k),f.x-cam.x,f.y+13-cam.y,8);
     drawFrog(b,f.x-11-cam.x,f.y-11-cam.y,G.t,f.k); }}));
-  G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3),p.moving)}));
+  G.pests.forEach(p=>ents.push({y:p.y,f:()=>drawPestWorld(b,p.species,p.x-cam.x,p.y-cam.y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3),p.moving,p.champ)}));
   WILD.forEach(w=>ents.push({y:w.bird?WORLD_H+80:w.y,f:()=>drawWild(b,w,cam)}));
   /* Ivy, at her own size like Kaitlyn (the zoom undone around her) */
   const bl=ivyHere();
