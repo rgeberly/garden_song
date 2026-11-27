@@ -277,6 +277,15 @@ const EQUIP={
   bell:    {name:"Silver Bell",    slot:'acc',who:['tiny'],cost:520,desc:"Tiny One's Tweet and healing songs heal 20% more.",own:()=>!!G.gear.bell},
   scarf:   {name:"Downy Scarf",    slot:'acc',cost:400,desc:"+10 max HP.",own:()=>!!G.gear.scarf,stats:{hp:10}},
   clover:  {name:"Four-Leaf Clover",slot:'acc',cost:300,desc:"+4 Luck.",own:()=>!!G.gear.clover,stats:{luk:4}},
+  /* Tituba's and Tex's (sold at Juniper's) */
+  clawtips:{name:"Silver Claw Tips",slot:'weapon',who:['tituba'],cost:520,desc:"Sharp little silver tips. +4 Strength, more critical hits.",own:()=>!!G.gear.clawtips,stats:{str:4}},
+  ribbon:  {name:"Velvet Ribbon",  slot:'clothes',who:['tituba'],cost:420,desc:"A soft ribbon with a bow. +1 Defense, +4 Agility.",own:()=>!!G.gear.ribbon,stats:{def:1,agi:4}},
+  catnip:  {name:"Catnip Sachet",  slot:'acc',who:['tituba'],cost:450,desc:"Focus charges her next hit to x2.5 instead of x2.",own:()=>!!G.gear.catnip},
+  moonstone:{name:"Moonstone Collar",slot:'acc',who:['tituba'],cost:600,desc:"+4 Luck, and a 10% chance to dodge a pest's hit.",own:()=>!!G.gear.moonstone,stats:{luk:4}},
+  dentures:{name:"Discarded Dentures",slot:'weapon',who:['tex'],cost:480,desc:"Someone's old false teeth. +4 Strength, and pests go for him more.",own:()=>!!G.gear.dentures,stats:{str:4}},
+  mossshell:{name:"Mossy Shell Cover",slot:'clothes',who:['tex'],cost:520,desc:"A cozy coat of moss for his shell. +3 Defense, +12 max HP.",own:()=>!!G.gear.mossshell,stats:{def:3,hp:12}},
+  sunstone:{name:"Sun-Warmed Stone",slot:'acc',who:['tex'],cost:500,desc:"Mends 5% of his max HP at the start of each of his turns.",own:()=>!!G.gear.sunstone},
+  shellpolish:{name:"Shell Polish", slot:'acc',who:['tex'],cost:450,desc:"+2 Defense, and he takes 30% less while covering someone.",own:()=>!!G.gear.shellpolish,stats:{def:2}},
   /* found, not bought: rare drops in the Deep Forest (the first one found is kept to wear) */
   silverfang:{name:"Silver Fang",  slot:'weapon',who:['ivy'],desc:"A wolf's silver fang, fitted for Ivy. +7 Strength, +3 Luck.",own:()=>!!G.gear.silverfang,stats:{str:7,luk:3}},
   clawcharm:{name:"Claw Charm",    slot:'acc',desc:"A badger's claw on a cord. +5 Strength.",own:()=>!!G.gear.clawcharm,stats:{str:5}},

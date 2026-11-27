@@ -569,7 +569,8 @@ const TOWN_SHOPS={
      anything she bought from you (G.pawn) for half again as much */
   junk:{title:"Juniper's Junk Shop", startTab:()=>sellGoods().length?1:0, tabs:[
     {name:"Buy", empty:"Sold out — you have it all!", items:()=>gearRows(['charm','boots','can','basket','apron','overalls','mosswrap','acorncap','fangcaps',
-      'kickers','scalecharm','scarf','clover','fangpolish','bell'])},
+      'kickers','scalecharm','scarf','clover','fangpolish','bell',
+      'clawtips','ribbon','catnip','moonstone','dentures','mossshell','sunstone','shellpolish'])},
     {name:"Sell", empty:"Nothing to sell — try foraging on the mountain!", items:()=>{
       const L=sellGoods().map(k=>({sell:true,name:GOODS[k].name,count:G.goods[k],cost:goodsPrice(k),art:{good:k},
         desc:(GOODS[k].flavor?GOODS[k].flavor+" ":"")+"You can buy it back later for "+buyBackPrice(k)+"c.",btn:"Sell 1  ·  "+goodsPrice(k)+"c",

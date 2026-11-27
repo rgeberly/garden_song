@@ -181,7 +181,8 @@ function pop(txt,x,y,col,size){ B.pops.push({txt,x,y,t:1100,col,size,fx2:FX2}); 
 /* Critical hits: a party member's hit lands extra hard now and then, more often the
    luckier they are */
 /* (Tituba's claws add PARTY_INFO crit, and some skills B.critUp for their own hits) */
-const CRIT_MUL=1.75, critChance=id=>0.03+statOf(id,'luk')*0.004+((PARTY_INFO[id]&&PARTY_INFO[id].crit)||0)+((B&&B.critUp)||0);
+const CRIT_MUL=1.75, critChance=id=>0.03+statOf(id,'luk')*0.004+((PARTY_INFO[id]&&PARTY_INFO[id].crit)||0)+((B&&B.critUp)||0)
+  +(wears(id,'clawtips')?0.06:0);            /* (Tituba's Silver Claw Tips) */
 function burst(x,y,col,n,spd){
   if(FX2){ for(let i=0;i<(n||10);i++){ const a=rnd(0,Math.PI*2), sp=rnd(0.35,1)*(spd||0.13);     /* glowing, in FX2 */
     glow({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.6-0.06,drag:0.05,g:0.0002,size:rnd(2.6,4.2),life:rnd(450,700),col}); } return; }
@@ -805,6 +806,7 @@ function memberTicks(id){
   B.guard[id]=false;                    /* Meditate's or Focus's bracing lasts until now */
   B.shell[id]=false; if(B.cover&&B.cover.by===id) B.cover=null;     /* and Shell Up's and Cover's */
   const R=B.regen[id]; if(R&&R.n>0){ R.n--; mendMember(id,M.maxhp*R.share); }   /* A True Bird's Nest */
+  if(wears(id,'sunstone')&&M.hp<M.maxhp) mendMember(id,M.maxhp*0.05);           /* Tex's Sun-Warmed Stone */
   let why=null;
   if(S.poison>0&&B.shieldAll) S.poison--;            /* (Safe and Sound keeps even poison off) */
   else if(S.poison>0){ const d=Math.max(1,Math.round(M.maxhp*0.07)); M.hp=Math.max(0,M.hp-d); S.poison--;
@@ -1043,7 +1045,7 @@ const weakMul=id=>(has(id,'weak')?0.6:1)*(wears(id,'moonfeather')&&isNight()?1.2
 const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(wears('kaitlyn','kickers')?1.6:1);
 /* Kaitlyn's kicks: the battle row (battle.png) plays, the hit lands partway through */
 /* Focus: a member's next hit (every hit of that one move) is twice as hard; this uses it up */
-function useCharge(id){ const m=B.charged[id]?2:1; B.charged[id]=false; return m; }
+function useCharge(id){ const m=B.charged[id]?(wears(id,'catnip')?2.5:2):1; B.charged[id]=false; return m; }   /* (x2.5 with Tituba's Catnip Sachet) */
 const KICK_SHOUT=0.25;               /* how often a kick comes with a shout */
 function kick(f,pow,name,row,shouts,shout,dur){
   if(Math.random()<(shout===undefined?1:shout)) B.shout={txt:shouts[ri(0,shouts.length-1)],t:1500};
@@ -1558,9 +1560,12 @@ function pickFoeSkill(f){
   return P.skills[0];
 }
 /* who it goes for: often (FOCUS_WEAK) whoever is worst off, otherwise anyone */
-const FOCUS_WEAK=0.4;
+const FOCUS_WEAK=0.4, DENTURE_DRAW=0.35;
 function pickFoeTarget(live){
-  if(Math.random()<FOCUS_WEAK) return live.slice().sort((a,z)=>member(a).hp/member(a).maxhp-member(z).hp/member(z).maxhp)[0];
+  const bait=live.find(id=>wears(id,'dentures'));                      /* (Tex's Discarded Dentures draw them) */
+  if(bait&&Math.random()<DENTURE_DRAW) return bait;
+  if(Math.random()<FOCUS_WEAK){ const r=id=>member(id).hp/member(id).maxhp, low=Math.min(...live.map(r));
+    const worst=live.filter(id=>r(id)<=low+0.001); return worst[ri(0,worst.length-1)]; }   /* (any of those tied for worst off) */
   return live[ri(0,live.length-1)];
 }
 function pickWeighted(list){ let t=list.reduce((a,s)=>a+s.w,0)*Math.random();
@@ -1591,13 +1596,15 @@ function foeHits(f,sk,targets,charged,cover){
     const name=PARTY_INFO[id].name, s=slotOf(id), M=member(id);
     if(sk.miss&&Math.random()<sk.miss){ pop("miss",s.x,headOf(id),'#e8eef8'); return; }
     if(F.blind>0&&Math.random()<0.5){ pop("miss",s.x,headOf(id),'#e8eef8'); return; }
+    if(sk.pow>0&&wears(id,'moonstone')&&Math.random()<0.1){ pop("dodge",s.x,headOf(id),'#e8eef8'); return; }   /* (Tituba's Moonstone Collar) */
     if(sk.pow>0&&B.shieldAll){          /* Safe and Sound: nothing gets through this round */
       pop("0",s.x,headOf(id),'#bfe8ff'); if(FX2) impactFx(s.x+8*s.s,(s.y+headOf(id))/2,false,'shield'); else burst(s.x,s.y-80,'#bfe8ff',8);
       if(!lines.includes("Nothing gets through!")) lines.push("Nothing gets through!"); }
     else if(sk.pow>0){
       const braced=B.guard[id];         /* braced: half damage until their next turn (a quarter in a shell) */
       const pack=1+(PESTS[f.sp].packBonus||0)*B.foes.filter(g=>g!==f&&g.sp===f.sp&&g.hp>0).length;   /* (packmates standing) */
-      const raw=f.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*pack*(B.shell[id]?0.25:braced?0.5:1);
+      const polish=cover&&cover.by===id&&wears(id,'shellpolish')?0.7:1;      /* (Tex's Shell Polish, while covering) */
+      const raw=f.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*pack*polish*(B.shell[id]?0.25:braced?0.5:1);
       const dmg=soften(raw,statOf(id,'def'));
       M.hp=Math.max(0,M.hp-dmg); pepFill(id,dmg);
       /* a hit may wake you, as it may a pest */

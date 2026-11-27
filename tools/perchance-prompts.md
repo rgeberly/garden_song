@@ -1,86 +1,77 @@
-# Perchance prompts
+# Art still to make
 
-Generator: https://perchance.org/neonewgenerator. Save each image under the name shown, inside the
+Most art is now made in AutoSprite (see the notes below each list); Perchance's generator
+(https://perchance.org/neonewgenerator) works too. Save each image under the name shown, inside the
 art folder (`kaitlyns-garden-song-art`). I'll run `tools/build_art.py` and wire them in.
-JPEG is fine too: `Baby radish.jpeg` works just like `Baby radish.png`.
-Everything from the earlier lists (fish, fall pond, reel, vines, flute, town interiors, Gus, mountain
-backdrops, the new equipment) is in the art folder and the game.
+JPEG is fine too: `Badger.jpeg` works just like `Badger.png`.
+Everything from the earlier lists (Kaitlyn's faces, collard greens, the Tipsy Toad's drinks, the
+summit flowers, the blueberry packet, the rhythm game's rail and stamp, all fifteen pests) is in the
+art folder and the game.
 
-## Kaitlyn's faces: match her current portrait (`party/Kaitlyn/portrait.png`), Shape **Portrait**
+## The Deep Forest's pests: AutoSprite characters, guild "Monsters", not humanoid
 
-For the talk box, so her face shows how she feels. Same framing and style as her current portrait,
-plain white background. I'll wire them in when they arrive.
+New pests, so no reference picture: base image from the prompt below (Ultra), then the usual three
+animations on Turbo, starting from the base image: walk, "Enemy Battle Stance" and "Enemy Attack".
+Put the description from the game's Lore in each character's description. Save the base image as
+`enemies/<Name>.png` and the sheets as `enemies/<name>/<name>-stance-spritesheet.png`, `-walk-` and
+`-attack-` (I can download them from AutoSprite for you).
 
-| Save as | Description |
-|---|---|
-| `party/Kaitlyn-portrait-smile.png` | the same young woman with long red hair and a green plaid shirt, head and shoulders, smiling warmly with her eyes |
-| `party/Kaitlyn-portrait-sad.png` | the same, looking sad, eyebrows drawn together, mouth turned down |
-| `party/Kaitlyn-portrait-angry.png` | the same, looking angry, frowning, cheeks a little red |
-| `party/Kaitlyn-portrait-concerned.png` | the same, looking worried and concerned |
-| `party/Kaitlyn-portrait-questioning.png` | the same, one eyebrow raised, puzzled and questioning |
-| `party/Kaitlyn-portrait-determined.png` | the same, determined, fist raised, a confident little smile |
-| `party/Kaitlyn-portrait-amazed.png` | the same, amazed, eyes wide and mouth open in wonder |
+Base prompt for each: "high quality pixel art, **<description>**, facing toward the left side of the
+screen. RPG enemy sprite, thin black outline, plain empty background, no shadow"
 
-## Collard Greens: Style **No style**, white background, Shape **Square**
+| Save as | Description | Lore |
+|---|---|---|
+| `enemies/Timber Wolf.png` | a grey timber wolf on all fours, snarling, hackles raised | Never alone. If you see one, count again. |
+| `enemies/Wild Turkey.png` | a wild turkey with its chest puffed out and tail fanned, looking smug | Thinks it's the apex predator. Is extremely loud about it. |
+| `enemies/Toadstool Sprite.png` | a little red-capped toadstool mushroom creature with stubby legs and a grumpy face | Mushrooms, mushrooms, crawlin' on your body. |
+| `enemies/Badger.png` | a badger, low to the ground and bristling, teeth bared | Doesn't care. About anything. Especially you. |
+| `enemies/Great Horned Owl.png` | a great horned owl in flight, wings spread, glaring | Asks 'who?' but already knows. It's you. |
+| `enemies/Bull Moose.png` | a huge bull moose with enormous antlers, head lowered, grumpy | Half a ton of bad mood on stilts. |
+| `enemies/Bigfoot.png` | Bigfoot, big and hairy, standing upright, shielding his face from a camera | Real. Known as "Meter" in Europe. |
 
-The only crop still drawn in code. Like the other crops (`crops/Baby squash.png`, `Mature squash.png`,
-`harvest Squash.png`): realistic studio photos on pure white.
+The owl flies (its walk and stance can be flying, like the wasp's). Bigfoot is a boss: a bit more
+detail is welcome, like the HOA President's 64-frame stance.
 
-| Save as | Description |
-|---|---|
-| `crops/Baby collard greens.png` | realistic studio product photo of a single young collard greens plant with a few broad smooth blue-green leaves on short stems, growing straight up, isolated on a pure white background, centered |
-| `crops/Mature collard greens.png` | realistic studio product photo of a single full-grown collard greens plant, a tall leafy cluster of big broad dark blue-green leaves with pale veins on a thick stalk, isolated on a pure white background, centered |
-| `crops/harvest Collard Greens.png` | realistic studio product photo of a fresh bunch of picked collard green leaves tied with twine, big broad dark green leaves with pale veins, isolated on a pure white background, centered |
+## The Deep Forest's drops: Assets, Ultra, style "painted", white background, folder "Items"
 
-## Drinks from the Tipsy Toad: Style **No style**, white background, Shape **Square**
-
-| Save as | Description |
-|---|---|
-| `shop items/Mug of Cider.png` | realistic studio product photo of a single thick glass mug of hot spiced apple cider, amber colored, with a cinnamon stick and a slice of apple, a little steam, isolated on a pure white background, centered |
-| `shop items/Hot Toddy.png` | realistic studio product photo of a single clear glass mug of hot toddy, golden tea with a slice of lemon, a cinnamon stick and a drizzle of honey, a little steam, isolated on a pure white background, centered |
-
-## The summit's rare flowers: Style **No style**, white background, Shape **Square**
-
-One blooms at the very top of Bramble Peak on some days, a different one each season. Until these
-arrive they show as a small drawn flower.
+Prompt for each: "**<description>**, realistic studio product photo, isolated on pure white
+background, centered". The rare ones marked *gear* can also be worn.
 
 | Save as | Description |
 |---|---|
-| `shop items/Alpine Lily.png` | realistic studio product photo of a single pink alpine lily flower with a short green stem and two leaves, delicate petals, isolated on a pure white background, centered |
-| `shop items/Edelweiss.png` | realistic studio product photo of a single edelweiss flower, woolly white star-shaped bracts with a yellow center, a short fuzzy stem, isolated on a pure white background, centered |
-| `shop items/Sunset Gentian.png` | realistic studio product photo of a single deep blue gentian flower, a trumpet-shaped bloom on a short green stem, isolated on a pure white background, centered |
-| `shop items/Frost Rose.png` | realistic studio product photo of a single pale icy blue rose with frost crystals on the edges of its petals, a short dark stem, isolated on a pure white background, centered |
+| `shop items/Wolf Fur.png` | a thick tuft of grey wolf fur with a few burrs caught in it |
+| `shop items/Silver Fang.png` | a single wolf fang with a gleaming silver shine (*gear*: Ivy's weapon) |
+| `shop items/Turkey Feather.png` | a single striped brown wild turkey tail feather |
+| `shop items/Golden Wishbone.png` | a gleaming golden wishbone (*gear*) |
+| `shop items/Puffball Spores.png` | a small round puffball mushroom releasing a little puff of brown spores |
+| `shop items/Morel.png` | a single morel mushroom with its honeycomb cap |
+| `shop items/Badger Bristles.png` | a small bundle of stiff black-and-white badger bristles tied with string |
+| `shop items/Claw Charm.png` | a curved badger claw hanging on a leather cord, like a necklace charm (*gear*) |
+| `shop items/Owl Feather.png` | a single soft speckled brown owl feather |
+| `shop items/Moonlit Feather.png` | a single pale silvery-blue feather that glows faintly with moonlight (*gear*) |
+| `shop items/Shed Antler.png` | a single shed moose antler, broad and flat with points |
+| `shop items/Velvet Antler.png` | a single young moose antler still covered in soft brown velvet |
+| `shop items/Plaster Footprint.png` | a plaster cast of an enormous hairy humanoid footprint |
+| `shop items/Blurry Photo.png` | an old blurry instant photo of a big hairy figure walking through a forest |
 
-## Blueberry seeds: Style **No style**, white background, Shape **Square**
+## Tituba's and Tex's gear: Assets, Ultra, style "painted", white background, folder "Items"
 
-A new seed packet, like the other crops' (`shop items/<Crop> seed`).
+Sold at Juniper's. Same prompt as the drops above.
 
 | Save as | Description |
 |---|---|
-| `shop items/Blueberry seed.png` | realistic studio product photo of a small paper seed packet with a painted picture of ripe blueberries on a branch, a little garden label, isolated on a pure white background, centered |
-
-## Optional: the rhythm game's frame and stamp (drawn in code for now)
-
-The game draws a carved wooden rail down each side and stamps the rating on at the end. If
-you'd like painted ones instead, these would go in their place.
-
-| Save as | Description |
-|---|---|
-| `rhythm/rail.png` | a single tall narrow carved wooden pillar for a game border, warm honey-brown wood with flowing grain, a carved groove down the middle and small brass studs, perfectly straight and vertical, the whole pillar visible from end to end, isolated on a pure white background |
-| `rhythm/stamp.png` | a single round rubber ink stamp mark, a bold empty circle with a double rim like a teacher's grading stamp, bright red ink with slightly uneven printed edges, nothing written inside, isolated on a pure white background, centered |
-
-## Ideas for Tituba and Tex (not in the game yet)
-
-The gear itself isn't in the game yet; prompts can come when it is.
-
-- **Tituba** (Siamese cat, claw attacks): weapon *Silver Claw Tips* (+Strength, more critical hits);
-  clothes *Velvet Ribbon* (+Agility); accessories *Catnip Sachet* (Focus charges her up faster) and
-  *Moonstone Collar* (+Luck, a chance to dodge).
-- **Tex** (old tortoise, the tank): weapon *Old Oak Cane* (+Strength, covering allies costs less);
-  clothes *Mossy Shell Cover* (+Defense, +HP); accessories *Sun-Warmed Stone* (mends a little HP
-  each turn) and *Shell Polish* (+Defense, takes less from hits while covering).
+| `shop items/Silver Claw Tips.png` | a set of five tiny shiny silver caps for a cat's claws, laid out in a row |
+| `shop items/Velvet Ribbon.png` | a soft deep blue velvet ribbon tied in a bow |
+| `shop items/Catnip Sachet.png` | a small cloth sachet of dried catnip tied with a string, a few green leaves peeking out |
+| `shop items/Moonstone Collar.png` | a slim cat collar with a glowing milky-blue moonstone pendant |
+| `shop items/Discarded Dentures.png` | an old pair of false teeth dentures, slightly worn |
+| `shop items/Mossy Shell Cover.png` | a cozy round cover of green moss and little leaves, shaped to fit a tortoise's shell |
+| `shop items/Sun-Warmed Stone.png` | a smooth flat river stone glowing warm orange as if heated by the sun |
+| `shop items/Shell Polish.png` | a small tin of shell polish with a cloth, a tortoise on the label |
 
 ## Optional: more
 
 - More garden wildlife (`creatures/<Name>-spritesheet.png`, like the bluebird and monarch: frames in a
   grid of 256 px cells, facing right): a bumblebee, a dragonfly or a hummingbird would join in on their own.
+- The Deep Forest itself: a painted map (with `maps/forest_<season>_collision`, `_transitions` and a
+  front layer if trees should stand in front of Kaitlyn) and battle backdrops `backdrops/forest_<season>`.
