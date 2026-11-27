@@ -113,9 +113,10 @@ function startBattle(pest,kinds,quiet){
   /* one more for each extra member, most of the time; a full party of five meets 1-5
      (FULL_PARTY_FOES) */
   if(!kinds){ kinds=[pest.species];
+    const pk=PESTS[pest.species].pack; if(pk) for(let i=ri(pk[0],pk[1]);i>0;i--) kinds.push(pest.species);   /* (a pack comes together) */
     const more=boss?0:party.length===5?pickWeighted(FULL_PARTY_FOES).n-1
       :Array.from({length:party.length-1}).filter(()=>Math.random()<EXTRA_FOE).length;
-    for(let i=0;i<more;i++){ const pool=pestPool(); kinds.push(pool[ri(0,pool.length-1)]); } }
+    for(let i=0;i<more&&kinds.length<5;i++){ const pool=pestPool(); kinds.push(pool[ri(0,pool.length-1)]); } }
   const D=diff();                      /* the Settings tab's difficulty */
   const foes=kinds.map((sp,i)=>{ const lv=i?pestLevel(sp):(pest.lv||PESTS[sp].lv), S=pestStats(sp,lv);
     const champ=i?rollChamp(sp):!!pest.champ;           /* (the one she walked into was grumpy on the map too) */
@@ -137,7 +138,7 @@ function startBattle(pest,kinds,quiet){
      regen:{},                       /* members mending each turn: {n turns left, share of max HP} */
      st:{},                          /* members' troubles: st[id][status]=turns left */
      order:[], turn:'busy', tgt:null, inspect:null, prep:null, banner:null, lastFoe:foes[0],
-     log:boss?"The HOA President demands a word!":foes.length===1?"A "+foes[0].name+" blocks your path!"
+     log:boss?PESTS[pest.species].intro:foes.length===1?"A "+foes[0].name+" blocks your path!"
         :foes.length===2?listAnd(foes.map(f=>f.name))+" block your path!":"A party of pests blocks your path!",
      stolen:[],                      /* what Tituba has snitched this fight */
      wane:null,                      /* the troubles to count down when the next one acts (see wane) */
@@ -417,7 +418,7 @@ function drawThorns(dt){
    a sleeper, arrows sink past the weakened, sweat flies off the scared, ink puffs over the
    blinded, vines cinch round the bound. Then the usual marker shows. The sound is a
    recording, sfx/trouble <kind>.wav, once there is one; until then a little made-up one. */
-const TROUBLE_MS={poison:1100,venom:1100,sleep:1400,weak:1000,scared:900,blind:1000,bound:900};
+const TROUBLE_MS={poison:1100,venom:1100,sleep:1400,weak:1000,scared:900,blind:1000,bound:900,hush:1000};
 function troubleFx(who,kind){
   if(!B||!TROUBLE_MS[kind]) return;
   const r=typeof who==='object'?foeBox(who):(()=>{ const s=slotOf(who), top=headOf(who); return {x:s.x-18*s.s,y:top-4,w:36*s.s,h:s.y-top+4}; })();
@@ -440,6 +441,9 @@ function troubleSound(kind){
     nz.buffer=noiseBuf; f.type='lowpass'; f.frequency.setValueAtTime(2400,t); f.frequency.exponentialRampToValueAtTime(300,t+0.35);
     g.gain.setValueAtTime(0.25,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.4); nz.connect(f); f.connect(g); g.connect(sfxGain); nz.start(t); nz.stop(t+0.42); }
   else if(kind==='bound'){ tone('sawtooth',150,110,0,0.18,0.08,[18,10]); tone('sawtooth',130,95,0.2,0.2,0.08,[18,10]); }   /* creak, creak */
+  else if(kind==='hush'){ const nz=AC.createBufferSource(), f=AC.createBiquadFilter(), g=AC.createGain();   /* shhh */
+    nz.buffer=noiseBuf; f.type='highpass'; f.frequency.value=3200; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.16,t+0.08);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.48); nz.connect(f); f.connect(g); g.connect(sfxGain); nz.start(t); nz.stop(t+0.5); }
 }
 function drawTroubles(dt){
   const L=B.tfx; if(!L||!L.length) return;
@@ -479,6 +483,11 @@ function drawTroubles(dt){
       for(let i=0;i<6;i++){ const q=clamp(T.t/700,0,1), a=i*1.05+T.seed, rr=(4+q*12)*(0.7+0.3*Math.sin(i*2.3));
         b.globalAlpha=0.55*fade*(1-q*0.5); b.fillStyle=i%2?'#2a2438':'#3e3850';
         b.beginPath(); b.arc(cx+Math.cos(a)*q*10,y+h*0.2+Math.sin(a)*q*6,rr,0,TAU); b.fill(); }
+    } else if(T.kind==='hush'){
+      /* a music note over the head, struck through in red */
+      const q=clamp(T.t/250,0,1), nx=cx, ny=y-6-q*6;
+      noteGlyph(b,Math.round(nx),Math.round(ny),'#f4f6ff',fade);
+      glowPath([[nx-9,ny+7],[nx+9,ny-9]],'#ff5040',2.4,fade*clamp((T.t-180)/150,0,1));
     } else if(T.kind==='bound'){
       /* two vine loops tighten round them */
       for(let i=0;i<2;i++){ const q=easeOut(T.t/450), rx=(w*0.75-q*w*0.25), ry=6+i*2, yy=y+h*(0.45+i*0.22), P=[];
@@ -668,7 +677,7 @@ function foeStatus(f,s,dmg){ if(s==='venom') f.st.venom={n:STATUS.venom.turns,dm
 const venomDmg=id=>Math.round(2+statOf(id,'int')*0.5);
 /* Blind and Weak count down once the turn they hampered is over (B.wane: whose they are),
    so they last all their turns */
-function wane(S){ ['blind','weak'].forEach(k=>{ if(S[k]>0) S[k]--; }); }
+function wane(S){ ['blind','weak','hush'].forEach(k=>{ if(S[k]>0) S[k]--; }); }
 /* who got which trouble, for the log: {"Poisoned":[foes], ...} -> "  Poisoned: Paper Wasp." */
 /* (troubles now show as a look and a sound, troubleFx, rather than words) */
 function gotLog(by){ return ""; }
@@ -836,7 +845,7 @@ function cmdName(c,id){
   return {attack:"Attack",skills:PARTY_INFO[id].skills,meditate:"Meditate",focus:"Focus",items:"Items",flee:"Flee"}[c];
 }
 function cmdUsable(c,id){
-  if(c==='skills') return skillList(id).length>0;
+  if(c==='skills') return skillList(id).length>0&&!has(id,'hush');
   if(c==='items') return battleFood().length>0;
   if(c==='flee') return !B.boss;
   return true;
@@ -848,12 +857,12 @@ function cmdInfo(c,id){
                         :I.tweet?[I.attack,"Free · heals everyone "+Math.round(I.tweet*100)+"% of their max HP"]
                         :I.venom?[I.attack,"Free · always gives Venom · may finish the foe"]
                         :[I.attack,"Free · power from Strength"+(I.crit?" · sharp: more critical hits":"")];
-  if(c==='skills') return skillList(id).length?[I.skills,id==='kaitlyn'?"Flute songs (♪) and moves":I.tweet?"Songs (♪) and pecks · uses MP":"Use a skill · uses MP"]
+  if(c==='skills') return has(id,'hush')?[I.skills,"Hushed! No songs or skills for now"]:skillList(id).length?[I.skills,id==='kaitlyn'?"Flute songs (♪) and moves":I.tweet?"Songs (♪) and pecks · uses MP":"Use a skill · uses MP"]
                                               :[I.skills,"None learned yet"];
   if(c==='meditate') return ["Meditate","Half damage till your turn · 5–10% HP/MP back"];
   if(c==='focus') return ["Focus","Half damage till your turn · next hit doubled"];
   if(c==='items') return battleFood().length?["Items","Eat something from your basket"]:["Items","No healing food in your basket"];
-  return B.boss?["Flee","You can't run from the HOA President!"]
+  return B.boss?["Flee","You can't run from "+(B.foes.find(f=>f.boss)||{}).name+"!"]
                :["Flee","Run back to the garden · "+Math.round(fleeChance()*100)+"% chance"];
 }
 function subInfo(x){
@@ -1008,7 +1017,7 @@ function useSub(x){
 /* Flee: tried at once, for everyone. If it fails the party loses the round (the pests
    still get theirs). */
 function tryFlee(){
-  if(B.boss){ B.log="The HOA President blocks the gate!"; sfx('cant_do_that'); return; }
+  if(B.boss){ B.log=PESTS[B.pest.species].noFlee; sfx('cant_do_that'); return; }
   B.turn='busy';
   if(Math.random()<fleeChance()){ B.over='flee'; B.log="You slipped away."; return; }
   B.plan={}; B.skipParty=true; startActions(); B.log="Couldn't get away!";
@@ -1029,7 +1038,8 @@ function hitFoe(f,dmg,label){
 }
 /* Blind members miss half their attacks */
 function missed(id){ if(has(id,'blind')&&Math.random()<0.5){ B.log=PARTY_INFO[id].name+" misses!"; return true; } return false; }
-const weakMul=id=>has(id,'weak')?0.6:1;
+/* how hard a member hits: Weak takes 40% off; the Moonlit Feather adds 25% at night */
+const weakMul=id=>(has(id,'weak')?0.6:1)*(wears(id,'moonfeather')&&isNight()?1.25:1);
 const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(wears('kaitlyn','kickers')?1.6:1);
 /* Kaitlyn's kicks: the battle row (battle.png) plays, the hit lands partway through */
 /* Focus: a member's next hit (every hit of that one move) is twice as hard; this uses it up */
@@ -1514,7 +1524,7 @@ function foeTurn(f){
   if(F.sleep>0){ F.sleep--; B.log="The "+f.name+" is asleep."; setTimeout(nextActor,1400); return; }
   if(F.scared>0){ F.scared--; if(Math.random()<0.5){ B.log="The "+f.name+" is too scared to move!"; setTimeout(nextActor,1400); return; } }
   /* badly hurt (FURY_AT of its HP; half for a boss), it gets furious, once: hits harder from now on */
-  if(!f.mad&&f.hp<f.maxhp*(f.boss?0.5:FURY_AT)){ f.mad=true; f.atk*=FURY_ATK;
+  if(!f.mad&&f.hp<f.maxhp*(f.boss?0.5:P.furyAt||FURY_AT)){ f.mad=true; f.atk*=FURY_ATK;
     pop("Furious!",EX,EY-34,'#ff7a50'); burst(EX,EY,'#ff7050',10,0.12); }
   const charged=F.charge; F.charge=0;
   /* a charged-up pest always lets loose with its strongest hit */
@@ -1542,7 +1552,7 @@ function foeTurn(f){
 const FURY_AT=0.3, FURY_ATK=1.25;
 function pickFoeSkill(f){
   const P=PESTS[f.sp], r=f.hp/f.maxhp;
-  const w=P.skills.map(s=>s.kind==='heal'?(r>0.7?0:r<0.35?s.w*4:s.w):s.kind==='guard'&&r<0.35?s.w*2:s.w);
+  const w=P.skills.map(s=>s.kind==='heal'||s.kind==='hide'?(r>0.7?0:r<0.35?s.w*4:s.w):s.kind==='guard'&&r<0.35?s.w*2:s.w);
   let t=w.reduce((a,v)=>a+v,0)*Math.random();
   for(let i=0;i<w.length;i++){ t-=w[i]; if(t<=0&&w[i]>0) return P.skills[i]; }
   return P.skills[0];
@@ -1558,13 +1568,14 @@ function pickWeighted(list){ let t=list.reduce((a,s)=>a+s.w,0)*Math.random();
 function foeHits(f,sk,targets,charged,cover){
   if(!B||B.over) return;
   const F=f.st; focus(f);
-  if(FX2&&(sk.kind==='guard'||sk.kind==='charge'||sk.kind==='heal')){ const r=foeBox(f), cx=r.x+r.w/2, cy=r.y+r.h*0.6;
+  if(FX2&&(sk.kind==='guard'||sk.kind==='charge'||sk.kind==='heal'||sk.kind==='hide')){ const r=foeBox(f), cx=r.x+r.w/2, cy=r.y+r.h*0.6;
     if(sk.kind==='guard') glow({x:cx,y:cy,ring:true,r0:r.w*0.7,r1:r.w*0.45,w:3,life:600,col:'#9ad4ff'});
     else for(let i=0;i<12;i++) glow({x:cx+rnd(-r.w/2,r.w/2),y:r.y+r.h-rnd(0,8),vy:-rnd(0.03,0.07),size:rnd(2.5,4),life:rnd(600,900),
       col:sk.kind==='charge'?(i%2?'#ff7050':'#ffc070'):(i%2?'#8fe07a':'#e8ffd8'),fin:true}); }
   if(sk.kind==='guard'){ F.guard=1; B.log="The "+f.name+" is guarding."; return; }
   if(sk.kind==='charge'){ F.charge=1; B.log="The "+f.name+" is powering up!"; return; }
-  if(sk.kind==='heal'){ const h=Math.round(f.maxhp*sk.heal); f.hp=Math.min(f.maxhp,f.hp+h);
+  if(sk.kind==='hide'){ F.guard=1; }                 /* (Camera Shy: braces as it heals) */
+  if(sk.kind==='heal'||sk.kind==='hide'){ const h=Math.round(f.maxhp*sk.heal); f.hp=Math.min(f.maxhp,f.hp+h);
     pop("+"+h,EX,EY-10,'#8fe07a'); B.log=""; return; }
   if(sk.kind==='steal'){
     const id=targets[0], luck=statOf(id,'luk');
@@ -1585,7 +1596,8 @@ function foeHits(f,sk,targets,charged,cover){
       if(!lines.includes("Nothing gets through!")) lines.push("Nothing gets through!"); }
     else if(sk.pow>0){
       const braced=B.guard[id];         /* braced: half damage until their next turn (a quarter in a shell) */
-      const raw=f.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*(B.shell[id]?0.25:braced?0.5:1);
+      const pack=1+(PESTS[f.sp].packBonus||0)*B.foes.filter(g=>g!==f&&g.sp===f.sp&&g.hp>0).length;   /* (packmates standing) */
+      const raw=f.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*pack*(B.shell[id]?0.25:braced?0.5:1);
       const dmg=soften(raw,statOf(id,'def'));
       M.hp=Math.max(0,M.hp-dmg); pepFill(id,dmg);
       /* a hit may wake you, as it may a pest */
@@ -1633,7 +1645,7 @@ function winRewards(){
   const drops=B.stolen.slice();            /* what Tituba snitched is already in the basket */
   B.foes.forEach(f=>{ const D=PEST_DROPS[f.sp]; if(!D) return;
     const k=Math.random()<RARE_P*(f.champ?CHAMP_RARE:1)?D[1]:f.champ||Math.random()<DROP_P?D[0]:null;
-    if(k){ G.goods[k]=(G.goods[k]||0)+1; drops.push(k); } });
+    if(k){ if(EQUIP[k]&&!G.gear[k]) G.gear[k]=1; else G.goods[k]=(G.goods[k]||0)+1; drops.push(k); } });   /* (gear: the first one found is kept to wear) */
   B.win={xp,coins,bonus,seed,from,who:up,t:0,drops,tick:0};
   G.coins+=coins; if(seed) G.seeds[seed]=(G.seeds[seed]||0)+1;
   G.pests=G.pests.filter(p=>p!==B.pest); G.mtnPests=G.mtnPests.filter(p=>p!==B.pest);
@@ -1659,7 +1671,7 @@ function xpShown(id){
 }
 function endBattle(){
   if(B.over==='win'){ const w=B.win;      /* rewards were given when the fight was won */
-    say((B.boss?"The HOA President retreats! ":"Won!  ")+"+"+w.coins+"c"+(w.bonus?" (lucky!)":"")+"  +"+w.xp+"xp"+(w.seed?"  + a seed":"")); }
+    say((B.boss?PESTS[B.pest.species].outro:"Won!  ")+"+"+w.coins+"c"+(w.bonus?" (lucky!)":"")+"  +"+w.xp+"xp"+(w.seed?"  + a seed":"")); }
   else if(B.over==='lose'){
     G.player.hp=Math.max(4,Math.floor(G.player.maxhp*0.4));
     G.pests=G.pests.filter(p=>p!==B.pest); G.mtnPests=G.mtnPests.filter(p=>p!==B.pest); G.player.x=338; G.player.y=396; G.indoors=false; G.area='garden';

@@ -153,7 +153,49 @@ const PESTS={
     {name:"Maul",kind:'hit',pow:1.7,w:1,fx:'bite'},
     {name:"Roar",kind:'all',pow:0.4,w:1,st:'scared',p:0.5,fx:'megaphone'},
     {name:"Honey Break",kind:'heal',heal:0.2,w:1,fx:'snack'}]},
-  hoa    :{name:"HOA President",hp:380,atk:26,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,size:1.4,lv:12,
+  /* the Deep Forest's own (where:'forest'), past the mountain: Lv.11-16. pack: [min, max] more of
+     its kind come with it; packBonus: each packmate still standing makes its hits that much harder;
+     furyAt: the share of HP it gets furious at (FURY_AT otherwise); intro/noFlee/outro: a boss's lines */
+  wolf   :{name:"Timber Wolf",  hp:116,atk:21,def:6, agi:13, xp:70, coin:24,min:1, col:'#7a7a80',lv:11,where:'forest',pack:[1,2],packBonus:0.15,
+          about:"Never alone. If you see one, count again.",skills:[
+    {name:"Bite",kind:'hit',pow:1,w:3,fx:'bite'},
+    {name:"Pack Howl",kind:'charge',w:1,fx:'megaphone'},
+    {name:"Lunge",kind:'hit',pow:1.5,w:1,fx:'bite'}]},
+  turkey :{name:"Wild Turkey",  hp:109,atk:20,def:5, agi:18, xp:68, coin:22,min:1, col:'#8a5a3a',lv:11,where:'forest',
+          about:"Thinks it's the apex predator. Is extremely loud about it.",skills:[
+    {name:"Peck",kind:'hit',pow:1,w:3,fx:'peck'},
+    {name:"Peck Peck Peck",kind:'multi',pow:0.5,hits:3,w:2,fx:'peck'},
+    {name:"Gobble",kind:'all',pow:0.3,w:1,st:'scared',p:0.3,fx:'megaphone'},
+    {name:"Strut",kind:'guard',w:1,fx:'shell'}]},
+  toadstool:{name:"Toadstool Sprite",hp:132,atk:21,def:7,agi:6,xp:76, coin:26,min:1, col:'#d04a3a',lv:12,where:'forest',
+          about:"Mushrooms, mushrooms, crawlin' on your body.",skills:[
+    {name:"Puff",kind:'hit',pow:0.8,w:3,st:'sleep',p:0.3,fx:'gloom'},
+    {name:"Spore Cloud",kind:'all',pow:0.5,w:2,st:'poison',p:0.5,fx:'gloom'},
+    {name:"Soak Up Rain",kind:'heal',heal:0.2,w:1,fx:'snack'}]},
+  badger :{name:"Badger",       hp:162,atk:26,def:10,agi:9,  xp:85, coin:30,min:1, col:'#5a5a5a',lv:12,where:'forest',furyAt:0.5,
+          about:"Doesn't care. About anything. Especially you.",skills:[
+    {name:"Claw",kind:'hit',pow:1.1,w:3,fx:'claw'},
+    {name:"Frenzy",kind:'multi',pow:0.6,hits:3,w:2,fx:'claw'},
+    {name:"Dig In",kind:'guard',w:1,fx:'shell'}]},
+  owl    :{name:"Great Horned Owl",hp:134,atk:28,def:5,agi:14,xp:90, coin:32,min:1, col:'#8a6a4a',lv:13,where:'forest',night:true,fly:true,
+          about:"Asks 'who?' but already knows. It's you.",skills:[
+    {name:"Silent Swoop",kind:'hit',pow:1.3,w:3,fx:'dive'},
+    {name:"Glare",kind:'hit',pow:0.6,w:2,st:'blind',p:0.5,fx:'caw'},
+    {name:"Hoot",kind:'all',pow:0.3,w:1,st:'hush',p:0.4,fx:'caw'}]},
+  moose  :{name:"Bull Moose",   hp:252,atk:32,def:12,agi:7,  xp:120,coin:45,min:1, col:'#5a3a2a',lv:14,where:'forest',
+          about:"Half a ton of bad mood on stilts.",skills:[
+    {name:"Hoof",kind:'hit',pow:1,w:3,fx:'kick'},
+    {name:"Antler Charge",kind:'hit',pow:1.4,w:2,st:'bound',p:0.3,fx:'zoom'},
+    {name:"Stomp",kind:'all',pow:0.6,w:2,st:'weak',p:0.3,fx:'bash'},
+    {name:"Bellow",kind:'charge',w:1,fx:'megaphone'}]},
+  bigfoot:{name:"Bigfoot",      hp:605,atk:42,def:10,agi:9,  xp:400,coin:150,min:1,col:'#6a4a30',lv:16,where:'forest',boss:true,size:1.5,
+          intro:"Bigfoot crashes out of the trees!",noFlee:"Bigfoot blocks the trail!",outro:"Bigfoot vanishes into the trees! ",
+          about:"Real. Known as \"Meter\" in Europe.",skills:[
+    {name:"Big Slap",kind:'hit',pow:1,w:3,fx:'bash'},
+    {name:"Boulder Toss",kind:'hit',pow:1.5,w:2,fx:'bash'},
+    {name:"Ground Pound",kind:'all',pow:0.8,w:2,st:'weak',p:0.4,fx:'bash'},
+    {name:"Camera Shy",kind:'hide',heal:0.15,w:1,fx:'fade'}]},
+  hoa    :{name:"HOA President",intro:"The HOA President demands a word!",noFlee:"The HOA President blocks the gate!",outro:"The HOA President retreats! ",hp:380,atk:26,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,size:1.4,lv:12,
           about:"Clipboard in hand and a bylaw for everything. Even your gnomes.",skills:[
     {name:"Citation",kind:'hit',pow:1.2,w:3,fx:'paper'},
     {name:"Noise Complaint",kind:'all',pow:0.8,w:2,fx:'megaphone'},
@@ -186,11 +228,13 @@ const CHAMP_P=0.06, CHAMP={hp:1.8,atk:1.3,def:1.2,reward:2.5}, CHAMP_RARE=4;
 const rollChamp=sp=>!PESTS[sp].boss&&Math.random()<CHAMP_P;
 /* what each pest may leave behind when it's beaten: [ordinary, rare] (GOODS keys), and
    the chances of each */
-const PEST_DROPS={beetle:['dungball','irishell'],wasp:['paperscrap','royaljelly'],rat:['button','lostring'],saddleback:['bristle','cocoon'],seagull:['gullfeather','stolenfry'],ghost:['ecto','locket'],crab:['shellshard','pearl'],crow:['blackfeather','spoon'],raccoon:['trinket','mask'],woo:['chewball','collar'],vghost:['wisp','ribbon'],goat:['goathair','bell'],boar:['tusk','truffle'],bear:['bearfur','honeycomb'],hoa:['citation','gavel']};
+const PEST_DROPS={wolf:['wolffur','silverfang'],turkey:['turkeyfeather','wishbone'],toadstool:['puffball','morel'],badger:['badgerbristle','clawcharm'],
+  owl:['owlfeather','moonfeather'],moose:['shedantler','velvetantler'],bigfoot:['footprint','blurryphoto'],beetle:['dungball','irishell'],wasp:['paperscrap','royaljelly'],rat:['button','lostring'],saddleback:['bristle','cocoon'],seagull:['gullfeather','stolenfry'],ghost:['ecto','locket'],crab:['shellshard','pearl'],crow:['blackfeather','spoon'],raccoon:['trinket','mask'],woo:['chewball','collar'],vghost:['wisp','ribbon'],goat:['goathair','bell'],boar:['tusk','truffle'],bear:['bearfur','honeycomb'],hoa:['citation','gavel']};
 const DROP_P=0.45, RARE_P=0.06;
 /* the troubles anyone can be in, with how long they last (turns) and a tag colour */
 const STATUS={poison:{name:"Poison",tag:"PSN",col:'#a05ad8',turns:3}, blind:{name:"Blind",tag:"BLD",col:'#5a5a6a',turns:3},
   sleep:{name:"Asleep",tag:"SLP",col:'#5a8ad8',turns:2}, weak:{name:"Weak",tag:"WK",col:'#d88a3a',turns:3},
+  hush:{name:"Hushed",tag:"HSH",col:'#8a9ab0',turns:2},      /* no songs or skills (the owl's Hoot) */
   scared:{name:"Scared",tag:"SCR",col:'#6a4aa8',turns:2}, bound:{name:"Bound",tag:"BND",col:'#8a6a3a',turns:1},
   /* Ivy's venom: only pests get it (a fixed amount each turn, from her Intelligence) */
   venom:{name:"Venom",tag:"VNM",col:'#2f7a3a',turns:3}};
@@ -233,6 +277,11 @@ const EQUIP={
   bell:    {name:"Silver Bell",    slot:'acc',who:['tiny'],cost:520,desc:"Tiny One's Tweet and healing songs heal 20% more.",own:()=>!!G.gear.bell},
   scarf:   {name:"Downy Scarf",    slot:'acc',cost:400,desc:"+10 max HP.",own:()=>!!G.gear.scarf,stats:{hp:10}},
   clover:  {name:"Four-Leaf Clover",slot:'acc',cost:300,desc:"+4 Luck.",own:()=>!!G.gear.clover,stats:{luk:4}},
+  /* found, not bought: rare drops in the Deep Forest (the first one found is kept to wear) */
+  silverfang:{name:"Silver Fang",  slot:'weapon',who:['ivy'],desc:"A wolf's silver fang, fitted for Ivy. +7 Strength, +3 Luck.",own:()=>!!G.gear.silverfang,stats:{str:7,luk:3}},
+  clawcharm:{name:"Claw Charm",    slot:'acc',desc:"A badger's claw on a cord. +5 Strength.",own:()=>!!G.gear.clawcharm,stats:{str:5}},
+  wishbone:{name:"Golden Wishbone",slot:'acc',desc:"Make a wish. +12 Luck.",own:()=>!!G.gear.wishbone,stats:{luk:12}},
+  moonfeather:{name:"Moonlit Feather",slot:'acc',desc:"Hits 25% harder at night.",own:()=>!!G.gear.moonfeather},
 };
 /* is member id wearing key? what does their equipment add to stat k? */
 const wears=(id,key)=>EQUIP_SLOTS.some(([s])=>(G.equip[id]||{})[s]===key);
