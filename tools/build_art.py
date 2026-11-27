@@ -67,7 +67,7 @@ CROP_HOLE = 40
 DECOR = {'fountain': ('frog fountain', 168), 'bath': ('bird bath', 162),
          'arch': ('flower arch', 300), 'lantern': ('stone lantern', 186)}
 # Creatures that flutter around the garden: width of one frame in device px.
-CREATURE_W = {'bluebird': 66, 'monarch': 48, 'music note': 39, 'earthworm': 48}
+CREATURE_W = {'bluebird': 66, 'monarch': 48, 'music note': 39, 'earthworm': 48, 'bumblebee': 34, 'hummingbird': 46}
 # creatures that stay on the ground instead of flying across the garden (garden effects)
 GROUND_CREATURES = {'earthworm'}
 CREATURE_CELL = 256
@@ -83,11 +83,12 @@ SHOP_PHOTOS = {n: (7.0, 26) for n in ('dung ball', 'iridescent shell', 'royal je
     'truffle', 'bear fur', 'honeycomb', 'gavel')}
 SHOP_PHOTOS.update({'silk cocoon': (2.0, 6), 'pearl': (2.0, 6), 'goat hair': (2.0, 6), 'gull feather': (1.2, 8),
                     'paper scrap': (1.2, 8), 'citation': (0.5, 12), 'edelweiss': (2.0, 6), 'frost rose': (2.0, 6),
-                    'collard greens seed': (2.0, 6)})
+                    'collard greens seed': (2.0, 6),
+                    'silver fang': (2.0, 6), 'plaster footprint': (2.0, 6), 'moonlit feather': (2.0, 6)})
 # Shop pictures with a pale painted shadow under them (the game draws its own): below this
 # share of the picture's height, pale greyish beige is cleared.
 SHOP_FLOOR = {'music stand': 0.65}
-SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'seed apron': 2000}
+SHOP_HOLES = {'harvest basket': 2000, 'coffee': 2000, 'watering can': 2000, 'seed apron': 2000, 'moonstone collar': 2000}
 # Party members in battle, sized on their first ready frame, in sheet px (the game draws
 # these at 2 device px each): Kaitlyn as tall as her pose.png battle stance (189 px),
 # Ivy and Tex by their length.

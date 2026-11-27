@@ -67,7 +67,9 @@ const WILD=[];
    swoops (bird) or flutters (butterfly). New kinds in the sheet join in automatically. */
 const IMG_CREATURES=new Image(); IMG_CREATURES.src=ASSET_CREATURES;
 const CREATURE_KIND={bluebird:{weight:1,speed:0.08,cycle:620,bird:true},
-                     monarch:{weight:2,speed:0.033,cycle:900}};
+                     monarch:{weight:2,speed:0.033,cycle:900},
+                     bumblebee:{weight:2,speed:0.028,cycle:260},          /* a slow, buzzing drift */
+                     hummingbird:{weight:1,speed:0.1,cycle:220,bird:true}};  /* quick, wings a blur */
 const creatureKind=k=>CREATURE_KIND[k]||{weight:1,speed:0.04,cycle:800};
 function spawnWild(){
   const kinds=Object.keys(typeof CREATURE_ART!=='undefined'?CREATURE_ART:{});
