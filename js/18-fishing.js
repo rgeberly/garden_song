@@ -410,6 +410,7 @@ function drawFishing(dt){
   const T0=BAND_TOP(), T1=BAND_BOT(), im=fishImg();
   if(im){ const P=fishPic(); b.save(); b.imageSmoothingEnabled=true; b.drawImage(im,P.x,P.y,P.w,P.h); b.restore(); }
   else { b.fillStyle='#000'; b.fillRect(0,T0,LW,T1-T0); }                     /* (still loading) */
+  if(im&&HD()) hdSoften(T0,T1-T0,{top:1,bot:0});           /* the HD look: the far shore soft, the water's shine glowing */
   /* where the line meets the water: far away at first, closer as it's reeled, and
      wherever the fish has taken it across */
   const W=waterPt(lineNear(),FS.side);
@@ -463,6 +464,7 @@ function drawFishing(dt){
     b.globalAlpha=1;
   }
   tintBand(b,T0,T1);                       /* the hour's light, as in the garden (under the gauges) */
+  if(HD()){ hdLight(dt,1,T0,T1); hdVignette(T0,T1); }     /* the HD look's light, motes and vignette */
   /* tension (left) and distance (top) gauges */
   if(FS.phase==='reel'){
     drawLineMeter(LINE_METER.x,LINE_METER.y,LINE_METER.h);

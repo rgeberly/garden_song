@@ -178,6 +178,7 @@ function drawHouse(){
   ents.push(...friendHouseEnts(k,cam));
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   const fr=frontImg('house'); if(fr) b.drawImage(fr,0,cam.top-cam.y*k,LW,HOUSE.h*k);   /* what she walks behind */
+  hdField(true,0,cam.y*k-cam.top);                     /* the HD look (Settings > Graphics) */
   b.restore();
   drawClockBack(); drawBuffsBack();
   blit();

@@ -309,6 +309,7 @@ function drawWorld(){
   sun.addColorStop(1,'rgba(30,50,25,0.10)');
   b.globalAlpha=day; b.fillStyle=sun; b.fillRect(0,0,LW,VIEW_H); b.globalAlpha=1;
   tintView(b);
+  hdField(false,cam.x*WORLD_ZOOM,cam.y*WORLD_ZOOM);   /* the HD look (Settings > Graphics) */
   b.restore();
   drawClockBack(); drawBuffsBack();
   blit();

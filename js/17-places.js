@@ -532,6 +532,7 @@ function drawPlace(){
     if(personMarked(p)) drawMarker(b,p.x-cam.x,ny-8); });
   b.restore();
   if(!P.room) tintView(b);                    /* lamps are lit indoors */
+  hdField(!!P.room,cam.x*WORLD_ZOOM,cam.y*WORLD_ZOOM);   /* the HD look (Settings > Graphics) */
   b.restore();
   drawClockBack(); drawBuffsBack();
   blit();

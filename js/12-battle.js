@@ -1582,7 +1582,7 @@ function pickFoeSkill(f){
 /* who it goes for: often (FOCUS_WEAK) whoever is worst off, otherwise anyone */
 const FOCUS_WEAK=0.4, DENTURE_DRAW=0.35;
 function pickFoeTarget(live){
-  const bait=live.find(id=>wears(id,'dentures'));                      /* (Tex's Discarded Dentures draw them) */
+  const bait=live.find(id=>wears(id,'dentures'));                      /* (Tex's Wooden Dentures draw them) */
   if(bait&&Math.random()<DENTURE_DRAW) return bait;
   if(Math.random()<FOCUS_WEAK){ const r=id=>member(id).hp/member(id).maxhp, low=Math.min(...live.map(r));
     const worst=live.filter(id=>r(id)<=low+0.001); return worst[ri(0,worst.length-1)]; }   /* (any of those tied for worst off) */
