@@ -439,10 +439,14 @@ const M_HOA={O:'#2b1c12',v:'#2f6fc4',h:'#6b4a2a',F:'#f2cd9e',s:'#1a1410',
 /* a pest out in the garden: its battle picture, small, with a little bob (ghosts float) */
 /* a pest on the garden map; flip: facing right (the art faces left) */
 /* ph: its own phase, so each one bobs in its own steady rhythm */
+/* flyers that walk on the ground on the map (still flying in battle): the seagull hops around after food */
+const MAP_WALKERS=['seagull'];
 function drawPestWorld(c,sp,x,y,t,flip,ph,moving){
-  /* (one with animations walks while it moves, and stands in its battle stance while it stops to chew, instead of bobbing) */
-  const walk=enemyAnim(sp,'walk'), pose=walk?{kind:moving===false?'stance':'walk',t:t+(ph||0)*1000}:null;
-  const P=PESTS[sp], bob=walk?0:Math.abs(Math.sin(t/180+(ph||0)))*(P.fly?3:1.5), lift=P.fly?8:0, s=P.boss?0.72:0.36;
+  /* (one with animations walks while it moves, and stands in its battle stance while it stops to chew, instead of bobbing;
+     a flyer that walks on the map, the seagull, stands still on its first walking frame instead, on the ground) */
+  const P=PESTS[sp], onFoot=MAP_WALKERS.includes(sp), walk=enemyAnim(sp,'walk');
+  const pose=walk?(moving===false?(onFoot?{kind:'walk',f:0}:{kind:'stance',t:t+(ph||0)*1000}):{kind:'walk',t:t+(ph||0)*1000}):null;
+  const fly=P.fly&&!onFoot, bob=walk?0:Math.abs(Math.sin(t/180+(ph||0)))*(fly?3:1.5), lift=fly?8:0, s=P.boss?0.72:0.36;
   /* its shadow: cast along the ground, or for a flyer a soft patch below it */
   groundShadow(c,cc=>{ if(flip) cc.scale(-1,1); drawEnemyArt(cc,sp,0,0,s,pose); },x,y,P.boss?20:9,lift);
   c.globalAlpha=P.night?.85:1;

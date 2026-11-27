@@ -116,12 +116,12 @@ HATCH_H = 90            # an egg hatching: the egg's height in sheet px
 # whose middle is below this share of the picture's height, at least this big (px).
 ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200), 'goat': (0.0, 1500), 'boar': (0.5, 2000), 'bear': (0.5, 2000)}
 # Enemy pictures with a transparency checkerboard painted in (no real transparency)
-ENEMY_CHECKERED = {'hoa president'}
+ENEMY_CHECKERED = set()
 # Animated enemies (AutoSprite sheets, 256 px cells): enemies/<name>/<name>-<kind>-spritesheet.png
-# for these kinds. Kept at their own size and enlarged in the game (hard-edged pixel art), all
+# for these kinds (attack2: a second attack, played instead of the first half the time). Kept at their own size and enlarged in the game (hard-edged pixel art), all
 # kinds at the scale that makes the battle stance's first frame the enemy's battle height. They
 # face left like the still pictures; ENEMY_ANIM_FLIP lists sheets drawn facing right.
-ENEMY_ANIM_KINDS = ('stance', 'walk', 'attack')
+ENEMY_ANIM_KINDS = ('stance', 'walk', 'attack', 'attack2')
 ENEMY_ANIM_FLIP = set()
 # the town's shops and the bar, inside: maps/<room> (or a maps/<room>/ folder holding one
 # picture), painted like the house at 512 x 768, with maps/<room>_collision and
@@ -796,31 +796,35 @@ def main():
         ax, ay = foot(im)
         eframes.append((key, im)); emeta[key] = {'ax': ax, 'ay': ay}
     # their animations: each kind's frames cut to one shared box, standing on the first
-    # frame's feet
+    # frame's feet. Each pest's frames go in a sheet of its own (assets/sprites/enemy_<key>.webp),
+    # loaded only while that pest is about: all of them in one would be too big to decode on a phone.
     eanim = {}
     for name, (key, h) in ENEMIES.items():
         folder = os.path.join(SRC, 'enemies', name)
         sheets = {k: os.path.join(folder, '%s-%s-spritesheet.png' % (name, k)) for k in ENEMY_ANIM_KINDS}
         sheets = {k: p for k, p in sheets.items() if os.path.exists(p)}
         if 'stance' not in sheets: continue
-        A = {}
+        A, aframes = {}, []
         for ak, p in sheets.items():
             fr = grid_frames(p, 256)
             if (key, ak) in ENEMY_ANIM_FLIP: fr = [np.ascontiguousarray(f[:, ::-1]) for f in fr]
             ax, ay = foot(fr[0])
-            for i, f in enumerate(fr): eframes.append(('%s %s %d' % (key, ak, i), f))
+            for i, f in enumerate(fr): aframes.append(('%s %d' % (ak, i), f))
             A[ak] = {'ax': ax, 'ay': ay, 'n': len(fr)}
         x0, y0, x1, y1 = bbox(grid_frames(sheets['stance'], 256)[0])
         A['k'] = round(h / (y1 - y0), 4)
+        asheet, apos = pack(aframes, 2048)
+        cv2.imwrite(os.path.join(OUT, 'enemy_%s.webp' % key), asheet, [cv2.IMWRITE_WEBP_QUALITY, 95])
+        for ak in ENEMY_ANIM_KINDS:
+            if ak in A: A[ak]['f'] = [apos['%s %d' % (ak, i)] for i in range(A[ak].pop('n'))]
+        A['img'] = 'assets/sprites/enemy_%s.webp' % key
         eanim[key] = A
-        print('enemy animation', key, ', '.join('%s %d' % (k, A[k]['n']) for k in sheets), 'x%.2f' % A['k'])
+        print('enemy animation', key, ', '.join('%s %d' % (k, len(A[k]['f'])) for k in sheets), 'x%.2f' % A['k'],
+              '- enemy_%s.webp' % key, asheet.shape[1], 'x', asheet.shape[0])
     if eframes:
-        esheet, epos = pack(eframes, 2048)       # (wide: WebP pictures can't be over 16383 px tall)
+        esheet, epos = pack(eframes)
         cv2.imwrite(os.path.join(OUT, 'enemies.webp'), esheet, [cv2.IMWRITE_WEBP_QUALITY, 95])
         for k in emeta: emeta[k]['r'] = epos[k]
-        for key, A in eanim.items():
-            for ak in ENEMY_ANIM_KINDS:
-                if ak in A: A[ak]['f'] = [epos['%s %s %d' % (key, ak, i)] for i in range(A[ak].pop('n'))]
         print('enemies.webp', esheet.shape[1], 'x', esheet.shape[0], '-', ', '.join(sorted(emeta)))
 
     # battle backdrops (backdrops/<season>, and backdrops/mountain_<season> for fights on the

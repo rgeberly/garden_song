@@ -65,6 +65,7 @@ function enterBattle(pest,kinds){
     shards.push({x,y,w:pw,h:ph,vx:cx/d*sp+rnd(-0.1,0.1)*W/1000,vy:cy/d*sp*0.7-rnd(0.1,0.35)*W/1000,
       vr:rnd(-0.006,0.006),delay:(d/Math.hypot(ox,oy))*120+rnd(0,40)}); }
   BI={t:0,pest,kinds,snap,shards,ox,oy,set:false};
+  enemySheet(pest.species); pestPool().forEach(enemySheet);      /* (any pest that might join, loading while the screen shatters) */
   G.scene='battleIn'; sfx('battle_start'); setMusic(PESTS[pest.species].boss?'boss':'battle');
 }
 /* drawn over the whole screen, after everything else */
@@ -1797,7 +1798,7 @@ const MEMBER_LINE=new Map();
    at its own size and scaled (a line y=a+b*x scales to y=a*s+b*x); null for one without */
 const FOE_LINE=new Map();
 function foeLine(sp,s){
-  if(!enemyAnim(sp,'stance')) return null;
+  if(!enemyAnim(sp,'stance')||!enemySheet(sp)) return null;     /* (worked out once its frames have loaded) */
   let g=FOE_LINE.get(sp);
   if(!g){ g=groundLine(c=>drawEnemyArt(c,sp,0,0,1,{kind:'stance',f:0})); if(!g) return null;
     if(Math.abs(g[1])>0.3) g=[0,0]; FOE_LINE.set(sp,g); }
@@ -1996,7 +1997,7 @@ function prebakeBattle(){
     [SHADE_CV.c,FLASH_CV.c,b,probeC].forEach(c=>sheets.forEach(im=>{ try{ if(im.naturalWidth) c.drawImage(im,0,0,8,8,0,0,8,8); }catch(e){} }));
     if(assetsReady<5) return;
     allMembers().forEach(id=>PARTY_SPOTS.forEach(([,y])=>memberLine(id,depthScale(y)*(MEMBER_SIZE[id]||1))));
-    pestPool().forEach(sp=>{ groundLine(c=>drawEnemyArt(c,sp,0,0,1)); foeLine(sp,1); });        /* (the pests' sheet, ready for reading too) */
+    pestPool().forEach(sp=>{ groundLine(c=>drawEnemyArt(c,sp,0,0,1)); enemySheet(sp); foeLine(sp,1); });        /* (the pests' sheet, ready for reading too) */
     /* and a shadow, a flyer's shadow and a flash drawn once, faintly (the next frame covers
        them): the browser readies its way of drawing them, which took 40 ms the first time */
     const st=c=>drawStance(c,'kaitlyn',0,0);
@@ -2233,7 +2234,9 @@ function drawBattleScene(dt){
     const p=foeSpot(f), me=A&&A.foe===f, sh=FX2?Math.round(rc*rc*(f.hitBig?12:8)):f.shake>0?Math.round(Math.sin(G.t/25)*3):0;
     /* a pest with animations stands in its battle stance, and plays its attack as it lunges (a shorter lunge:
        the attack moves it forward too) */
-    const atk=me&&!A.self&&enemyAnim(f.sp,'attack'), pose=atk?{kind:'attack',f:k*atk.f.length}:{kind:'stance',t:G.t+f.slot*700};
+    /* (one with two attacks plays either, picked as it starts) */
+    if(me&&!A.atkKind) A.atkKind=enemyAnim(f.sp,'attack2')&&Math.random()<0.5?'attack2':'attack';
+    const atk=me&&!A.self&&enemyAnim(f.sp,A.atkKind), pose=atk?{kind:A.atkKind,f:k*atk.f.length}:{kind:'stance',t:G.t+f.slot*700};
     const eL=me&&!A.self?Math.round(Math.sin(k*Math.PI)*(A.fx==='dive'?-110:A.fx==='zoom'?-150:atk?-18:-38)):0;
     const eY=me&&A.fx==='dive'?Math.round(Math.sin(k*Math.PI)*(40+p.lift)):0;
     /* ground pests stand still on their shadows; flyers hover and bob */

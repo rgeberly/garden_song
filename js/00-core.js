@@ -263,16 +263,31 @@ function drawBattleRow(c,name,idx,cx,footY,zoom){
    (1 in battle, smaller on the garden map) */
 /* pose (for a pest with animations, ENEMY_ANIM): {kind:'stance'|'walk'|'attack', t: ms into
    a loop, or f: the frame}; without one (or animations), its still picture */
-const ENEMY_FPS={stance:12,walk:18,attack:18};
+const ENEMY_FPS={stance:12,walk:18,attack:18,attack2:18};
+/* one pest's own speeds: the HOA President's stance has more frames, made at 16 a second */
+const ENEMY_FPS_OF={hoa:{stance:16}};
+const enemyFps=(sp,kind)=>(ENEMY_FPS_OF[sp]&&ENEMY_FPS_OF[sp][kind])||ENEMY_FPS[kind];
 const enemyAnim=(sp,kind)=>typeof ENEMY_ANIM!=='undefined'&&ENEMY_ANIM[sp]&&ENEMY_ANIM[sp][kind]||null;
+/* each animated pest's frames are a sheet of their own (ENEMY_ANIM[sp].img), loaded the first time
+   it's wanted (when one turns up on the map, or at start-up for the garden's) and decoded ahead of
+   drawing; null until it's ready */
+const ENEMY_SHEET={};
+function enemySheet(sp){
+  const E=typeof ENEMY_ANIM!=='undefined'&&ENEMY_ANIM[sp]; if(!E||!E.img) return null;
+  let S=ENEMY_SHEET[sp];
+  if(!S){ const im=new Image(); S=ENEMY_SHEET[sp]={im,ready:false};
+    im.onload=()=>{ (im.decode?im.decode():Promise.resolve()).catch(()=>{}).then(()=>{ S.ready=true; }); }; im.src=E.img; }
+  return S.ready?S.im:null;
+}
 function drawEnemyArt(c,species,cx,footY,s,pose){
-  if(!IMG_EN.complete||!IMG_EN.naturalWidth) return false;
-  const A=pose&&enemyAnim(species,pose.kind);
-  if(A){ const n=A.f.length, i=pose.f!=null?clamp(Math.floor(pose.f),0,n-1):Math.floor((pose.t||0)*ENEMY_FPS[pose.kind]/1000)%n;
+  const A=pose&&enemyAnim(species,pose.kind), sheet=A&&enemySheet(species);
+  if(sheet){ const n=A.f.length, i=pose.f!=null?clamp(Math.floor(pose.f),0,n-1):Math.floor((pose.t||0)*enemyFps(species,pose.kind)/1000)%n;
     const [sx,sy,w,h]=A.f[i], k=(s||1)*ENEMY_ANIM[species].k/SC;
     c.save(); c.translate(cx,footY); c.scale(k,k); c.imageSmoothingEnabled=false;   /* (pixel art, enlarged hard-edged) */
-    c.drawImage(IMG_EN,sx,sy,w,h,-A.ax,-A.ay,w,h); c.restore();
+    c.drawImage(sheet,sx,sy,w,h,-A.ax,-A.ay,w,h); c.restore();
     return true; }
+  /* its still picture (also while its animations load) */
+  if(!IMG_EN.complete||!IMG_EN.naturalWidth) return false;
   const a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[species]; if(!a) return false;
   const [sx,sy,w,h]=a.r, k=(s||1)/SC;
   c.save(); c.translate(cx,footY); c.scale(k,k); c.imageSmoothingEnabled=true;
