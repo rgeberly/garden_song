@@ -42,7 +42,7 @@ function interact(){
   const plot=nearestPlot();
   if(!plot){ say("Nothing here. Find a garden bed."); return; }
   if(plot.dead&&wormIn(plot)){ pickWorm(plot); return; }          /* for Tiny One */
-  if(plot.dead){ plot.dead=false; plot.deadSp=null; say("Cleared away the ruined plant."); blip(260,0.08,0.12,'triangle'); return; }
+  if(plot.dead){ plot.dead=false; plot.deadSp=null; say("Cleared away the ruined plant."); if(!(sfx('clearing_a_dead_plant')>0)) blip(260,0.08,0.12,'triangle'); return; }
   if(!plot.sp){ openSeedMenu(plot); return; }
   if(plot.stage>=3){ harvest(plot); return; }
   if(plot.growth>=plantNeed(plot)){ say("Fully grown! It will be ripe for harvest tomorrow."); return; }
@@ -67,6 +67,7 @@ function harvest(plot){
   } else { xp=harvestOne(plot); n=1; }
   G.player.mp=Math.min(maxMp(),G.player.mp+2*n);
   say((n>1?"Harvested "+n+" crops!":"Harvested a "+name+"!")+"  "+xpEach(xp));
+  sfx('harvesting');
   if(AC){flute(6,AC.currentTime,.3,.6);flute(11,AC.currentTime+.1,.35,.6);flute(14,AC.currentTime+.2,.5,.6);}
   autoSave();
 }

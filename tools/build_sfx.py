@@ -41,9 +41,14 @@ LOOP_XFADE = 0.2
 
 
 def key_of(name):
-    """(key, file) for a recording's name: 'close door 2' -> ('close_door', 'close_door_2')"""
-    file = re.sub(r'[\s\-]+', '_', name.strip().lower())
-    return re.sub(r'_\d+$', '', file), file
+    """a recording's sound key: its name in lower case with spaces and dashes as underscores,
+    without take numbers, whether 'bite 2', 'bite (1)' or 'bite 1 (1)' (copies saved twice)"""
+    k = name.strip().lower()
+    while True:
+        k2 = re.sub(r'\s*\(\d+\)$', '', re.sub(r'[\s_\-]+\d+$', '', k)).strip()
+        if k2 == k: break
+        k = k2
+    return re.sub(r'[\s\-]+', '_', k)
 
 
 def clean(y, loop=False):
@@ -101,9 +106,14 @@ def encode(y, dst):
 def main():
     os.makedirs(OUT_AUDIO, exist_ok=True)
     sounds = {}
-    for path in sorted(glob.glob(os.path.join(ART, '*.wav'))):
-        name = os.path.splitext(os.path.basename(path))[0]
-        key, file = key_of(name)
+    # each sound's takes, numbered 1, 2, 3... in name order (a sound with one take keeps its key)
+    takes = {}
+    for path in sorted(glob.glob(os.path.join(ART, '*.wav')), key=lambda p: os.path.basename(p).lower()):
+        takes.setdefault(key_of(os.path.splitext(os.path.basename(path))[0]), []).append(path)
+    for old in glob.glob(os.path.join(OUT_AUDIO, '*.m4a')): os.remove(old)       # (no stale takes left behind)
+    for key, paths in sorted(takes.items()):
+      for i, path in enumerate(paths):
+        file = key if len(paths) == 1 else '%s_%d' % (key, i + 1)
         y, _ = librosa.load(path, sr=SR, mono=False)
         if y.ndim == 1:
             y = y[None, :]

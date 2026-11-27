@@ -35,7 +35,7 @@ function menuChoose(i){
   G.scene='world';
   say((n>1?("Planted "+n+" "+plural(SPECIES[sp].name)+". "):("Planted "+SPECIES[sp].name+". "))
       +"Harmony x"+harmony().toFixed(2));
-  if(AC) flute(4,AC.currentTime,.35,.5);
+  if(!(sfx('planting')>0)&&AC) flute(4,AC.currentTime,.35,.5);
 }
 /* a long list scrolls: SEED_FIT rows show at once (as many as fit above the bottom of the
    screen), from menu.top; the keys move through it, and on a touch screen the list can be

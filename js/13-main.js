@@ -237,7 +237,7 @@ function loop(now){
          else if(G.scene==='story') updateStory(dt);
          else if(G.msgT>0) G.msgT-=dt; }
   if(G.scene==='world'||G.scene==='story') updateIvy(dt);
-  if(G.scene==='world'&&LV_UPS.length){ G.scene='levelup'; lvT=0; padVec={x:0,y:0}; padId=null; }
+  if(G.scene==='world'&&LV_UPS.length){ G.scene='levelup'; lvT=0; padVec={x:0,y:0}; padId=null; sfx('level_up'); }
   padRepeat(dt);
   /* out and about (and in the menus over it), the music follows the place and season */
   if(musicOn&&AREA_SCENES.includes(G.scene)) setMusic(areaMusic());

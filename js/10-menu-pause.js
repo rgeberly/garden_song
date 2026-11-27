@@ -119,7 +119,7 @@ function eatCrop(sp,id){
   if(!(G.crops[sp]>0)) return;
   id=id||'kaitlyn';
   say(PARTY_INFO[id].name+" ate a "+SPECIES[sp].name+": "+applyFood(sp,id)+".");
-  if(AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
+  if(!(sfx('eat_crop')>0)&&AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
   autoSave();
 }
 

@@ -671,6 +671,13 @@ function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:ki
     A.hitAt=A.fxFrom+dur*0.55; } }
 /* friends' skills with a recorded voice of their own (other Tiny One songs: tiny_songs) */
 const SKILL_SOUND={peck:'tiny_peckpeckpeck',trill:'tiny_disarmingtrill',wake:'tiny_wakeupcall'};
+/* other skills' voices: sfx/<skill name> (soundKey), when there's one (Ssssss, Fury Swipes, Shell Up...) */
+const skillVoice=sk=>{ const k=soundKey(sk.name); return typeof SOUNDS!=='undefined'&&SOUNDS[k]?k:null; };
+/* the sound of a friend's plain attack landing, and of a pest's blow landing (by its fx);
+   anything else that hits: heavy_hit (thud() until it loads) */
+const ATTACK_SOUND={kaitlyn:'kick_hit',ivy:'bite',tituba:'slash',tex:'chomp'};
+const FOE_HIT_SOUND={bite:'bite',pinch:'pinch',peck:'peck',sting:'sting',spines:'sting',claw:'slash',bash:'heavy_hit',dive:'heavy_hit',kick:'heavy_hit',zoom:'heavy_hit'};
+const hitSound=(k,vol)=>sfx(k,vol)>0;
 const has=(id,s)=>B.st[id]&&B.st[id][s]>0;
 function addStatus(id,s){ if(!B.st[id]) B.st[id]={}; B.st[id][s]=STATUS[s].turns+(s==='sleep'?ri(0,1):0); troubleFx(id,s); }
 /* a trouble on a pest: turns left, or for Venom {n turns left, dmg each turn} */
@@ -1033,13 +1040,14 @@ function hitFoe(f,dmg,label){
   if(FX2){ const r=foeBox(f); f.hitT=0; f.hitBig=crit;
     B.stopT=Math.max(B.stopT||0,crit?130:70); quake(crit?5:2.2,crit?340:200);
     impactFx(r.x+r.w*0.42,r.y+r.h*0.5,crit); }
-  if(crit){ pop("-"+dmg+"!",EX,EY-10,'#ff9a3a',52); pop("CRITICAL!",EX,EY-42,'#fff07a',28); B.critT=260; blip(980,0.05,0.18,'square'); }
+  if(crit){ pop("-"+dmg+"!",EX,EY-10,'#ff9a3a',52); pop("CRITICAL!",EX,EY-42,'#fff07a',28); B.critT=260; if(!hitSound('critical_hit')) blip(980,0.05,0.18,'square'); }
   else pop("-"+dmg,EX,EY-10,'#ffd24a');
-  thud();
+  if(f.st.guard) hitSound('blocked',0.7);
+  if(B.hitSnd) B.hitSnd=false; else if(!hitSound('heavy_hit',0.8)) thud();     /* (unless the blow brought its own) */
   if(f.hp>0&&f.st.sleep&&Math.random()<0.4) f.st.sleep=0;   /* a hit may wake it */
 }
 /* Blind members miss half their attacks */
-function missed(id){ if(has(id,'blind')&&Math.random()<0.5){ B.log=PARTY_INFO[id].name+" misses!"; return true; } return false; }
+function missed(id){ if(has(id,'blind')&&Math.random()<0.5){ B.log=PARTY_INFO[id].name+" misses!"; hitSound('miss'); return true; } return false; }
 /* how hard a member hits: Weak takes 40% off; the Moonlit Feather adds 25% at night */
 const weakMul=id=>(has(id,'weak')?0.6:1)*(wears(id,'moonfeather')&&isNight()?1.25:1);
 const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(wears('kaitlyn','kickers')?1.6:1);
@@ -1054,7 +1062,7 @@ function kick(f,pow,name,row,shouts,shout,dur){
     if(missed('kaitlyn')) return;
     focus(f); const cm=useCharge('kaitlyn'), dmg=soften(kickPower(pow)*rnd(0.85,1.15)*cm,foeDef(f));
     if(FX2) markFoe(row==='karate'?'karate':'kick',f); else { burst(EX-20,EY+16,'#ffe6a0',16,0.19); burst(EX-30,EY+34,'#d8c49a',12,0.13); }
-    hitFoe(f,dmg,name+" lands for "+dmg+"!"+(cm>1?"  A focused blow!":""));
+    B.hitSnd=hitSound('kick_hit'); hitFoe(f,dmg,name+" lands for "+dmg+"!"+(cm>1?"  A focused blow!":""));
   },{tgt:f});
 }
 function doAttack(f){
@@ -1063,11 +1071,13 @@ function doAttack(f){
   if(id==='kaitlyn'){ kick(f,I.pow,"Quick Kick",Math.random()<0.5?'kick':'kick2',KICK_SHOUTS,KICK_SHOUT); return; }
   /* the others' free hit, from Strength. Ivy's is a weak bite, but the venom always takes,
      and now and then it's too much */
+  hitSound('whoosh',0.6);
   anim('lunge',900,()=>{
     if(missed(id)) return;
     focus(f); const cm=useCharge(id), power=statOf(id,'str')*1.5*I.pow*weakMul(id)*cm*(wears(id,'fangpolish')?1.5:1);
     const dmg=soften(power*rnd(0.85,1.15),foeDef(f));
     if(FX2&&ATTACK_MARK[id]) markFoe(ATTACK_MARK[id],f); else burst(EX-20,EY+20,'#ffe6a0',14,0.17);
+    B.hitSnd=!!ATTACK_SOUND[id]&&hitSound(ATTACK_SOUND[id]);
     hitFoe(f,dmg,I.name+"'s "+I.attack+" hits for "+dmg+"!"+(cm>1?"  A focused blow!":""));
     if(f.hp<=0||!I.venom) return;
     foeStatus(f,'venom',venomDmg(id));
@@ -1350,7 +1360,8 @@ function useSkill(sk,f,to){
   const kind=sk.graze?'meditate':sk.deathroll||sk.steal&&!sk.pecks?'lunge':spell?'spell':sk.song?'sing':sk.heal?'meditate':'lunge';
   const kind_heal=!!(sk.heal||sk.mend||sk.mendAll||sk.cureAll||sk.guardAll||sk.clear||sk.revive||sk.shell||sk.cover||sk.coverAll||sk.graze);
   /* their recorded voice: from the start, or (pecks) with the hits */
-  const voice=SKILL_SOUND[sk.id]||(id==='tiny'&&sk.song?'tiny_songs':null), atHit=voice&&sk.pecks;
+  const voice=SKILL_SOUND[sk.id]||(id==='tiny'&&sk.song?'tiny_songs':null)||skillVoice(sk), atHit=voice&&sk.pecks;
+  B.hitSnd=!!voice;                            /* (its voice does for the sound of its first hit) */
   const sheet=FX2&&haveSheet(SKILL_SHEET[sk.id])&&SKILL_SHEET[sk.id]; if(sheet) sheetImg(sheet);     /* (start loading it) */
   const len=voice&&!atHit?sfx(voice):0;
   anim(kind,spell?1400:sk.song?1300:1000,()=>{
@@ -1408,7 +1419,7 @@ function useSkill(sk,f,to){
         if(sheet) sheetHit(sheet,t,hitN++,sk.pecks);
         else if(FX2&&SKILL_MARK[sk.id]) markFoe(SKILL_MARK[sk.id],t,{jx:rnd(-10,10),jy:rnd(-10,10)});
         if(sk.steal&&up){ const r=trySteal(id,t); if(r.k) took.push(GOODS[r.k].name); }
-        if(has(id,'blind')&&Math.random()<0.5){ focus(t); pop("miss",EX,EY-10,'#e8eef8'); got.push("miss"); }
+        if(has(id,'blind')&&Math.random()<0.5){ focus(t); pop("miss",EX,EY-10,'#e8eef8'); got.push("miss"); hitSound('miss'); }
         else { const dmg=soften(statOf(id,sk.stat||'agi')*(sk.full?1.5:1)*sk.pow*weakMul(id)*cm*rnd(0.85,1.15),foeDef(t));
           hitFoe(t,dmg,""); burst(EX-10,EY+16,'#ffe6a0',8,0.14); got.push(up&&t.hp<=0?dmg+" (it runs off)":String(dmg)); }
         B.log=total(got)+" damage in all!"+(took.length?"  Snitched "+listAnd(took)+"!":""); });
@@ -1475,7 +1486,7 @@ function doFocus(){
   B.turn='busy';
   anim('focus',1100,()=>{ B.guard[id]=true; B.charged[id]=true;
     B.log=name+" focuses.";
-    if(AC){ flute(14,AC.currentTime,.4,.35); flute(19,AC.currentTime+.15,.5,.3); } });
+    if(!hitSound('focus')&&AC){ flute(14,AC.currentTime,.4,.35); flute(19,AC.currentTime+.15,.5,.3); } });
 }
 /* half damage until their next turn, and 5-10% of HP and MP back */
 function doMeditate(){
@@ -1499,7 +1510,7 @@ function eatInBattle(sp,to){
     const before=member(to).hp, item=itemName(sp), text=useItem(sp,to), gain=member(to).hp-before, s=slotOf(to);
     if(gain>0) pop("+"+gain,s.x,headOf(to),'#8fe07a');
     B.log="";
-    if(isDrink(sp)) sfx('drink'); else if(AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
+    if(isDrink(sp)) sfx('drink'); else if(!hitSound('eat_crop')&&AC){ blip(620,0.06,0.1,'sine'); flute(9,AC.currentTime+.06,.25,.4); }
   },{eater:to});
 }
 
@@ -1542,6 +1553,7 @@ function foeTurn(f){
   const cover=savedFrom.length?{by:C.by,to:savedFrom}:null;
   const go=()=>{ if(!B||B.over) return; B.prep=null;
     if(sk===P.skills[0]&&!charged) B.log="";
+    if(targets.length&&sk.kind!=='all') hitSound('whoosh',0.6);
     anim('enemy',sk.kind==='multi'?1300:900,()=>foeHits(f,sk,targets,charged,cover),{fx:sk.fx,targets,self:!targets.length,foe:f}); };
   if(sk!==P.skills[0]||charged){
     B.prep={f,t:0};
@@ -1590,15 +1602,15 @@ function foeHits(f,sk,targets,charged,cover){
     const s=slotOf(id); pop("-"+n+"c",s.x,headOf(id),'#ffd24a');
     B.log="The "+f.name+" makes off with "+n+"c!"; return;
   }
-  const lines=[];
+  const lines=[], snd={};             /* (what to hear: one of each, however many it hit) */
   targets.forEach(id=>{
     if(!standing(id)) return;
     const name=PARTY_INFO[id].name, s=slotOf(id), M=member(id);
-    if(sk.miss&&Math.random()<sk.miss){ pop("miss",s.x,headOf(id),'#e8eef8'); return; }
-    if(F.blind>0&&Math.random()<0.5){ pop("miss",s.x,headOf(id),'#e8eef8'); return; }
-    if(sk.pow>0&&wears(id,'moonstone')&&Math.random()<0.1){ pop("dodge",s.x,headOf(id),'#e8eef8'); return; }   /* (Tituba's Moonstone Collar) */
+    if(sk.miss&&Math.random()<sk.miss){ pop("miss",s.x,headOf(id),'#e8eef8'); snd.miss=true; return; }
+    if(F.blind>0&&Math.random()<0.5){ pop("miss",s.x,headOf(id),'#e8eef8'); snd.miss=true; return; }
+    if(sk.pow>0&&wears(id,'moonstone')&&Math.random()<0.1){ pop("dodge",s.x,headOf(id),'#e8eef8'); snd.miss=true; return; }   /* (Tituba's Moonstone Collar) */
     if(sk.pow>0&&B.shieldAll){          /* Safe and Sound: nothing gets through this round */
-      pop("0",s.x,headOf(id),'#bfe8ff'); if(FX2) impactFx(s.x+8*s.s,(s.y+headOf(id))/2,false,'shield'); else burst(s.x,s.y-80,'#bfe8ff',8);
+      pop("0",s.x,headOf(id),'#bfe8ff'); snd.block=true; if(FX2) impactFx(s.x+8*s.s,(s.y+headOf(id))/2,false,'shield'); else burst(s.x,s.y-80,'#bfe8ff',8);
       if(!lines.includes("Nothing gets through!")) lines.push("Nothing gets through!"); }
     else if(sk.pow>0){
       const braced=B.guard[id];         /* braced: half damage until their next turn (a quarter in a shell) */
@@ -1606,7 +1618,7 @@ function foeHits(f,sk,targets,charged,cover){
       const polish=cover&&cover.by===id&&wears(id,'shellpolish')?0.7:1;      /* (Tex's Shell Polish, while covering) */
       const raw=f.atk*sk.pow*rnd(0.8,1.2)*(F.weak>0?0.6:1)*(charged?2:1)*pack*polish*(B.shell[id]?0.25:braced?0.5:1);
       const dmg=soften(raw,statOf(id,'def'));
-      M.hp=Math.max(0,M.hp-dmg); pepFill(id,dmg);
+      M.hp=Math.max(0,M.hp-dmg); pepFill(id,dmg); snd.hit=true; if(B.shell[id]) snd.block=true;
       /* a hit may wake you, as it may a pest */
       const S=B.st[id]; if(S&&S.sleep>0&&M.hp>0&&Math.random()<0.4) S.sleep=0;
       pop("-"+dmg,s.x,headOf(id),'#ff8a8a');
@@ -1622,7 +1634,9 @@ function foeHits(f,sk,targets,charged,cover){
   });
   if(cover) lines.unshift(PARTY_INFO[cover.by].name+" takes it for "+listAnd(cover.to.map(m=>PARTY_INFO[m].name))+"!");
   B.log=lines.join("  ");
-  blip(180,0.09,0.2);
+  /* its blow's own sound (FOE_HIT_SOUND), a block, a miss */
+  if(snd.hit&&!hitSound(FOE_HIT_SOUND[sk.fx]||'heavy_hit')) blip(180,0.09,0.2);
+  if(snd.block) hitSound('blocked'); else if(snd.miss&&!snd.hit) hitSound('miss');
   if(B.over==='lose') B.log="Kaitlyn is worn out...";
 }
 
@@ -2568,7 +2582,7 @@ function drawResultsWords(){
    screen once she's back in the garden: who, the new level, every stat with what it
    rose by, and anything learned. A tap or A moves on. */
 let lvT=0;
-function levelUpTap(){ if(lvT<400) return; LV_UPS.shift(); lvT=0; if(!LV_UPS.length) G.scene='world'; sfx('menu_confirm'); }
+function levelUpTap(){ if(lvT<400) return; LV_UPS.shift(); lvT=0; if(!LV_UPS.length){ G.scene='world'; sfx('menu_confirm'); } else sfx('level_up'); }
 function drawLevelUp(dt){
   lvT+=dt;
   const U=LV_UPS[0], I=PARTY_INFO[U.id], T0=BAND_TOP(), T1=BAND_BOT();
