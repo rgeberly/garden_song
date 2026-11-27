@@ -116,7 +116,8 @@ function startBattle(pest,kinds,quiet){
     const pk=PESTS[pest.species].pack; if(pk) for(let i=ri(pk[0],pk[1]);i>0;i--) kinds.push(pest.species);   /* (a pack comes together) */
     const more=boss?0:party.length===5?pickWeighted(FULL_PARTY_FOES).n-1
       :Array.from({length:party.length-1}).filter(()=>Math.random()<EXTRA_FOE).length;
-    for(let i=0;i<more&&kinds.length<5;i++){ const pool=pestPool(); kinds.push(pool[ri(0,pool.length-1)]); } }
+    for(let i=0;i<more&&kinds.length<5;i++){ const pool=pestPool().filter(k=>!(PESTS[k].one&&kinds.includes(k)));   /* (only one moose) */
+      if(pool.length) kinds.push(pool[ri(0,pool.length-1)]); } }
   const D=diff();                      /* the Settings tab's difficulty */
   const foes=kinds.map((sp,i)=>{ const lv=i?pestLevel(sp):(pest.lv||PESTS[sp].lv), S=pestStats(sp,lv);
     const champ=i?rollChamp(sp):!!pest.champ;           /* (the one she walked into was grumpy on the map too) */
@@ -125,8 +126,15 @@ function startBattle(pest,kinds,quiet){
     return {sp,lv,...S,maxhp:S.hp,hp:S.hp,name:(champ?"Grumpy ":"")+PESTS[sp].name,boss:!!PESTS[sp].boss,champ,
             slot:i,st:{},fade:0,flash:0,shake:0}; });
   /* the first pest keeps the middle spot; of the rest, flyers take the spots furthest back
-     (they hover up into the sky there, not into whoever stands behind them) */
-  const F=foeForm(foes.length), rest=foes.slice(1), spots=rest.map(f=>f.slot).sort((a,z)=>F[a][1]-F[z][1]);
+     (they hover up into the sky there, not into whoever stands behind them). A big one (back:
+     the moose) always takes the spot furthest from the party, so it doesn't loom over Kaitlyn. */
+  const F=foeForm(foes.length), backs=foes.filter(f=>PESTS[f.sp].back), first=backs.includes(foes[0])?null:foes[0];
+  /* (of the back row, the spot highest up, so smaller pests stand in front of it, not hidden behind) */
+  const maxX=Math.max(...F.map(p=>p[0])), back=i=>F[i][0]>=maxX-20;
+  const far=foes.map((f,i)=>i).filter(i=>!(first&&i===first.slot)).sort((a,z)=>(back(z)-back(a))||(back(a)?F[a][1]-F[z][1]:F[z][0]-F[a][0]));
+  backs.forEach((f,i)=>f.slot=far[i]);
+  const taken=new Set(backs.map(f=>f.slot).concat(first?[first.slot]:[]));
+  const rest=foes.filter(f=>f!==first&&!backs.includes(f)), spots=foes.map((f,i)=>i).filter(i=>!taken.has(i)).sort((a,z)=>F[a][1]-F[z][1]);
   rest.sort((a,z)=>(PESTS[z.sp].fly?1:0)-(PESTS[a.sp].fly?1:0)).forEach((f,i)=>f.slot=spots[i]);
   /* two of a kind get letters */
   foes.forEach(f=>{ const same=foes.filter(g=>g.sp===f.sp); if(same.length>1) f.name+=" "+"ABCDE"[same.indexOf(f)]; });
@@ -1851,7 +1859,11 @@ const MEMBER_LINE=new Map();
 /* the same for a pest with animations: one line from the first frame of its battle stance, worked out
    at its own size and scaled (a line y=a+b*x scales to y=a*s+b*x); null for one without */
 const FOE_LINE=new Map();
+/* lines measured by hand, where the automatic one goes wrong (Bigfoot's feet are far apart, at
+   different heights, and it tipped his shadow the wrong way): [a, b] at size 1 */
+const FOE_GROUND={bigfoot:[-1.2,0.076]};
 function foeLine(sp,s){
+  if(FOE_GROUND[sp]) return [FOE_GROUND[sp][0]*s,FOE_GROUND[sp][1]];
   if(!enemyAnim(sp,'stance')||!enemySheet(sp)) return null;     /* (worked out once its frames have loaded) */
   let g=FOE_LINE.get(sp);
   if(!g){ g=groundLine(c=>drawEnemyArt(c,sp,0,0,1,{kind:'stance',f:0})); if(!g) return null;

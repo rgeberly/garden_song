@@ -155,7 +155,8 @@ const PESTS={
     {name:"Honey Break",kind:'heal',heal:0.2,w:1,fx:'snack'}]},
   /* the Deep Forest's own (where:'forest'), past the mountain: Lv.11-16. pack: [min, max] more of
      its kind come with it; packBonus: each packmate still standing makes its hits that much harder;
-     furyAt: the share of HP it gets furious at (FURY_AT otherwise); intro/noFlee/outro: a boss's lines */
+     furyAt: the share of HP it gets furious at (FURY_AT otherwise); intro/noFlee/outro: a boss's lines;
+     back: stands on the back row in battle; one: never more than one in a fight */
   wolf   :{name:"Timber Wolf",  hp:116,atk:21,def:6, agi:13, xp:70, coin:24,min:1, col:'#7a7a80',lv:11,where:'forest',pack:[1,2],packBonus:0.15,
           about:"Never alone. If you see one, count again.",skills:[
     {name:"Bite",kind:'hit',pow:1,w:3,fx:'bite'},
@@ -172,7 +173,7 @@ const PESTS={
     {name:"Puff",kind:'hit',pow:0.8,w:3,st:'sleep',p:0.3,fx:'gloom'},
     {name:"Spore Cloud",kind:'all',pow:0.5,w:2,st:'poison',p:0.5,fx:'gloom'},
     {name:"Soak Up Rain",kind:'heal',heal:0.2,w:1,fx:'snack'}]},
-  badger :{name:"Badger",       hp:162,atk:26,def:10,agi:9,  xp:85, coin:30,min:1, col:'#5a5a5a',lv:12,where:'forest',furyAt:0.5,
+  badger :{name:"Honey Badger", hp:162,atk:26,def:10,agi:9,  xp:85, coin:30,min:1, col:'#5a5a5a',lv:12,where:'forest',furyAt:0.5,
           about:"Doesn't care. About anything. Especially you.",skills:[
     {name:"Claw",kind:'hit',pow:1.1,w:3,fx:'claw'},
     {name:"Frenzy",kind:'multi',pow:0.6,hits:3,w:2,fx:'claw'},
@@ -182,7 +183,7 @@ const PESTS={
     {name:"Silent Swoop",kind:'hit',pow:1.3,w:3,fx:'dive'},
     {name:"Glare",kind:'hit',pow:0.6,w:2,st:'blind',p:0.5,fx:'caw'},
     {name:"Hoot",kind:'all',pow:0.3,w:1,st:'hush',p:0.4,fx:'caw'}]},
-  moose  :{name:"Bull Moose",   hp:252,atk:32,def:12,agi:7,  xp:120,coin:45,min:1, col:'#5a3a2a',lv:14,where:'forest',
+  moose  :{name:"Bull Moose",   hp:252,atk:32,def:12,agi:7,  xp:120,coin:45,min:1, col:'#5a3a2a',lv:14,where:'forest',back:true,one:true,
           about:"Half a ton of bad mood on stilts.",skills:[
     {name:"Hoof",kind:'hit',pow:1,w:3,fx:'kick'},
     {name:"Antler Charge",kind:'hit',pow:1.4,w:2,st:'bound',p:0.3,fx:'zoom'},

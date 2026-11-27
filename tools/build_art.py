@@ -146,8 +146,8 @@ ENEMIES = {'dung beetle': ('beetle', 190), 'paper wasp': ('wasp', 220), 'garden 
            'tricky woo': ('woo', 250), 'vengeful ghost': ('vghost', 300), 'hoa president': ('hoa', 360),
            'mountain goat': ('goat', 240), 'wild boar': ('boar', 230), 'black bear': ('bear', 320),
            # the Deep Forest's
-           'timber wolf': ('wolf', 250), 'wild turkey': ('turkey', 240), 'toadstool sprite': ('toadstool', 220),
-           'badger': ('badger', 220), 'great horned owl': ('owl', 250), 'bull moose': ('moose', 360), 'bigfoot': ('bigfoot', 380)}
+           'timber wolf': ('wolf', 250), 'wild turkey': ('turkey', 240), 'toadstool sprite': ('toadstool', 180),
+           'honey badger': ('badger', 180), 'great horned owl': ('owl', 250), 'bull moose': ('moose', 520), 'bigfoot': ('bigfoot', 380)}
 PORTRAIT_H = 312        # Kaitlyn's portrait.png height, in px
 STANCE_HOLE = 400       # white showing through a coil of a battle stance is background too
 SCENE_W = 1080          # story pictures fill the 360-wide screen at 3 device px each
