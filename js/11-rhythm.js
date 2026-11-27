@@ -460,39 +460,35 @@ function drawHold(n,art,T0){
   b.arc(x,HITLINE,23,-Math.PI/2,-Math.PI/2+Math.PI*2*clamp(n.score/n.dur,0,1)+.001); b.stroke();
   b.restore();
 }
-/* a carved wooden rail down a margin, x to x+21: a rounded plank shaded across its width,
-   flowing grain, a carved groove down the middle, and a brass stud every so often */
-const RAIL_W=21, STUD_EVERY=54;
+/* the carved wooden rail down a margin, x to x+RAIL_W: the painted pillar (rhythm/rail),
+   whole pillars stacked end to end from the bottom, with a soft shadow over the lanes */
+const RAIL_W=21;
 function drawWoodRail(x,T0,T1,right){
-  const H=T1-T0, g=b.createLinearGradient(x,0,x+RAIL_W,0);
-  g.addColorStop(0,'#2e1e10'); g.addColorStop(0.18,'#6e4c2a'); g.addColorStop(0.45,'#a07a4c'); g.addColorStop(0.7,'#7c5832'); g.addColorStop(1,'#2a1a0c');
-  b.fillStyle=g; b.fillRect(x,T0,RAIL_W,H);
-  /* the grain: thin wavy darker lines running down it */
-  b.save(); b.beginPath(); b.rect(x+1,T0,RAIL_W-2,H); b.clip(); b.lineWidth=0.7;
-  for(let i=0;i<6;i++){ const gx=x+3+i*3.1; b.strokeStyle=i%2?'rgba(60,36,16,.38)':'rgba(190,150,100,.22)'; b.beginPath();
-    for(let y=T0;y<=T1;y+=6) b.lineTo(gx+Math.sin(y/37+i*1.9)*1.2+Math.sin(y/11+i)*0.4,y); b.stroke(); }
-  b.restore();
-  /* the carved groove, lit on one edge */
-  const cx=x+RAIL_W/2;
-  b.fillStyle='rgba(30,18,8,.55)'; b.fillRect(cx-1.6,T0,3.2,H);
-  b.fillStyle='rgba(230,200,150,.35)'; b.fillRect(right?cx-2.4:cx+1.6,T0,0.8,H);
-  /* the outer edge's highlight and the inner edge's shadow over the lanes */
-  b.fillStyle='rgba(255,230,190,.25)'; b.fillRect(right?x+RAIL_W-2:x+1,T0,1,H);
+  const im=rhythmPic('rail');
+  if(im){ const h=RAIL_W*im.naturalHeight/im.naturalWidth;
+    b.save(); b.beginPath(); b.rect(x,T0,RAIL_W,T1-T0); b.clip(); b.imageSmoothingEnabled=true;
+    for(let y=T1;y>T0;y-=h) b.drawImage(im,x,y-h,RAIL_W,h);
+    b.restore(); }
   const sh=b.createLinearGradient(right?x:x+RAIL_W,0,right?x-5:x+RAIL_W+5,0); sh.addColorStop(0,'rgba(0,0,0,.35)'); sh.addColorStop(1,'rgba(0,0,0,0)');
-  b.fillStyle=sh; b.fillRect(right?x-5:x+RAIL_W,T0,5,H);
-  /* brass studs, set in a little round recess */
-  for(let y=T0+STUD_EVERY/2-((T0%STUD_EVERY)+STUD_EVERY)%STUD_EVERY;y<T1+8;y+=STUD_EVERY){
-    b.fillStyle='rgba(30,18,8,.6)'; b.beginPath(); b.arc(cx,y,4.6,0,7); b.fill();
-    const s=b.createRadialGradient(cx-1.2,y-1.4,0.4,cx,y,3.6); s.addColorStop(0,'#fff2c0'); s.addColorStop(0.45,'#d8a840'); s.addColorStop(1,'#6a4a14');
-    b.fillStyle=s; b.beginPath(); b.arc(cx,y,3.6,0,7); b.fill(); }
+  b.fillStyle=sh; b.fillRect(right?x-5:x+RAIL_W,T0,5,T1-T0);
+}
+/* the painted ink stamp (rhythm/stamp), in a rank's colour: made once per colour */
+const STAMP_TINT={};
+function stampTinted(col){
+  const im=rhythmPic('stamp'); if(!im) return null;
+  if(!STAMP_TINT[col]){ const c=document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight;
+    const x=c.getContext('2d'); x.drawImage(im,0,0); x.globalCompositeOperation='source-in'; x.fillStyle=col; x.fillRect(0,0,c.width,c.height);
+    STAMP_TINT[col]=c; }
+  return STAMP_TINT[col];
 }
 /* the rating, stamped on like an ink stamp (scale and tilt as it lands), rank's colour */
+const STAMP_SIZE=62;
 function drawStamp(rank,x,y){
   const t=R_.time-R_.doneAt-STAMP_MS; if(t<0) return;
   const q=Math.min(1,t/STAMP_IN), sc=1+(1-q)*(1-q)*1.6, col=rank==='S'?'#e8b030':rank==='A'?'#d84a3a':rank==='B'?'#4a88d8':'#7a8a9a';
   b.save(); b.translate(x,y); b.rotate(-0.16); b.scale(sc,sc); b.globalAlpha=Math.min(1,q*1.4);
-  b.strokeStyle=col; b.lineWidth=3; b.beginPath(); b.roundRect(-30,-30,60,60,9); b.stroke();
-  b.lineWidth=1.2; b.beginPath(); b.roundRect(-25,-25,50,50,6); b.stroke();
+  const st=stampTinted(col);
+  if(st){ const h=STAMP_SIZE*st.height/st.width; b.imageSmoothingEnabled=true; b.drawImage(st,-STAMP_SIZE/2,-h/2,STAMP_SIZE,h); }
   b.fillStyle=col; b.font='bold 40px Verdana'; b.textAlign='center'; b.textBaseline='middle'; b.fillText(rank,0,2);
   b.restore(); b.globalAlpha=1;
   if(q>=1&&!R_.stampPuff){ R_.stampPuff=true; glow({x,y,ring:true,r0:24,r1:52,w:3,life:380,col});

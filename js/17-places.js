@@ -583,20 +583,9 @@ function gearRows(keys){
         if(r>=0&&r>FLUTE_RANK.indexOf(equipOf('kaitlyn').weapon||'recorder')){ equipOf('kaitlyn').weapon=k; refitMember('kaitlyn'); } }}; });
 }
 const pawn=(k,n)=>{ G.pawn[k]=(G.pawn[k]||0)+n; };
-/* a good's picture, or a small drawn sprig for one without art yet (the summit flowers,
-   the Tipsy Toad's drinks) */
+/* a good's picture (shop items/<name>), fitted into a box centred on cx,cy */
 function drawGoodIcon(c,k,cx,cy,box){
-  const g=GOODS[k], s=box/24;
-  /* its picture (shop items/<name>), when there is one */
-  if(c===b&&drawShopPic(g.name.toLowerCase(),cx,cy,box,box)) return;
-  c.save(); c.translate(cx,cy); c.scale(s,s);
-  {
-    c.strokeStyle='#4a7a3a'; c.lineWidth=1.5; c.beginPath(); c.moveTo(0,10); c.lineTo(0,-2); c.moveTo(0,4); c.lineTo(-5,0); c.moveTo(0,2); c.lineTo(5,-2); c.stroke();
-    c.fillStyle=g.col;
-    [[0,-5],[-5,-1],[5,-4]].forEach(([x,y])=>{ c.beginPath(); c.arc(x,y,3.4,0,7); c.fill(); });
-    c.fillStyle='rgba(255,255,255,.4)'; c.beginPath(); c.arc(-1,-6,1.1,0,7); c.fill();
-  }
-  c.restore();
+  drawShopPic(GOODS[k].name.toLowerCase(),cx,cy,box,box);
 }
 /* what eating or drinking a good does (forage: eat, food: use), in words */
 const goodEffect=k=>GOODS[k].eat||GOODS[k].use;

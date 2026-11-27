@@ -1975,7 +1975,7 @@ const hasBackdrop=()=>typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(backdro
    backdrops (hdPrebake). The first fight used to freeze for a quarter of a second. */
 function prebakeBattle(){
   hdPrebake(); partyImg();
-  fishArtReady(); fishImg(); rhythmArt(); rhythmPic('vine'); rhythmPic('flute');   /* (fishing's and the rhythm game's pictures, loading early too) */
+  fishArtReady(); fishImg(); rhythmArt(); rhythmPic('vine'); rhythmPic('flute'); rhythmPic('rail'); rhythmPic('stamp');   /* (fishing's and the rhythm game's pictures, loading early too) */
   const sheets=[IMG_PARTY,IMG_EN,IMG_BATL,IMG_POSE,IMG_PT].filter(Boolean);
   Promise.all(sheets.map(im=>im.decode?im.decode().catch(()=>{}):null)).then(()=>{
     /* (drawn once, tiny, into the canvases a battle draws them into, so they're uploaded

@@ -82,7 +82,8 @@ SHOP_PHOTOS = {n: (7.0, 26) for n in ('dung ball', 'iridescent shell', 'royal je
     'trash treasure', 'bandit mask', 'chewed ball', 'fancy collar', 'wisp', 'prize ribbon', 'mountain bell', 'tusk',
     'truffle', 'bear fur', 'honeycomb', 'gavel')}
 SHOP_PHOTOS.update({'silk cocoon': (2.0, 6), 'pearl': (2.0, 6), 'goat hair': (2.0, 6), 'gull feather': (1.2, 8),
-                    'paper scrap': (1.2, 8), 'citation': (0.5, 12)})
+                    'paper scrap': (1.2, 8), 'citation': (0.5, 12), 'edelweiss': (2.0, 6), 'frost rose': (2.0, 6),
+                    'collard greens seed': (2.0, 6)})
 # Shop pictures with a pale painted shadow under them (the game draws its own): below this
 # share of the picture's height, pale greyish beige is cleared.
 SHOP_FLOOR = {'music stand': 0.65}
@@ -925,12 +926,16 @@ def main():
         pmaps[room] = ['all']; print('room', room)
 
     # the rhythm game's flute (rhythm/flute: the hit line, end to end across the screen) and
-    # vine (rhythm/vine: climbing both sides as the combo grows), loose or in a one-picture folder
+    # vine (rhythm/vine: climbing both sides as the combo grows), loose or in a one-picture folder;
+    # the wooden rail down each side (rhythm/rail: one whole pillar, stacked end to end) and the
+    # rating's ink stamp (rhythm/stamp: an empty ring, tinted to the rank's colour)
+    RHY_SIZE = {'flute': ('w', 1044), 'vine': ('h', 600), 'rail': ('w', 126), 'stamp': ('w', 300)}
     rpics = []
     for name, f in named_pics('rhythm'):
-        if name not in ('flute', 'vine'): continue
+        if name not in RHY_SIZE: continue
         im = trim(remove_white(load(f), 40, soft_holes=True))
-        im = shrink(im, min(1.0, (1044 / im.shape[1]) if name == 'flute' else (600 / im.shape[0])))
+        side, px_ = RHY_SIZE[name]
+        im = shrink(im, min(1.0, px_ / im.shape[1] if side == 'w' else px_ / im.shape[0]))
         cv2.imwrite(os.path.join(OUT, 'rhythm_' + name + '.png'), im, [cv2.IMWRITE_PNG_COMPRESSION, 9])
         rpics.append(name); print('rhythm_' + name + '.png', im.shape[1], 'x', im.shape[0])
 

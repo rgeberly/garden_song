@@ -153,10 +153,8 @@ function drawShopArt(it,cx,y,bw,bh){
   if(it.art&&it.art.crop){ drawCropIcon(b,it.art.crop,cx,y+bh/2,Math.min(bw,bh)); return; }
   if(it.art&&it.art.good){ drawGoodIcon(b,it.art.good,cx,y+bh/2,Math.min(bw,bh)); return; }
   if(drawShopPic((it.art&&it.art.shop)||it.name.toLowerCase(),cx,y+bh/2,bw,bh)) return;
-  /* no picture: a seed-coloured packet or a plain crate */
-  if(it.type==='seed'){ const S=SPECIES[it.id];
-    px(b,cx-16,y+bh/2-20,32,40,'#e8dcc0'); px(b,cx-10,y+bh/2-8,20,20,S.fruit); px(b,cx-10,y+bh/2-8,10,10,S.dk); }
-  else { px(b,cx-18,y+bh/2-14,36,28,'#8a6a2e'); px(b,cx-18,y+bh/2-14,36,4,'#a8865a'); }
+  /* no picture: a plain crate */
+  px(b,cx-18,y+bh/2-14,36,28,'#8a6a2e'); px(b,cx-18,y+bh/2-14,36,4,'#a8865a');
 }
 function drawShop(){
   if(shop.town){ const g=b.createLinearGradient(0,BAND_TOP(),0,BAND_BOT()); g.addColorStop(0,'#141c4a'); g.addColorStop(1,'#070b22');

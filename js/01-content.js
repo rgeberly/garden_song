@@ -449,47 +449,9 @@ function drawPestWorld(c,sp,x,y,t,flip,ph){
   c.restore(); c.globalAlpha=1;
 }
 
-/* ---------------- cached plant rendering ---------------- */
-const plantCache={};
-function plantArt(sp,stage,tree){
-  const key=sp+'|'+stage+'|'+(tree?'t':'b');
-  if(plantCache[key]) return plantCache[key];
-  const S=SPECIES[sp];
-  let r,W,H,cx,cy;
-  if(stage===0){ W=12;H=14;cx=6;cy=10; }
-  else {
-    r=tree?(stage===1?10:stage===2?15:20):(stage===1?5:stage===2?8:9);
-    W=(r+3)*2; H=(r+3)*2+(tree?16:0); cx=W/2; cy=r+3;
-  }
-  const cvv=document.createElement('canvas'); cvv.width=W; cvv.height=H;
-  const g=cvv.getContext('2d');
-  if(stage===0){
-    px(g,cx,cy-2,2,6,'#4a7d2e'); px(g,cx-4,cy-4,4,2,'#6fae4e'); px(g,cx+2,cy-6,4,2,'#6fae4e');
-    px(g,cx-1,cy-1,1,1,'#8fce68');
-  } else {
-    if(tree){ px(g,cx-3,cy+r-4,7,15,'#2b1e12'); px(g,cx-2,cy+r-4,5,14,'#6b4a2a');
-              px(g,cx-2,cy+r-4,2,14,'#8a6236'); }
-    for(let y=-r-2;y<=r+2;y++)for(let x=-r-2;x<=r+2;x++){
-      const d=x*x+y*y; if(d>(r+2)*(r+2))continue;
-      if(d>r*r){ px(g,cx+x,cy+y,1,1,'#1c2a14'); continue; }
-      let col=((x*2+y)%5===0)?'#4f9442':'#3a7132';
-      if(d>(r-2)*(r-2)) col='#2b5527';
-      if(x<-r*0.35&&y<-r*0.35) col='#6cb452';
-      if((x*3-y)%7===0) col='#5aa347';
-      px(g,cx+x,cy+y,1,1,col);
-    }
-    if(stage>=3){
-      const n=tree?9:5;
-      for(let i=0;i<n;i++){ const a=i*1.7,d=r*0.55;
-        const fx=cx+Math.round(Math.cos(a)*d), fy=cy+Math.round(Math.sin(a)*d);
-        px(g,fx-1,fy-1,4,4,S.dk); px(g,fx,fy,3,3,S.fruit); px(g,fx,fy,1,1,'#ffffff'); }
-    }
-  }
-  return plantCache[key]={cv:cvv,ox:cx,oy:cy};
-}
 /* ---------------- painted crops, soil and stand (assets/sprites/crops.png) ----------------
    Stage 0 is the shared sprout, 1 a smaller baby, 2 the baby, 3 mature (fruit trees are
-   built larger). Crops without pictures yet fall back to the drawn ones above. */
+   built larger). */
 const IMG_CROPS=new Image(); IMG_CROPS.src=ASSET_CROPS;
 const CROP_STAGE=['sprout','baby','baby','mature'], CROP_STAGE_SCALE=[1,0.8,1,1];
 const cropsReady=()=>IMG_CROPS.complete&&IMG_CROPS.naturalWidth>0;
@@ -505,9 +467,7 @@ function drawPlant(c,x,y,sp,stage,tree){
   /* a fruit tree starts out as the sapling she planted */
   const sap=stage===0&&tree&&CROP_ART['sapling '+SPECIES[sp].name.toLowerCase()];
   const key=sap?'sapling '+SPECIES[sp].name.toLowerCase():stage===0?'sprout':CROP_STAGE[stage]+' '+SPECIES[sp].name.toLowerCase();
-  if(drawCropArt(c,key,x,y,CROP_STAGE_SCALE[stage])) return;
-  const a=plantArt(sp,stage,tree);
-  c.drawImage(a.cv,Math.round(x-a.ox),Math.round(y-a.oy));
+  drawCropArt(c,key,x,y,CROP_STAGE_SCALE[stage]);
 }
 /* what is left when pests eat a plant's health to zero; cleared with A/J */
 function drawRuined(c,x,y,tree){
