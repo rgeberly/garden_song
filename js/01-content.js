@@ -610,6 +610,18 @@ function drawMeter(c,cx,cy,pct,ready,health){
     if(h>0.2||Math.floor(Date.now()/250)%2) pill(c,x0,cy+5.2,Math.max(2.6,w*h),2.6,shade(c,cy+5.2,2.6,...col)); }
   c.restore();
 }
+/* Kaitlyn's MP as she soaks in the pool: a bar like a plant's, in blue, glowing when full */
+function drawMpMeter(c,cx,cy,pct){
+  const w=30, x0=cx-w/2, full=pct>=1;
+  c.save();
+  pill(c,x0-2,cy-2,w+4,8,'rgba(10,18,40,0.5)');
+  pill(c,x0,cy,w,4,'rgba(255,255,255,0.14)');
+  if(full){ c.shadowColor='rgba(150,210,255,'+(0.55+0.35*Math.sin(Date.now()/240))+')'; c.shadowBlur=5; }
+  const fw=w*clamp(pct,0,1); if(fw>0) pill(c,x0,cy,fw,4,shade(c,cy,4,'#b8e8ff','#3a8ae8'));
+  c.shadowBlur=0;
+  if(fw>2) pill(c,x0+1,cy+0.6,fw-2,1.1,'rgba(255,255,255,0.5)');      /* the shine */
+  c.restore();
+}
 function drawStall(c,x,y){
   px(c,x-24,y-36,48,6,'#2b1c12');
   for(let i=0;i<8;i++) px(c,x-23+i*6,y-35,6,4,i%2?'#e8e2be':'#c9564a');

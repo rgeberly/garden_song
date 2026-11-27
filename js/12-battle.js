@@ -1679,7 +1679,7 @@ function winRewards(){
     if(k){ if(EQUIP[k]&&!G.gear[k]) G.gear[k]=1; else G.goods[k]=(G.goods[k]||0)+1; drops.push(k); } });   /* (gear: the first one found is kept to wear) */
   B.win={xp,coins,bonus,seed,from,who:up,t:0,drops,tick:0};
   G.coins+=coins; if(seed) G.seeds[seed]=(G.seeds[seed]||0)+1;
-  G.pests=G.pests.filter(p=>p!==B.pest); G.mtnPests=G.mtnPests.filter(p=>p!==B.pest);
+  G.pests=G.pests.filter(p=>p!==B.pest); G.mtnPests=G.mtnPests.filter(p=>p!==B.pest); if(G.fstPests) G.fstPests=G.fstPests.filter(p=>p!==B.pest);
   B.foes.forEach(f=>G.lore.beat[f.sp]=(G.lore.beat[f.sp]||0)+1);      /* for the Bestiary */
   up.forEach(id=>addXpTo(id,xp));          /* everyone still standing learns from it */
 }
@@ -1705,7 +1705,7 @@ function endBattle(){
     say((B.boss?PESTS[B.pest.species].outro:"Won!  ")+"+"+w.coins+"c"+(w.bonus?" (lucky!)":"")+"  +"+w.xp+"xp"+(w.seed?"  + a seed":"")); }
   else if(B.over==='lose'){
     G.player.hp=Math.max(4,Math.floor(G.player.maxhp*0.4));
-    G.pests=G.pests.filter(p=>p!==B.pest); G.mtnPests=G.mtnPests.filter(p=>p!==B.pest); G.player.x=338; G.player.y=396; G.indoors=false; G.area='garden';
+    G.pests=G.pests.filter(p=>p!==B.pest); G.mtnPests=G.mtnPests.filter(p=>p!==B.pest); if(G.fstPests) G.fstPests=G.fstPests.filter(p=>p!==B.pest); G.player.x=338; G.player.y=396; G.indoors=false; G.area='garden';
     const lost=Math.floor(G.coins*0.5); G.coins-=lost;
     say("A frog nudged you awake by the pool. You dropped "+lost+"c."); }
   else { B.pest.x+=rnd(-60,60); B.pest.y+=rnd(-60,60); say("You slipped away."); }
@@ -2054,8 +2054,9 @@ function TO(t,x,y,size,col,align,bold,w){ const o=w||1.2;
    it loads; it's made ready ahead, see prebakeBattle). */
 const BACK_HORIZON={spring:0.50,summer:0.53,fall:0.53,winter:0.57,
   mountain_spring:0.56,mountain_summer:0.56,mountain_fall:0.50,mountain_winter:0.60}, BACK_IMG={};
-const backdropKey=()=>{ const s=season(), m='mountain_'+s;
-  return G.area==='mountain'&&typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(m)?m:s; };
+const backdropKey=()=>{ const s=season(), has=k=>typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(k);
+  if(G.area==='forest'&&has('forest_'+s)) return 'forest_'+s;
+  return (G.area==='mountain'||G.area==='forest')&&has('mountain_'+s)?'mountain_'+s:s; };
 const hasBackdrop=()=>typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(backdropKey());
 /* Everything a battle draws that's slow the first time, done ahead (when the game starts
    and each new day), so a fight opens without a stall: the sprite sheets decoded, each

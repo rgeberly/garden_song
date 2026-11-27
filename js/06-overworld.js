@@ -72,7 +72,7 @@ function harvest(plot){
   autoSave();
 }
 /* the pests that can turn up now (ghosts only come out after dark) */
-const pestPool=()=>G.area==='mountain'?mtnPool():
+const pestPool=()=>G.area==='mountain'?mtnPool():G.area==='forest'?Object.keys(PESTS).filter(k=>PESTS[k].where==='forest'&&!PESTS[k].boss):
   Object.keys(PESTS).filter(k=>!PESTS[k].boss&&!PESTS[k].where&&PESTS[k].min<=G.gardenLv&&(!PESTS[k].night||isNight()));
 function spawnPest(){
   if(G.pests.length>=(G.lureT>0?5:3)) return;
@@ -159,7 +159,10 @@ function updateWorld(dt){
   if(z!==1&&z!==2) exitArmed=true;
   const wasSwim=G.swim;
   G.swim=season()!=='winter'&&inPool(P.x,P.y+9);   /* frozen in winter: she walks on the ice */
-  if(G.swim&&!wasSwim){ say("Ahh. Music Points restoring..."); blip(500,0.12,0.15,'sine'); }
+  if(G.swim&&!wasSwim){ say("Ahh. Music Points restoring..."); poolSplash(P.x,P.y+POOL_LINE,1); }
+  else if(!G.swim&&wasSwim) poolSplash(P.x,P.y+POOL_LINE,0.55);
+  if(G.swim){ G.swimFx=(G.swimFx||0)-dt;                  /* a ring now and then, a wake while she swims */
+    if(G.swimFx<=0){ G.swimFx=P.moving?190:1100; poolRipple(P.x,P.y+POOL_LINE,P.moving); } }
   if(G.swim){ G.mpTick+=dt; if(G.mpTick>380){ G.mpTick=0;
     G.party.forEach(id=>{ const M=member(id); if(M.mp<memberMaxMp(id)) M.mp++; });
     if(P.mp===maxMp()&&!G.party.some(id=>member(id).mp<memberMaxMp(id))) { if(!G.mpFullSaid) say("Music Points full!"); G.mpFullSaid=true; } else G.mpFullSaid=false; } }
@@ -288,7 +291,8 @@ function drawWorld(){
     } else if(G.swim){
       b.save(); b.beginPath(); b.rect(sx-200,sy-1000,400,979); b.clip();
       drawKaitlyn(b,sx,sy,G.player.dir,G.player.animT||0,true,G.player.moving); b.restore();
-      for(let i=-18;i<=18;i+=4) px(b,sx+i,sy-21+((i%3)?0:2),3,2,'#8fd8ee');
+      if(FX2) drawWaterline(sx,sy-21); else for(let i=-18;i<=18;i+=4) px(b,sx+i,sy-21+((i%3)?0:2),3,2,'#8fd8ee');
+      drawMpMeter(b,sx,sy-62,G.player.mp/maxMp());       /* her MP, filling as she soaks */
     } else drawKaitlyn(b,sx,sy,G.player.dir,G.player.animT||0,false,G.player.moving);
     b.restore();
   }});
@@ -297,6 +301,8 @@ function drawWorld(){
   const fr=frontImg(season()); if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,WORLD_W,WORLD_H); }
   if(G.cast) drawCastFx(cam);
   if(G.croak) drawCroakFx(cam);
+  { const now=performance.now(), dt=Math.min(50,now-(drawWorld.last||now)); drawWorld.last=now;   /* splashes and ripples (garden px) */
+    b.save(); b.translate(-cam.x,-cam.y); drawSceneGlow(dt); b.restore(); }
   /* shadows drift across the ground in world space, so they stay put
      relative to the garden while the camera moves */
   const day=daylight();
@@ -345,4 +351,35 @@ function drawPrompt(label,cx,by){
   m.fillStyle='#10164a'; m.beginPath(); m.moveTo(cx-3,y+h-0.8); m.lineTo(cx,y+h+3); m.lineTo(cx+3,y+h-0.8); m.fill();
   m.restore();
   TS(label,cx,y+h/2+3.6,22,WIN_TXT.title,'center',true);
+}
+
+/* ---------- the pool's water effects (FX2: soft light, like the battles') ----------
+   In garden px; they live in the scene's glow list (drawn in drawWorld). POOL_LINE: where
+   the water meets her, from her y (she's drawn at her own size around her feet, her
+   waterline 21 of her px above them) */
+const POOL_LINE=12-21/WORLD_ZOOM;
+function poolSplash(x,y,k){
+  if(!(sfx('splash',0.8*k)>0)&&!(sfx('fish_jump',0.5*k)>0)) blip(500,0.12,0.15,'sine');
+  if(!FX2) return;
+  glow({x,y,ring:true,r0:3,r1:26*k+8,w:2.6,col:'#cfefff',life:760,a:0.9});
+  glow({x,y,ring:true,r0:2,r1:16*k+6,w:1.8,col:'#9fdcff',life:560,a:0.8});
+  for(let i=0;i<Math.round(16*k);i++){ const a=rnd(-Math.PI*0.95,-Math.PI*0.05), sp=rnd(0.07,0.17)*(0.6+k*0.5);
+    glow({x:x+rnd(-5,5),y:y-4,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*1.5,g:0.00062,size:rnd(1.6,3),col:i%3?'#dff6ff':'#9fe0ff',life:rnd(520,860),streak:true}); }
+  for(let i=0;i<5;i++) glow({x:x+rnd(-10,10),y:y-rnd(2,10),vx:rnd(-0.01,0.01),vy:rnd(-0.03,-0.012),size:rnd(7,11),col:'#bfe8ff',life:rnd(420,640),a:0.35});
+}
+/* a quiet ring where she floats, or a little wake (rings and drops behind her) as she swims */
+function poolRipple(x,y,moving){
+  if(!FX2) return;
+  glow({x,y,ring:true,r0:moving?5:8,r1:moving?17:24,w:moving?1.5:1.2,col:'#bfe8ff',life:moving?620:1300,a:moving?0.55:0.4});
+  if(moving) for(let i=0;i<2;i++) glow({x:x+rnd(-8,8),y:y-2,vx:rnd(-0.03,0.03),vy:rnd(-0.06,-0.03),g:0.0004,size:rnd(1.2,2),col:'#dff6ff',life:rnd(300,460)});
+}
+/* where the water meets her (in her own px, around her feet): a soft bright line that bobs */
+function drawWaterline(sx,wy){
+  const bob=Math.sin(G.t/420)*0.8, pts=[];
+  for(let j=0;j<=24;j++){ const a=Math.PI*(j/24); pts.push([sx+Math.cos(a)*16,wy+bob+Math.sin(a)*3.6]); }
+  b.save(); b.globalCompositeOperation='lighter'; b.globalAlpha=0.22; b.fillStyle='#9fdcff';
+  b.beginPath(); b.ellipse(sx,wy+bob,17,4.2,0,0,TAU); b.fill(); b.restore();
+  glowPath(pts,'#bfefff',1.3,0.75);
+  for(let i=0;i<3;i++){ const q=(G.t/700+i/3)%1, a=Math.PI*(0.15+0.7*((i*0.37+G.t/5000)%1));
+    glowAt(sx+Math.cos(a)*15,wy+bob+Math.sin(a)*3.4,2.4,'#ffffff',Math.sin(q*Math.PI)*0.7); }
 }

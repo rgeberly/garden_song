@@ -65,9 +65,11 @@ function drawClockBack(){
 }
 function drawClockText(){
   const {x}=CLOCK, y=clockY(), t=clockText();
-  // the colon blinks once a game minute
-  const colon=Math.floor(G.clock*2)%2===0||G.scene!=='world'?':':' ';
-  TS(t.h+colon+t.mm,x+52*CK,y+14*CK,27*CK,WIN_TXT.title,'right',true);
+  /* the colon blinks once a game minute; the hours and minutes keep their places either way */
+  const R=x+52*CK, sz=27*CK, mw=TW(t.mm,sz,true), cw=TW(':',sz,true);
+  TS(t.mm,R,y+14*CK,sz,WIN_TXT.title,'right',true);
+  if(Math.floor(G.clock*2)%2===0||G.scene!=='world') TS(':',R-mw,y+14*CK,sz,WIN_TXT.title,'right',true);
+  TS(String(t.h),R-mw-cw,y+14*CK,sz,WIN_TXT.title,'right',true);
   TS(t.ap,x+54*CK,y+14*CK,17*CK,WIN_TXT.gold,'left',true);
   TS(SEASON_NAME[season()]+' · Day '+G.day,x+48*CK,y+24*CK,15*CK,WIN_TXT.body,'center');
 }

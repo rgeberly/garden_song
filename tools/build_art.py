@@ -128,16 +128,18 @@ ENEMY_ANIM_FLIP = set()
 # picture), painted like the house at 512 x 768, with maps/<room>_collision and
 # maps/<room>_transitions (the red patch: the doorway back to town)
 ROOMS = ('cafe', 'music', 'fishshop', 'bar')
-PLACE_SIZE = {'mountain': (1080, 1446), 'town': (720, 720), **{r: (512, 768) for r in ROOMS}}
+# the Deep Forest (maps/forest_<season>, painted 768 square): one painting for now, used all year
+PLACE_SIZE = {'mountain': (1080, 1446), 'town': (720, 720), 'forest': (1152, 1152), **{r: (512, 768) for r in ROOMS}}
 PLACE_GRID = 4
 SEASON_NAMES = ('spring', 'summer', 'fall', 'winter')
 # entry/exit maps (maps/<area>_transitions): the colour for each place a patch leads to
 # (Paint's palette; the garden's maps/transitions uses the same red, gold and blue)
-ZONE_DESTS = ('garden', 'town', 'mountain', 'house', 'cafe', 'music', 'fishshop', 'bar')
+ZONE_DESTS = ('garden', 'town', 'mountain', 'house', 'cafe', 'music', 'fishshop', 'bar', 'forest')   # (new ones go at the end)
 ZONE_COLS = {'garden': (34, 177, 76), 'town': (237, 28, 36), 'mountain': (255, 201, 14), 'house': (0, 162, 232),
-             'cafe': (255, 127, 39), 'music': (163, 73, 164), 'fishshop': (63, 72, 204), 'bar': (185, 122, 87)}
+             'cafe': (255, 127, 39), 'music': (163, 73, 164), 'fishshop': (63, 72, 204), 'bar': (185, 122, 87),
+             'forest': (0, 100, 40)}
 # the areas with entry/exit maps, and their size in the game (world px; the house in painting px)
-AREA_ZONE_SIZE = {'town': (720, 720), 'mountain': (1080, 1446), 'house': (512, 768), **{r: (512, 768) for r in ROOMS}}
+AREA_ZONE_SIZE = {'town': (720, 720), 'mountain': (1080, 1446), 'forest': (1152, 1152), 'house': (512, 768), **{r: (512, 768) for r in ROOMS}}
 MOUNTAIN_OPEN = [(0.34, 0.90, 0.21, 0.10)]
 # Enemies (enemies/<Name>.png|jpg): their key in the game and height in battle (device px).
 # Pixel art smaller than that is enlarged with hard edges.
@@ -898,8 +900,17 @@ def main():
         if not f: continue
         t = cv2.imread(f)[..., ::-1].astype(int)
         idx = np.zeros(t.shape[:2], np.uint8)
+        # patches painted over the painting itself (not a faded copy, like the forest's): only
+        # what differs from the painting counts, so its own colours aren't taken for patches
+        changed = np.ones(t.shape[:2], bool)
+        orig = find_pic(os.path.join(SRC, 'maps', area + '_spring')) or find_pic(os.path.join(SRC, 'maps', area))
+        if orig:
+            o = cv2.imread(orig)
+            if o is not None and o.shape[:2] == t.shape[:2]:
+                d = np.abs(t - o[..., ::-1].astype(int)).sum(2) > 60
+                if d.mean() < 0.5: changed = d          # (a faded copy differs nearly everywhere: left as it was)
         for i, dest in enumerate(ZONE_DESTS):
-            idx[np.abs(t - np.array(ZONE_COLS[dest])).sum(2) < 90] = i + 1
+            idx[(np.abs(t - np.array(ZONE_COLS[dest])).sum(2) < 90) & changed] = i + 1
         gw, gh = W // 4, H // 4
         cv2.imwrite(os.path.join(OUT, area + '_zones.png'), cv2.resize(idx, (gw, gh), interpolation=cv2.INTER_NEAREST))
         azones[area] = [gw, gh]

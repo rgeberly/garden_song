@@ -174,6 +174,12 @@ const PLACES={
     gather:[[382,838],[662,146],[802,1318],[846,618],[446,462],[726,962],[214,1138],[506,1182],[586,678],
             [714,406],[198,674],[450,234],[378,1034],[566,866],[806,1130],[750,778],[390,626],[666,1222]],
     people:[]},
+  /* the Deep Forest (maps/forest_<season>), up the mountain trail past the dark pines: a
+     clearing where two trails meet, its pests roaming (FOREST_POOL). One painting for now,
+     used all year; its walls and front layer are hand-traced (maps/forest_spring_collision,
+     maps/forest_spring_front). */
+  forest:{name:"Deep Forest", ground:'#3a5a2a', path:'#c8a878', w:1152, h:1152,
+    paths:[], trees:[], exits:[], arrive:{mountain:{x:560,y:1060,dir:0},garden:{x:560,y:1060,dir:0}}, people:[]},
 };
 /* Town hours (minutes of the day): shops are open from 8 AM to 6 PM, the bar from 6 PM.
    A person's at: 'shop' (while the shops are open), 'day' (until 6 PM), 'kid' (until 8 PM),
@@ -191,7 +197,7 @@ function nearTownDoor(f=1){
     return d&&!ZONE_PATHS.includes(d)?{to:d}:null; }
   return (curPlace().doors||[]).find(d=>Math.hypot(G.player.x-d.x,G.player.y-d.y)<24*f); }
 /* how big Kaitlyn is drawn in each place, next to its painting (1 = as in the garden) */
-const PLACE_KAIT={town:0.8, mountain:0.7};
+const PLACE_KAIT={town:0.8, mountain:0.7, forest:0.75};
 /* in the rooms in town she's as big next to the painting as she is in the house's (painted at
    the same size), and walks as fast across it */
 const ROOM_KAIT=1.5;
@@ -229,7 +235,7 @@ const placeCol=area=>PLACE_COL[area+'_'+season()]||PLACE_COL[area];
    in ZONE_DESTS (0: nothing). Paths (to the garden, town or mountain) take her there when she
    walks onto them; doors (the house, the shops) wait for A. She arrives in the middle of the
    patch for the place she came from, or the nearest open spot to it, facing into the area. */
-const AREA_ZONE={}, ZONE_PATHS=['garden','town','mountain'];
+const AREA_ZONE={}, ZONE_PATHS=['garden','town','mountain','forest'];
 (function loadAreaZones(){
   if(typeof AREA_ZONES==='undefined') return;
   for(const area in AREA_ZONES){ const im=new Image();
@@ -330,25 +336,34 @@ function placeSolid(x,y){
    The mountain's own (goat, boar, bear: once she's near their level) and a few garden
    ones roam the open ground and come at her when she's close. Never the HOA President. */
 const MTN_MAX=4, MTN_ALSO=['crow','raccoon','seagull','wasp','rat'];
+/* The Deep Forest has its own (where:'forest'), a few more at once, and now and then Bigfoot
+   himself (one at a time, BIGFOOT_P of new ones). Each area keeps its own list. */
+const ROAM_MAX={mountain:MTN_MAX,forest:5}, BIGFOOT_P=0.06;
+const roamList=()=>G.area==='forest'?(G.fstPests||(G.fstPests=[])):G.mtnPests;
+function forestPool(){
+  const L=Object.keys(PESTS).filter(k=>PESTS[k].where==='forest'&&!PESTS[k].boss);
+  if(!roamList().some(p=>PESTS[p.species].boss)&&Math.random()<BIGFOOT_P) return ['bigfoot'];
+  return L;
+}
 function mtnPool(){
   const lv=G.player.lv;
   return Object.keys(PESTS).filter(k=>{ const P=PESTS[k]; if(P.boss) return false;
     return P.where==='mountain'?P.lv<=lv+3:MTN_ALSO.includes(k)&&(!P.night||isNight()); });
 }
 function spawnMtnPest(){
-  const P=G.player, pool=mtnPool(), M=curPlace(); if(!pool.length) return;
+  const P=G.player, pool=G.area==='forest'?forestPool():mtnPool(), M=curPlace(); if(!pool.length) return;
   for(let i=0;i<30;i++){ const x=rnd(40,placeW(M)-40), y=rnd(160,placeH(M)-60);
     if(placeSolid(x,y+9)||Math.hypot(x-P.x,y-P.y)<180) continue;
     const sp=pool[ri(0,pool.length-1)], lv=pestLevel(sp);
-    G.mtnPests.push({species:sp,lv,x,y,hp:pestStats(sp,lv).hp,roam:null,champ:rollChamp(sp)}); return; }
+    roamList().push({species:sp,lv,x,y,hp:pestStats(sp,lv).hp,roam:null,champ:rollChamp(sp)}); return; }
 }
 /* true when a fight starts */
 function updateMountainPests(dt){
   const P=G.player;
-  if(PLACE_COL.mountain&&(!G.daily.spots||G.daily.gatherDay!==G.day)) gatherToday();   /* a new day, or the walls just loaded */
+  if(G.area==='mountain'&&PLACE_COL.mountain&&(!G.daily.spots||G.daily.gatherDay!==G.day)) gatherToday();   /* a new day, or the walls just loaded */
   G.mtnT=(G.mtnT===undefined?3000:G.mtnT)-dt;
-  if(G.mtnT<=0){ G.mtnT=rnd(9000,15000)/diff().spawn; if(G.mtnPests.length<MTN_MAX) spawnMtnPest(); }
-  for(const p of G.mtnPests){
+  if(G.mtnT<=0){ G.mtnT=rnd(9000,15000)/diff().spawn; if(roamList().length<ROAM_MAX[G.area]) spawnMtnPest(); }
+  for(const p of roamList()){
     const near=Math.hypot(p.x-P.x,p.y-(P.y+6));
     if(near<20){ enterBattle(p); return true; }
     if(near<110) p.roam={x:P.x,y:P.y+6};                    /* it's seen her */
@@ -447,7 +462,7 @@ function placeLabel(){
 }
 function updatePlace(dt){
   if(updateCast(dt)) return;
-  if(G.area==='mountain'&&updateMountainPests(dt)) return;
+  if(ROAM_MAX[G.area]&&updateMountainPests(dt)) return;
   walk(dt,WALK_SPEED*(curPlace().room?ROOM_KAIT:1),(x,y)=>placeSolid(x,y+9));
   const [W,H]=areaSize(), P=G.player; P.x=clamp(P.x,21,W-21); P.y=clamp(P.y,24,H-30);
   /* the way back to the garden is a path: walking onto it takes her home */
@@ -464,7 +479,7 @@ function updatePlace(dt){
 const PLACE_IMG={};
 function placeMapKey(area){
   const L=typeof PLACE_MAPS!=='undefined'&&PLACE_MAPS[area]; if(!L) return null;
-  return L.includes(season())?area+'_'+season():L.includes('all')?area:null;
+  return L.includes(season())?area+'_'+season():L.includes('all')?area:L.length?area+'_'+L[0]:null;
 }
 function placeImg(area){
   const key=placeMapKey(area); if(!key) return null;
@@ -514,7 +529,7 @@ function drawPlace(){
     glowAt(x,y-10,16+Math.sin(G.t/260)*3,'#fff0c0',0.45); drawGatherSpot(b,x,y,sb);
     for(let i=0;i<3;i++){ const q=(G.t/900+i/3)%1; glowAt(x+Math.sin(i*2.1+G.t/500)*12,y-8-q*22,2.2,'#ffffff',Math.sin(q*Math.PI)); } }});
   /* the pests, scaled like her here (shadow and all), around their feet */
-  if(G.area==='mountain') G.mtnPests.forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y, s=placeKait();
+  if(ROAM_MAX[G.area]) roamList().forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y, s=placeKait();
     b.save(); b.translate(x,y); b.scale(s,s); b.translate(-x,-y);
     drawPestWorld(b,p.species,x,y,G.t,p.face,p.ph||(p.ph=Math.random()*6.3),p.moving,p.champ); b.restore(); }}));
   ents.push({y:G.player.y+9,f:()=>{
@@ -527,7 +542,7 @@ function drawPlace(){
     b.restore(); }});
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   /* what she walks behind (maps/<place>_<season>_front: tree tops and the like) goes over everyone */
-  const fr=frontImg(G.area+'_'+season()); if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,placeW(P),placeH(P)); }
+  const fr=frontImg(placeMapKey(G.area)||G.area+'_'+season());       /* (the painting's own: it may be another season's) */ if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,placeW(P),placeH(P)); }
   placePeople(P).forEach(p=>{ b.font='bold 7px '+FONT; b.textAlign='center'; b.fillStyle='rgba(20,12,4,.55)';
     const w=b.measureText(p.name).width+6, ny=p.y-cam.y-36*ps-10; b.fillRect(p.x-cam.x-w/2,ny,w,10);
     b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,ny+7.5); b.textAlign='left';

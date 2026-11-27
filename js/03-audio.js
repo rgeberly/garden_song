@@ -235,7 +235,7 @@ function cueTrack(a,k){
 function areaMusic(){
   const s=season();
   if(G.area==='town'||(typeof PLACES!=='undefined'&&PLACES[G.area]&&PLACES[G.area].room)) return s+'_village';
-  if(G.area==='mountain') return s==='spring'||s==='summer'?'springsummer_mountain':'fallwinter_mountain';
+  if(G.area==='mountain'||G.area==='forest') return s==='spring'||s==='summer'?'springsummer_mountain':'fallwinter_mountain';   /* (the forest: the mountain's, for now) */
   return s==='spring'?'calm':s+'_garden';
 }
 /* A fade keeps its own count of the level (a._v) instead of reading a.volume back: on
