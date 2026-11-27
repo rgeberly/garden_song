@@ -29,6 +29,7 @@ const G={
   names:{},                              /* names the player has given (id: name) */
   pawn:{},                               /* goods sold to Juniper, which she'll sell back (key: how many) */
   equip:{},                              /* what each member wears: {id:{weapon,clothes,acc1,acc2}} (EQUIP keys) */
+  play:0,                                /* play time (ms), shown in the menu */
 };
 /* Difficulty: spawn scales how often pests turn up on the map, hp and atk their HP and
    attack in battle. */
@@ -45,13 +46,15 @@ const running=()=>gearOn('boots')&&!G.swim&&runWanted();
 const diff=()=>DIFFICULTY[G.diff]||DIFFICULTY.normal;
 /* an accessory works when it's owned and not switched off in the Gear tab */
 const gearOn=id=>!!G.gear[id]&&!G.gearOff[id];
+/* a yard upgrade works when it's built and not switched off (Items > Garden Gear) */
+const yardOn=id=>!!G.yard[id]&&!G.gearOff[id];
 const moveList=()=>MOVES.filter(mv=>mv.lv<=G.player.lv);
 const fieldList=()=>FIELD.filter(f=>f.lv<=G.player.lv);
 const growingCount=()=>plots.filter(p=>active(p)&&p.sp&&p.stage<3).length;
 function harmony(){
   const n=growingCount(), per=gearOn('trellis')?0.24:0.12;
   let h=Math.min(gearOn('trellis')?2.6:1.8,1+Math.max(0,n-1)*per);
-  if(G.yard.fountain) h+=0.2;
+  if(yardOn('fountain')) h+=0.2;
   return h;
 }
 function say(t){ G.msg=t; G.msgT=2900; }
@@ -174,7 +177,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,ps:partySlots(),pp:G.pep,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,
+    pa:G.party,ps:partySlots(),pp:G.pep,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,pt:Math.round((G.play||0)/1000),
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0,p.deadDay||0])};
 }
@@ -194,7 +197,7 @@ function applySave(o){
   G.runMode=o.jm||'hold';
   G.names=o.nm||{}; applyNames();
   G.sheets=o.sh||[];
-  G.pawn=o.pw||{}; G.equip=o.eq||{}; fitOutKaitlyn(); G.flute=G.equip.kaitlyn.weapon||'recorder';
+  G.pawn=o.pw||{}; G.equip=o.eq||{}; G.play=(o.pt||0)*1000; fitOutKaitlyn(); G.flute=G.equip.kaitlyn.weapon||'recorder';
   for(const id in G.allies) G.allies[id].maxhp=statOf(id,'hp');      /* with their equipment */
   P.maxhp=statOf('kaitlyn','hp');
   G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
@@ -241,7 +244,7 @@ function autoLoad(){ return storeGet(slotKey(G.slot||1)).then(s=>!!(s&&importCod
 const SLOTS=Array(SAVE_SLOTS).fill(null); let lastSlot=1;
 function peekSave(s){
   try{ const o=JSON.parse(decodeURIComponent(escape(atob(s.trim())))); if(!o||o.v!==7) return null;
-    return {lv:o.p[0],coins:o.c,day:o.t?o.t[0]:1}; }catch(e){ return null; }
+    return {lv:o.p[0],coins:o.c,day:o.t?o.t[0]:1,pt:o.pt||0}; }catch(e){ return null; }
 }
 function readSlots(){
   return Promise.all(SLOTS.map((_,i)=>storeGet(slotKey(i+1)))).then(L=>{ L.forEach((s,i)=>SLOTS[i]=s?peekSave(s):null); })

@@ -18,7 +18,8 @@ function playStory(steps){
 function nextStep(){
   story.i++; story.t=0;
   const s=story.steps[story.i];
-  if(!s){ story=null; if(G.scene==='story') G.scene='world'; autoSave(); return; }   /* unless a step opened something */
+  if(!s){ const mem=story.memory; story=null; if(mem){ G.scene='sys'; return; }     /* a memory: back to the menu */
+    if(G.scene==='story') G.scene='world'; autoSave(); return; }   /* unless a step opened something */
   if(s.run){ s.run(); if(G.scene!=='story'&&story.i>=story.steps.length-1){ story=null; return; } nextStep(); return; }
   if(s.pic!==undefined){ story.pic=s.pic; if(s.pic) sceneImg(s.pic); nextStep(); return; }
   if(s.fade){ story.from=story.fade; story.to=s.fade==='out'?1:0; }
@@ -54,18 +55,20 @@ const SCENE_WHOLE=['meet_tituba','meet_tex'], TALK_ROOM=128;     /* TALK_ROOM: t
 const storyArea=()=>deckShown()?SCREEN_H-DECK_H:SCREEN_H;
 function drawStory(){
   let bottom=VIEW_H;
-  if(story.pic){
+  const pic=story.pic||(story.memory&&story.memory.bg);    /* a memory's talk shows over its picture, dimmed */
+  if(pic){
     /* the picture fills the screen above the deck, trimmed at the edges to fit */
     bottom=storyArea();
     fillScreen(b,'#0d1410');
-    const im=sceneImg(story.pic);
+    const im=sceneImg(pic);
     if(im){
       /* SCENE_WHOLE pictures (their friend is down by the bottom edge) are shown whole above the
          talk box when the screen is tall enough; the others fill it */
-      const room=bottom-TALK_ROOM, whole=SCENE_WHOLE.includes(story.pic)&&LW*im.naturalHeight/im.naturalWidth<=room;
+      const room=bottom-TALK_ROOM, whole=SCENE_WHOLE.includes(pic)&&LW*im.naturalHeight/im.naturalWidth<=room;
       const s=whole?LW/im.naturalWidth:Math.max(LW/im.naturalWidth,bottom/im.naturalHeight), w=im.naturalWidth*s, h=im.naturalHeight*s;
       b.save(); b.beginPath(); b.rect(0,0,LW,bottom); b.clip(); b.imageSmoothingEnabled=true;
       b.drawImage(im,(LW-w)/2,whole?(room-h)/2:(bottom-h)/2,w,h); b.restore(); }
+    if(!story.pic){ b.fillStyle='rgba(20,14,30,.62)'; b.fillRect(0,0,LW,bottom); }
     blit();
   } else drawWorld();
   const s=story.steps[story.i];
@@ -275,4 +278,25 @@ function drawMood(c,x,y,mood){
   else { c.moveTo(x-2.3,y+2.6); c.lineTo(x+2.3,y+2.6); }
   c.stroke(); c.lineCap='butt';
   if(mood==='sad'){ c.fillStyle='#7cc4f0'; c.beginPath(); c.ellipse(x+4.2,y+1.6,0.9,1.4,0,0,7); c.fill(); }
+}
+
+/* ---------- Memories (Lore > Memories) ----------
+   The friends' scenes, to see again: their talk, pictures and fades, without what they
+   did at the time (no run steps, nothing waiting on an animation). Each opens once its
+   moment has happened; the talk shows over the memory's picture (bg), dimmed. */
+const MEMORIES=[
+  {id:'ivy1', name:"A Snake in the Garden", about:"Finding Ivy hurt by the house", bg:'join_ivy', seen:()=>!!G.story.ivy, steps:()=>ivyMeets()},
+  {id:'ivy2', name:"Ivy Stays", about:"Letting her go, and her coming back", bg:'join_ivy', seen:()=>G.story.ivy==='joined', steps:()=>ivyLetGo().concat(ivyJoins())},
+  {id:'tiny1',name:"The Fallen Egg", about:"An egg under the pine, and a nest by the fire", bg:'hatch_tiny_one', seen:()=>!!G.story.tiny, steps:()=>tinyEggFound().concat(G.story.tiny!=='egg'?tinyBuildsNest():[])},
+  {id:'tiny2',name:"Hatching Day", about:"Tiny One comes out of his shell", bg:'hatch_tiny_one', seen:()=>['baby','grown','joined'].includes(G.story.tiny), steps:()=>tinyHatches()},
+  {id:'tiny3',name:"All Grown Up", about:"Tiny One joins the party", bg:'hatch_tiny_one', seen:()=>G.story.tiny==='joined', steps:()=>tinyJoins()},
+  {id:'titu1',name:"Outside the Tipsy Toad", about:"A Siamese cat with no time for anyone", bg:'meet_tituba', seen:()=>!!G.story.titu, steps:()=>tituMeets()},
+  {id:'titu2',name:"A Fish for Tituba", about:"The way to a cat's heart", bg:'meet_tituba', seen:()=>G.story.titu==='joined', steps:()=>tituFed('trout')},
+  {id:'tex1', name:"A Tortoise on the Ice", about:"Tex, stuck on his back on the frozen pool", bg:'meet_tex', seen:()=>!!G.story.tex, steps:()=>texMeets()},
+];
+function playMemory(M){
+  const steps=M.steps().filter(s=>s&&!s.run&&!s.wait);
+  sceneImg(M.bg); stopSfx&&stopSfx();
+  playStory([{fade:'in',ms:900}].concat(steps,[{fade:'out',ms:700}]));
+  story.memory=M; story.fade=story.from=1;
 }

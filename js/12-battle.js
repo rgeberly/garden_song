@@ -189,8 +189,10 @@ function pop(txt,x,y,col,size){ B.pops.push({txt,x,y,t:1100,col,size,fx2:FX2}); 
 /* Critical hits: a party member's hit lands extra hard now and then, more often the
    luckier they are */
 /* (Tituba's claws add PARTY_INFO crit, and some skills B.critUp for their own hits) */
-const CRIT_MUL=1.75, critChance=id=>0.03+statOf(id,'luk')*0.004+((PARTY_INFO[id]&&PARTY_INFO[id].crit)||0)+((B&&B.critUp)||0)
+/* critBase: from Luck, her own sharpness and gear (shown in the menu); a skill's own boost on top in battle */
+const CRIT_MUL=1.75, critBase=id=>0.03+statOf(id,'luk')*0.004+((PARTY_INFO[id]&&PARTY_INFO[id].crit)||0)
   +(wears(id,'clawtips')?0.06:0);            /* (Tituba's Silver Claw Tips) */
+const critChance=id=>critBase(id)+((B&&B.critUp)||0);
 function burst(x,y,col,n,spd){
   if(FX2){ for(let i=0;i<(n||10);i++){ const a=rnd(0,Math.PI*2), sp=rnd(0.35,1)*(spd||0.13);     /* glowing, in FX2 */
     glow({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.6-0.06,drag:0.05,g:0.0002,size:rnd(2.6,4.2),life:rnd(450,700),col}); } return; }
@@ -1058,7 +1060,7 @@ function hitFoe(f,dmg,label){
 function missed(id){ if(has(id,'blind')&&Math.random()<0.5){ B.log=PARTY_INFO[id].name+" misses!"; hitSound('miss'); return true; } return false; }
 /* how hard a member hits: Weak takes 40% off; the Moonlit Feather adds 25% at night */
 const weakMul=id=>(has(id,'weak')?0.6:1)*(wears(id,'moonfeather')&&isNight()?1.25:1);
-const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(wears('kaitlyn','kickers')?1.6:1);
+const kickPower=pow=>statOf('kaitlyn','str')*1.5*pow*weakMul('kaitlyn')*(wears('kaitlyn','kickers')?1.25:1);
 /* Kaitlyn's kicks: the battle row (battle.png) plays, the hit lands partway through */
 /* Focus: a member's next hit (every hit of that one move) is twice as hard; this uses it up */
 function useCharge(id){ const m=B.charged[id]?(wears(id,'catnip')?2.5:2):1; B.charged[id]=false; return m; }   /* (x2.5 with Tituba's Catnip Sachet) */

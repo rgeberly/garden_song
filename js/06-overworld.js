@@ -165,7 +165,7 @@ function updateWorld(dt){
     if(P.mp===maxMp()&&!G.party.some(id=>member(id).mp<memberMaxMp(id))) { if(!G.mpFullSaid) say("Music Points full!"); G.mpFullSaid=true; } else G.mpFullSaid=false; } }
   for(const k of ['coffeeT','snackT','calmT','lureT']) if(G[k]>0) G[k]=Math.max(0,G[k]-dt);
   /* lantern and lemongrass keep pests away, muscadine draws them in */
-  const pestMul=(G.yard.lantern?1.4:1)*(G.calmT>0?2:1)*(G.lureT>0?0.5:1);
+  const pestMul=(yardOn('lantern')?1.4:1)*(G.calmT>0?2:1)*(G.lureT>0?0.5:1);
   keepTestPest(dt);
   G.pestTimer-=dt;
   if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul/diff().spawn; spawnPest(); }

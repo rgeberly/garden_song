@@ -69,7 +69,7 @@ function eatText(sp){
   return L.join(", ")||"tasty";
 }
 /* sale price of one harvested crop at the stall */
-const sellPrice=sp=>Math.round(SPECIES[sp].value*(G.yard.arch?1.15:1));
+const sellPrice=sp=>Math.round(SPECIES[sp].value*(yardOn('arch')?1.15:1));
 /* Pests. def softens hits on them, agi decides when they act; min: garden level they
    start turning up at; night: only after dark. On its turn a pest picks one of its
    skills by weight w:
@@ -262,7 +262,7 @@ const EQUIP={
   muramatsu:{name:"Muramatsu",     slot:'weapon',who:['kaitlyn'],cost:10000,desc:"A master's handmade gold flute. +14 Intelligence, +20 max MP, +3 Luck.",own:()=>!!G.gear.muramatsu,stats:FLUTE_INFO.muramatsu.stats},
   fife:    {name:"Bamboo Fife",    slot:'weapon',who:['kaitlyn'],cost:450, desc:"A light little fife. +2 Intelligence, +2 Agility.",own:()=>!!G.gear.fife,stats:FLUTE_INFO.fife.stats},
   /* the others' weapons */
-  fangcaps:{name:"Silver Fang Caps",slot:'weapon',who:['ivy'],cost:480,desc:"Shiny caps for her fangs. +3 Strength.",own:()=>!!G.gear.fangcaps,stats:{str:3}},
+  fangcaps:{name:"Fang Caps",pic:'silver fang caps',slot:'weapon',who:['ivy'],cost:480,desc:"Shiny caps for her fangs. +3 Strength.",own:()=>!!G.gear.fangcaps,stats:{str:3}},
   reedwhistle:{name:"Reed Whistle", slot:'weapon',who:['tiny'],cost:480,desc:"A tiny carved whistle to sing along with. +3 Intelligence, +3 max MP.",own:()=>!!G.gear.reedwhistle,stats:{int:3,mp:3}},
   /* clothes */
   flannel: {name:"Evergreen Flannel",slot:'clothes',who:['kaitlyn'],desc:"Her favorite green plaid shirt. +2 Defense.",own:()=>true,stats:{def:2}},
@@ -272,7 +272,7 @@ const EQUIP={
   /* accessories (owned once bought: G.gear[key]) */
   polish:  {name:"Flute Polish",   slot:'acc',who:['kaitlyn'],cost:420,desc:"Songs do 30% more damage.",own:()=>!!G.gear.polish},
   cloth:   {name:"Cleaning Cloth", slot:'acc',cost:480,desc:"+8 max MP.",own:()=>!!G.gear.cloth,stats:{mp:8}},
-  kickers: {name:"Garden Boots",   slot:'acc',who:['kaitlyn'],cost:380,desc:"Kicks hit 60% harder.",own:()=>!!G.gear.kickers},
+  kickers: {name:"Spiked Boots",pic:'garden boots',slot:'acc',who:['kaitlyn'],cost:380,desc:"Kicks hit 25% harder.",own:()=>!!G.gear.kickers},
   fangpolish:{name:"Fang Polish",  slot:'acc',who:['ivy'],cost:450,desc:"Ivy's Venom Bite hits 50% harder.",own:()=>!!G.gear.fangpolish},
   scalecharm:{name:"Scale Charm",  slot:'acc',cost:380,desc:"+3 Defense.",own:()=>!!G.gear.scalecharm,stats:{def:3}},
   bell:    {name:"Silver Bell",    slot:'acc',who:['tiny'],cost:520,desc:"Tiny One's Tweet and healing songs heal 20% more.",own:()=>!!G.gear.bell},
@@ -288,11 +288,15 @@ const EQUIP={
   sunstone:{name:"Sun-Warmed Stone",slot:'acc',who:['tex'],cost:500,desc:"Mends 5% of his max HP at the start of each of his turns.",own:()=>!!G.gear.sunstone},
   shellpolish:{name:"Shell Polish", slot:'acc',who:['tex'],cost:450,desc:"+2 Defense, and he takes 30% less while covering someone.",own:()=>!!G.gear.shellpolish,stats:{def:2}},
   /* found, not bought: rare drops in the Deep Forest (the first one found is kept to wear) */
-  silverfang:{name:"Silver Fang",  slot:'weapon',who:['ivy'],desc:"A wolf's silver fang, fitted for Ivy. +7 Strength, +3 Luck.",own:()=>!!G.gear.silverfang,stats:{str:7,luk:3}},
+  silverfang:{name:"Silver Wolf Fang",pic:'silver fang',slot:'weapon',who:['ivy'],desc:"A wolf's silver fang, fitted for Ivy. +7 Strength, +3 Luck.",own:()=>!!G.gear.silverfang,stats:{str:7,luk:3}},
   clawcharm:{name:"Claw Charm",    slot:'acc',desc:"A badger's claw on a cord. +5 Strength.",own:()=>!!G.gear.clawcharm,stats:{str:5}},
   wishbone:{name:"Golden Wishbone",slot:'acc',desc:"Make a wish. +12 Luck.",own:()=>!!G.gear.wishbone,stats:{luk:12}},
   moonfeather:{name:"Moonlit Feather",slot:'acc',desc:"Hits 25% harder at night.",own:()=>!!G.gear.moonfeather},
 };
+/* its picture (shop items/<name>; pic: when it was renamed since), and its description,
+   which starts with whose it is when only one of them can wear it ("Tex only.") */
+const equipPic=k=>EQUIP[k].pic||EQUIP[k].name.toLowerCase();
+const equipDesc=k=>{ const E=EQUIP[k]; return (E.who&&E.who.length===1?PARTY_INFO[E.who[0]].name+" only. ":"")+E.desc; };
 /* is member id wearing key? what does their equipment add to stat k? */
 const wears=(id,key)=>EQUIP_SLOTS.some(([s])=>(G.equip[id]||{})[s]===key);
 function equipBonus(id,k){ const E=G.equip[id]; if(!E) return 0; let n=0;
@@ -321,7 +325,9 @@ function equipChoices(id,slot){
 function wearEquip(id,slot,k){
   const cur=equipOf(id)[slot]||null; if(k===cur) return;
   equipOf(id)[slot]=k; refitMember(id);
-  say(k?PARTY_INFO[id].name+" puts on the "+EQUIP[k].name+".":PARTY_INFO[id].name+" takes off the "+EQUIP[cur].name+"."); sfx('menu_confirm'); autoSave();
+  say(k?PARTY_INFO[id].name+" puts on the "+EQUIP[k].name+".":PARTY_INFO[id].name+" takes off the "+EQUIP[cur].name+".");
+  if(!(sfx('equip')>0)) sfx('menu_confirm');            /* (sfx/equip.wav, once it's recorded) */
+  autoSave();
 }
 /* what a piece of equipment adds, in short: "+3 Int  +4 MP" */
 const equipStats=k=>{ const s=k&&EQUIP[k].stats||{}; return Object.keys(s).map(st=>(s[st]>0?"+":"")+s[st]+" "+(st==='hp'||st==='mp'?st.toUpperCase():STAT_NAME[st].slice(0,3))).join("  "); };
@@ -420,25 +426,26 @@ const ALLY_SKILLS={
     {id:'deathroll',name:"Deathroll", lv:14,mp:14, pow:1.4, stat:'str', deathroll:true, rollHeal:0.3,
      desc:"She coils tight and spins. A sleeping foe never wakes up (a boss takes six times the damage), and Ivy gets back 30% of her HP. Awake, a crushing hit, power x1.4 from Strength."},
   ],
-  /* Tiny One. mend (one friend) and mendAll (everyone standing) heal that share of their
+  /* Tiny One (fieldUse: can be sung from the menu's Skills page too, to the same effect).
+     mend (one friend) and mendAll (everyone standing) heal that share of their
      own max HP; regen: {n,share}, everyone also gets that share back at the start of each
      of their next n turns; clear: cures one friend's troubles; revive: wakes a friend who's
      down with that share of HP (or fills a friend who's up to full HP); pecks: that many hits at random foes, power pow from
      Agility; all: hits every foe (power from Intelligence), weak: chance each one's attack drops */
   tiny:[
-    {id:'chirp',  name:"Cheery Chirp",  lv:1, mp:3, mend:0.5, song:true,
+    {id:'chirp',  name:"Cheery Chirp",  lv:1, mp:3, mend:0.5, song:true, fieldUse:true,
      desc:"A bright little chirp that perks anyone right up. Heals one friend 50% of their max HP."},
     {id:'peck',   name:"Peck Peck Peck",lv:2, mp:3, pecks:3, pow:0.5,
      desc:"Tiny beak, terrible manners. Three quick pecks at random foes, power x0.5 each from Agility."},
     {id:'clear',  name:"Clear Note",    lv:4, mp:3, clear:true, song:true,
      desc:"One pure, ringing note that shakes off whatever's wrong. Cures all of one friend's troubles."},
-    {id:'chorus', name:"Dawn Chorus",   lv:6, mp:7, mendAll:0.3, song:true,
+    {id:'chorus', name:"Dawn Chorus",   lv:6, mp:7, mendAll:0.3, song:true, fieldUse:true,
      desc:"The whole morning's worth of birdsong at once. Heals everyone 30% of their max HP."},
     {id:'trill',  name:"Disarming Trill",lv:8, mp:5, pow:0.7, all:true, weak:0.75, song:true,
      desc:"Small bird, very big voice. Every foe, power x0.7, and a 75% chance each one is weakened."},
     {id:'nest',   name:"A True Bird's Nest",lv:10,mp:10, mendAll:0.15, regen:{n:3,share:0.15}, song:true,
      desc:"A song about home, and everyone in it. Heals everyone 15% of their max HP, then 15% more at the start of each of their next 3 turns."},
-    {id:'wake',   name:"Wake-Up Call",  lv:12,mp:8, revive:0.3, song:true,
+    {id:'wake',   name:"Wake-Up Call",  lv:12,mp:8, revive:0.3, song:true, fieldUse:true,
      desc:"The loudest, most insistent good morning. Brings a friend who's down back into the fight with 30% of their max HP, or fills a friend who's still up to full HP."},
   ],
   /* Tituba. stat: the stat a skill's power comes from (Intelligence if not given; Strength

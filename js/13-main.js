@@ -230,6 +230,7 @@ const AREA_SCENES=['world','sys','shop','menu','ask','fishing','story','levelup'
 let last=performance.now();
 function loop(now){
   const dt=Math.min(50,now-last); last=now; G.t+=dt;
+  if(G.scene!=='title') G.play=(G.play||0)+dt;          /* play time (the menu shows it) */
   if(G.scene==='world') updateWorld(dt);
   else { if(sfxKey) stopSfx();
          if(G.scene==='rhythm') updateRhythm(dt);

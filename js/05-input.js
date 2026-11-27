@@ -64,8 +64,9 @@ function padRepeat(dt){
 const MENU_SCENES=['title','menu','shop','sys','battle','ask','levelup'];
 function menuState(){
   const s=G.scene, J=JSON.stringify; let tab='',cur='',depth=0,step=0;     /* step: a battle's member picking */
-  if(s==='sys'){ tab=J([sys.tab,sys.who]); cur=J([sys.idx,sys.top,sys.eq&&sys.eq.idx,sys.pick&&sys.pick.idx,sys.ask&&sys.ask.idx]);
-    depth=(sys.focus==='tabs'?0:1)+!!sys.lore+!!sys.loreSel+(sys.held!=null)+!!sys.eq+!!sys.pick+!!sys.ask; }
+  if(s==='sys'){ const picking=sys.focus==='who';
+    tab=J([sys.tab,picking?0:sys.who,sys.cat||'']); cur=J([sys.idx,sys.top,picking?sys.who:-1,sys.eq&&sys.eq.idx,sys.pick&&sys.pick.idx,sys.ask&&sys.ask.idx]);
+    depth=(sys.focus==='tabs'?0:picking?1:2)+!!sys.lore+!!sys.loreSel+!!sys.cat+(sys.held!=null)+!!sys.eq+!!sys.pick+!!sys.ask; }
   else if(s==='shop'){ tab=J(shop.tab); cur=J([shop.idx,shop.page,shop.cIdx]); depth=shop.confirm?1:0; }
   else if(s==='menu') cur=J(menu.idx);
   else if(s==='title'){ cur=J(TM.idx); depth=(TM.mode==='main'?0:1)+!!TM.ask; }

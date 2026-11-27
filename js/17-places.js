@@ -73,7 +73,7 @@ const GOODS={
   honeycomb:   {name:"Honeycomb",        value:150, kind:'drop', col:'#f0b030', flavor:"Dripping with wild honey. The bear won't miss it. Probably."},
   /* the Deep Forest's (silverfang, wishbone, clawcharm, moonfeather: gear too, see EQUIP) */
   wolffur:     {name:"Wolf Fur",         value:16,  kind:'drop', col:'#8a8a90', flavor:"Grey, thick and full of burrs."},
-  silverfang:  {name:"Silver Fang",      value:220, kind:'drop', col:'#d8dce4', flavor:"A wolf's fang with a strange silver shine. Ivy keeps eyeing it."},
+  silverfang:  {name:"Silver Wolf Fang", pic:'silver fang', value:220, kind:'drop', col:'#d8dce4', flavor:"A wolf's fang with a strange silver shine. Ivy keeps eyeing it."},
   turkeyfeather:{name:"Turkey Feather",  value:12,  kind:'drop', col:'#8a5a3a', flavor:"Striped and stiff. Still smells smug."},
   wishbone:    {name:"Golden Wishbone",  value:260, kind:'drop', col:'#e8c050', flavor:"Shines like it already knows what you'll wish for."},
   puffball:    {name:"Puffball Spores",  value:14,  kind:'drop', col:'#c8b89a', flavor:"Don't sneeze. Don't."},
@@ -99,8 +99,10 @@ const GOODS={
 };
 const goodsList=()=>Object.keys(GOODS).filter(k=>G.goods[k]>0);
 const sellGoods=()=>goodsList().filter(k=>GOODS[k].kind!=='food'&&GOODS[k].kind!=='quest');   /* quest things are kept */
+/* the ones with no use but selling (nothing to eat or drink): Sell all unusable */
+const uselessGoods=()=>sellGoods().filter(k=>!(GOODS[k].eat||GOODS[k].use));
 const addGood=(k,n)=>{ G.goods[k]=(G.goods[k]||0)+(n||1); };
-const goodsPrice=k=>Math.round(GOODS[k].value*(G.yard.arch?1.15:1));
+const goodsPrice=k=>Math.round(GOODS[k].value*(yardOn('arch')?1.15:1));
 
 /* ---------- the places ----------
    ground/path colours; rects [x,y,w,h]; houses {x,y,w,h,roof,name}; exits back home;
@@ -577,6 +579,11 @@ const TOWN_SHOPS={
         desc:(GOODS[k].flavor?GOODS[k].flavor+" ":"")+"You can buy it back later for "+buyBackPrice(k)+"c.",btn:"Sell 1  ·  "+goodsPrice(k)+"c",
         buy:()=>{ G.goods[k]--; if(G.goods[k]<=0) delete G.goods[k]; G.coins+=goodsPrice(k); pawn(k,1); }}));
       if(L.length){ const tot=sellGoods().reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0), n=sellGoods().reduce((a,k)=>a+G.goods[k],0);
+        const U=uselessGoods(), ut=U.reduce((a,k)=>a+goodsPrice(k)*G.goods[k],0), un=U.reduce((a,k)=>a+G.goods[k],0);
+        if(U.length&&U.length<sellGoods().length) L.unshift({sell:true,all:true,name:"Sell all unusable",cost:ut,art:{shop:'harvest basket'},
+          desc:"Sell the "+un+" things that are only good for selling. Anything you can eat or use is kept.",btn:"Sell unusable  ·  "+ut+"c",
+          done:"Sold everything unusable for "+ut+"c!",
+          buy:()=>{ G.coins+=ut; U.forEach(k=>{ pawn(k,G.goods[k]); delete G.goods[k]; }); }});
         L.unshift({sell:true,all:true,name:"Sell everything",cost:tot,art:{shop:'harvest basket'},desc:"Sell all "+n+" of your forage, fish and pest finds.",btn:"Sell all  ·  "+tot+"c",
           buy:()=>{ G.coins+=tot; sellGoods().forEach(k=>{ pawn(k,G.goods[k]); delete G.goods[k]; }); }}); }
       return L; }},
@@ -592,8 +599,8 @@ const buyBackPrice=k=>Math.ceil(goodsPrice(k)*1.5);
 /* shop rows for garden gear (GEAR) and equipment (EQUIP) not bought yet; G.gear[key] marks either */
 function gearRows(keys){
   return keys.filter(k=>!G.gear[k]).map(k=>{ const E=EQUIP[k], g=GEAR.find(x=>x.id===k), it=E||g;
-    const who=E&&E.who?" For "+E.who.map(id=>PARTY_INFO[id].name).join(" and ")+".":E?" For anyone.":"";
-    return {name:it.name,cost:it.cost,desc:cap(it.desc)+(/\.$/.test(it.desc)?"":".")+(E?who:" Garden gear."),
+    const who=E&&E.who?(E.who.length>1?" For "+E.who.map(id=>PARTY_INFO[id].name).join(" and ")+".":""):E?" For anyone.":"";
+    return {name:it.name,cost:it.cost,art:E?{shop:equipPic(k)}:undefined,desc:E?equipDesc(k)+who:cap(it.desc)+(/\.$/.test(it.desc)?"":".")+" Garden gear.",
       buy:()=>{ G.gear[k]=1;
         /* a better flute goes straight into her hands */
         const r=FLUTE_RANK.indexOf(k);
@@ -602,7 +609,7 @@ function gearRows(keys){
 const pawn=(k,n)=>{ G.pawn[k]=(G.pawn[k]||0)+n; };
 /* a good's picture (shop items/<name>), fitted into a box centred on cx,cy */
 function drawGoodIcon(c,k,cx,cy,box){
-  drawShopPic(GOODS[k].name.toLowerCase(),cx,cy,box,box);
+  drawShopPic(GOODS[k].pic||GOODS[k].name.toLowerCase(),cx,cy,box,box);
 }
 /* what eating or drinking a good does (forage: eat, food: use), in words */
 const goodEffect=k=>GOODS[k].eat||GOODS[k].use;

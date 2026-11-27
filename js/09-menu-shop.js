@@ -78,7 +78,7 @@ function townDeal(it){
   if(!it.sell&&G.coins<it.cost){ say("Not enough coins."); sfx('cant_do_that'); return; }
   if(it.buy()===false) return;
   if(!it.sell) G.coins-=it.cost;
-  if(it.sell){ say(it.all?"Sold everything for "+it.cost+"c!":"Sold a "+it.name+" for "+it.cost+"c."); coinChime(); }
+  if(it.sell){ say(it.done||(it.all?"Sold everything for "+it.cost+"c!":"Sold a "+it.name+" for "+it.cost+"c.")); coinChime(); }
   else { say("Bought "+(it.count!==undefined?"back ":"")+it.name+"."); sfx('buy'); }
   shopClampIdx(); autoSave();
 }
