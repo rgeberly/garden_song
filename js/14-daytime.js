@@ -51,7 +51,9 @@ function drawClockBack(){
   rpgWin({x,y,w,h},CLOCK_GLASS);
   const hr=G.clock/60, cx=x+12*CK, cy=y+h/2;
   b.save(); b.translate(cx,cy); b.scale(CK,CK);
-  if(hr>=SUNRISE&&hr<sunsetHour()){                  /* sun */
+  const nightNow=!(hr>=SUNRISE&&hr<sunsetHour());
+  if(wxKey()!=='sunny'){ b.restore(); weatherIcon(b,wxKey(),cx,cy,9*CK,nightNow); return; }   /* the day's weather */
+  if(!nightNow){                                      /* sun */
     b.strokeStyle='#e8a03a'; b.lineWidth=1.2;
     for(let i=0;i<8;i++){ const a=i*Math.PI/4;
       b.beginPath(); b.moveTo(Math.cos(a)*5.5,Math.sin(a)*5.5);
@@ -157,7 +159,7 @@ function drawKaitlynShadow(c,cxL,footL,dir,frameT,moving,indoors){
     SOFTG.clearRect(0,0,SOFT.width,SOFT.height); SOFTG.imageSmoothingEnabled=true;
     SOFTG.drawImage(SIL,0,0,f.cw,f.ch,0,0,sw,sh);
     const {gx,gy,len}=s;
-    c.globalAlpha=0.30*s.strength; c.imageSmoothingEnabled=true;
+    c.globalAlpha=0.30*s.strength*wxShade(); c.imageSmoothingEnabled=true;
     c.translate(fx,fy);
     c.transform(gy,-gx,-len*gx,-len*gy*GROUND_TILT,0,0);
     c.drawImage(SOFT,0,0,sw,sh,-f.cw/2,-f.foot,f.cw,f.ch);
@@ -189,7 +191,7 @@ function groundShadow(c,draw,x,y,w,lift){
   const {gx,gy,len}=s;
   /* tucked a little under its base (it's drawn over its own shadow), so the soft bottom
      edge of a picture doesn't leave a sliver of grass between them */
-  c.save(); c.globalAlpha=0.28*s.strength; c.imageSmoothingEnabled=true; c.translate(x,y-SHADOW_TUCK);
+  c.save(); c.globalAlpha=0.28*s.strength*wxShade(); c.imageSmoothingEnabled=true; c.translate(x,y-SHADOW_TUCK);
   c.transform(1,0,-len*gx,-len*gy*GROUND_TILT,0,0);
   c.drawImage(GSH,-GSH_FX,-GSH_FY,GSH_W,GSH_H); c.restore();
 }
@@ -409,6 +411,7 @@ function wakeUp(){
   sleep.say=season()!==before?SEASON_NAME[season()]+" is here!":"Good morning! Day "+G.day+".";
   if(sleep.early){ G.coffeeT=120000; sleep.say+="  Early to bed: free coffee!"; }
   if(back.length) sleep.say+="  "+back.join(" and ")+" is feeling better!";
+  wxMorning(); sleep.say+="  "+wxSay();
 }
 /* a nap: the clock moves on, and everyone gets back half of what they're missing */
 function napDone(){

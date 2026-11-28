@@ -1105,9 +1105,9 @@ function useKarate(mv,f){
   B.turn='busy'; B.menu='cmd';
   kick(f,mv.pow,mv.name,BROW.karate!==undefined?'karate':'kick',KARATE_SHOUTS,KICK_SHOUT,1500);
 }
-const songPower=()=>statOf('kaitlyn','int')*1.3*(wears('kaitlyn','polish')?1.3:1)*weakMul('kaitlyn');
+const songPower=()=>statOf('kaitlyn','int')*1.3*(wears('kaitlyn','polish')?1.3:1)*weakMul('kaitlyn')*songMul();   /* (Songday: stronger) */
 /* Tiny One's healing, with the Silver Bell on */
-const healMul=id=>wears(id,'bell')?1.2:1;
+const healMul=id=>(wears(id,'bell')?1.2:1)*(id==='tiny'?songMul():1);     /* (Tiny One's heals are songs) */
 /* Kaitlyn's songs play out on their own like anyone's skill (no rhythm game): as strong
    as a song played at SONG_ACC */
 const SONG_ACC=0.82;
@@ -1121,7 +1121,7 @@ function useSong(mv,f){
   {
     anim(mv.fx,1500,()=>{
       /* healing songs reach the whole party: a share of each one's max HP */
-      if(mv.heal) B.party.filter(standing).forEach(id=>mendMember(id,member(id).maxhp*mv.heal));
+      if(mv.heal) B.party.filter(standing).forEach(id=>mendMember(id,member(id).maxhp*mv.heal*songMul()));
       const pc="", healed=mv.heal?"  Everyone heals!":"";
       const songHit=(t,cm)=>soften(songPower()*mv.pow*(0.35+acc*1.1)*cm,foeDef(t),true);
       if(mv.pow>0&&mv.hits){
@@ -1320,7 +1320,7 @@ function rallyLands(s,acc){
   if(s.bindAll){ const got=liveFoes().filter(t=>Math.random()<0.4+0.6*acc); got.forEach(t=>{ foeStatus(t,'bound'); focus(t); burst(EX,EY+10,'#8a6a3a',10,0.1); });
     if(!got.length) said.push("The pests wriggle free."); }
   if(s.cureAll){ up.forEach(m=>{ Object.keys(STATUS).forEach(k=>B.st[m][k]=0); sparkle(m); }); said.push("Troubles shaken off!"); }
-  if(s.heal) up.forEach(m=>mendMember(m,member(m).maxhp*s.heal));
+  if(s.heal) up.forEach(m=>mendMember(m,member(m).maxhp*s.heal*songMul()));
   if(s.chargeAll){ up.forEach(m=>{ B.charged[m]=true; sparkle(m); }); said.push("Everyone's fired up!"); }
   if(s.shieldAll){ B.shieldAll=true; up.forEach(sparkle); said.push("Everyone's safe this turn!"); }
   B.log=said.join("  ");
@@ -1446,7 +1446,7 @@ function useSkill(sk,f,to){
       const cm=useCharge(id), T=liveFoes(), moon=sk.night&&isNight()?sk.night:1, sp=spreadMul(T.length);
       const by={Weakened:[],Poisoned:[],Envenomed:[],Blinded:[]};
       B.critUp=sk.crit||0;
-      T.forEach(t=>{ const dmg=soften(statOf(id,st)*1.5*sk.pow*moon*sp*cm*weakMul(id)*rnd(0.9,1.1),foeDef(t),magic);
+      T.forEach(t=>{ const dmg=soften(statOf(id,st)*1.5*sk.pow*moon*sp*cm*weakMul(id)*(sk.song?songMul():1)*rnd(0.9,1.1),foeDef(t),magic);
         hitFoe(t,dmg,"");
         if(t.hp<=0) return;
         if(sk.weak&&Math.random()<sk.weak){ foeStatus(t,'weak'); by.Weakened.push(t); }
@@ -1483,7 +1483,7 @@ function useSkill(sk,f,to){
     /* Venom Burst: x3 for Venom, x2 for Poison (x6 with both), and they're used up */
     const cm=useCharge(id); let bm=1;
     if(sk.burst){ if(f.st.venom) bm*=3; if(f.st.poison>0) bm*=2; if(bm>1){ f.st.venom=null; f.st.poison=0; } }
-    const dmg=soften(statOf(id,st)*1.5*sk.pow*cm*bm*weakMul(id)*rnd(0.9,1.1),foeDef(f),magic);
+    const dmg=soften(statOf(id,st)*1.5*sk.pow*cm*bm*weakMul(id)*(sk.song?songMul():1)*rnd(0.9,1.1),foeDef(f),magic);
     B.critUp=sk.crit||0;
     if(FX2&&SKILL_MARK[sk.id]) markFoe(SKILL_MARK[sk.id],f);
     hitFoe(f,dmg,name+"'s "+sk.name+" hits for "+dmg+"!"+(bm>1?"  The venom bursts! (x"+bm+")":"")+(cm>1?"  A focused blow!":""));
@@ -2299,6 +2299,7 @@ function drawBattleScene(dt){
     else { const q=B.quake.mag*B.quake.t/B.quake.ms; qx=Math.round(rnd(-1,1)*q); qy=Math.round(rnd(-1,1)*q*0.6); } }
   b.save(); b.translate(qx,qy);
   drawBattleBackdrop(dt);
+  drawRainGround(b,BAND_TOP()+(BAND_BOT()-BAND_TOP())*0.5,BAND_BOT());   /* (on the ground, under everyone) */
   const ultA=updateUlt(dt); if(ultA>0) drawUltStage(ultA);
   /* the pests, back to front: shadow, sprite, and a white flash when hit or about to
      use a special move. One lunges at whoever it attacks (further for a dive, a dash
@@ -2354,6 +2355,7 @@ function drawBattleScene(dt){
     const r=mrc(p.id); if(r>0.3) flashOver(c=>drawMember(c,p.id,0,0,k),p.x,p.y,(r-0.3)/0.7);
   });
   tintBand(b,BAND_TOP(),BAND_BOT());       /* the hour's light over the field and everyone on it (the effects shine on top) */
+  drawWeather(b,BAND_TOP(),BAND_BOT());
   if(HD()) hdLight(dt,1-ultA);
   if(B.ult&&ultA>0) drawUltFront(dt,ultA);
   if(A){ focus(A.foe); drawFoeFx(A.fx,k,A.targets); }

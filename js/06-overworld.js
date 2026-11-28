@@ -171,7 +171,7 @@ function updateWorld(dt){
   const pestMul=(yardOn('lantern')?1.4:1)*(G.calmT>0?2:1)*(G.lureT>0?0.5:1);
   keepTestPest(dt);
   G.pestTimer-=dt;
-  if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul/diff().spawn; spawnPest(); }
+  if(G.pestTimer<=0){ G.pestTimer=rnd(10000,17000)*pestMul/(diff().spawn*wxSpawn()); spawnPest(); }
   const meanLv=G.party.reduce((a,id)=>a+member(id).lv,0)/G.party.length;
   for(const p of G.pests){
     if(Math.hypot(p.x-P.x,p.y-(P.y+6))<20){ enterBattle(p); return; }
@@ -246,6 +246,7 @@ function drawWorld(){
   b.save(); b.scale(WORLD_ZOOM,WORLD_ZOOM);           /* the zoomed-out garden */
   drawMap(cam);
   drawPoolRipples(cam);                               /* rings and glints on the water (not on ice) */
+  b.save(); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); drawRainGround(b,0,VIEW_H,cam.x*WORLD_ZOOM,cam.y*WORLD_ZOOM); b.restore();   /* (under everyone) */
   const ents=[];
   plots.forEach(p=>{ if(!active(p))return;
     ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
@@ -315,6 +316,7 @@ function drawWorld(){
   sun.addColorStop(1,'rgba(30,50,25,0.10)');
   b.globalAlpha=day; b.fillStyle=sun; b.fillRect(0,0,LW,VIEW_H); b.globalAlpha=1;
   tintView(b);
+  drawWeather(b,0,VIEW_H,cam.x*WORLD_ZOOM,cam.y*WORLD_ZOOM);
   hdField(false,cam.x*WORLD_ZOOM,cam.y*WORLD_ZOOM);   /* the HD look (Settings > Graphics) */
   b.restore();
   drawClockBack(); drawBuffsBack();

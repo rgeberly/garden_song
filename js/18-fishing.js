@@ -86,7 +86,7 @@ function pickFish(){
 function startFishing(){
   if(season()==='winter'){ say("The pond is frozen solid. Come back in spring!"); return; }
   passTime(FISH_MIN); if(G.scene!=='world') return;          /* it might have got late */
-  FS={phase:'ready',t:0,wait:rnd(1800,5200),fish:null,dist:1,tension:0.15,pull:0,burst:0,charge:0,sw:null,lunker:false,inT:0,
+  FS={phase:'ready',t:0,wait:rnd(1800,5200)/wxBite(),fish:null,dist:1,tension:0.15,pull:0,burst:0,charge:0,sw:null,lunker:false,inT:0,
      snapT:0,slackT:0,reel:0,ang:0,reelId:null,lastA:null,spin:0,size:0,splash:[],
      lift:0,liftWant:0,rodId:null,rodY0:0,
      side:rnd(-0.3,0.3),sideTo:0,drops:[],rings:[],leap:null};
@@ -463,7 +463,9 @@ function drawFishing(dt){
       b.beginPath(); b.arc(d.x,d.y,1.3*ws+0.4,0,7); b.fill(); });
     b.globalAlpha=1;
   }
+  drawRainGround(b,T0+(T1-T0)*0.3,T1);      /* (rings on the pond) */
   tintBand(b,T0,T1);                       /* the hour's light, as in the garden (under the gauges) */
+  drawWeather(b,T0,T1);
   if(HD()){ hdLight(dt,1,T0,T1); hdVignette(T0,T1); }     /* the HD look's light, motes and vignette */
   /* tension (left) and distance (top) gauges */
   if(FS.phase==='reel'){

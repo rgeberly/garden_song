@@ -36,7 +36,7 @@ START_DB = -30       # the sound starts where it first gets this loud (dB below 
 END_DB = -50         # and ends after it last is
 # sounds that loop while something goes on (the game repeats them seamlessly): no fades,
 # their end crossfaded into their start over LOOP_XFADE seconds, and their exact length kept
-LOOPS = {'fishing_reeling'}
+LOOPS = {'fishing_reeling', 'rain'}
 LOOP_XFADE = 0.2
 
 

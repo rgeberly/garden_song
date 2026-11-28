@@ -64,6 +64,7 @@ a made-up sound until they exist.
 - [ ] `trouble sleep.wav` (something silly and drowsy) and `trouble hush.wav` (the owl's Hoot: songs and
       skills blocked)
 - [ ] A heal chime (healing skills, Snack Break, Soak Up Rain)
+- [ ] `rain.wav` (a steady loop; a made-up hiss plays until then) and `thunder.wav` (a made-up rumble until then)
 - [ ] A member going down; a pest running off; the party fleeing
 - [ ] The Pep meter filling up; the EXP tally ticking on the results
 - [ ] Meditate (Focus has its own)

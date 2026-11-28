@@ -26,7 +26,7 @@ function castField(f){
 function castHit(id){
   if(id==='reprise'){
     let n=0;
-    plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage<3){ setGrowth(p,p.growth+plantNeed(p)*REPRISE_SHARE); n++; } });
+    plots.forEach(p=>{ if(active(p)&&p.sp&&p.stage<3){ setGrowth(p,p.growth+plantNeed(p)*REPRISE_SHARE*songMul()); n++; } });
     say("Growth Reprise: +20% growth to "+n+" plant"+(n===1?"":"s")+".");
   } else if(id==='ward'){
     const n=G.pests.length; G.pests=[]; say("Pest Ward: "+n+" pest"+(n===1?"":"s")+" fled the garden.");
@@ -557,6 +557,9 @@ function drawHomeBack(P){
       b.strokeStyle='rgba(230,234,246,.85)'; b.lineWidth=1; }
     if(d+1===today){ b.strokeStyle='#7ee08a'; b.lineWidth=1.8; b.beginPath(); b.ellipse(x+cw/2,cy+HOME.calH/2,cw/2-2,HOME.calH/2-2,0,0,7); b.stroke();
       b.strokeStyle='rgba(230,234,246,.85)'; b.lineWidth=1; } }
+  /* the week's weather, under each day (Sunday's always sunny, Waterday's always wet) */
+  const first=G.day-today+1;
+  for(let d=0;d<DAYS_PER_SEASON;d++) weatherIcon(b,wxOf(first+d),cx0+d*cw+cw/2,cy+HOME.calH+9,6,false);
   /* where she is, and the season */
   const sy=P.y+HOME.loc, sx=P.x+P.w-64;
   b.fillStyle='rgba(10,15,42,.35)'; b.beginPath(); b.roundRect(sx-6,sy-14,64,28,6); b.fill();
@@ -591,7 +594,7 @@ function drawHomeText(P){
   for(let d=0;d<DAYS_PER_SEASON;d++) TS(String(d+1),cx0+d*cw+cw/2,cy+HOME.calH/2+7,21,d+1<today?'#8a94c4':'#f4f6ff','center',true);
   const sy=P.y+HOME.loc, pl=placeName();
   TS(pl,P.x+14,sy+2,fitSize(pl,24,P.w-100,true),'#f4f6ff',null,true);
-  TS(weekday()+", "+SEASON_NAME[season()]+" "+dayOfSeason(),P.x+14,sy+22,15,'#c8d4ff');
+  TS(weekday()+", "+SEASON_NAME[season()]+" "+dayOfSeason()+"  ·  "+wx().name+(songday()?"  ·  songs +"+Math.round((SONGDAY_MUL-1)*100)+"%":""),P.x+14,sy+22,15,'#c8d4ff');
   TS(SEASON_NAME[season()],P.x+P.w-34,sy+6,16,'#f4f6ff','right',true);
   const t=sysTab(), hint=sys.focus==='who'?(IS_TOUCH?"Tap whose "+t+" to see":"Whose "+t+"?  J: pick · H: back")
     :IS_TOUCH?"Tap "+t+" again to open it":"J: open "+t+" · H: close";

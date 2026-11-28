@@ -148,7 +148,7 @@ function hdLight(dt,k,T0,T1,indoors,ox=0,oy=0){
      along itself, so going up or down it shifts sideways by the slant) */
   const u=ox-oy*HD_BEAM.slant, n0=Math.floor((u-H*HD_BEAM.slant-60)/HD_BEAM.gap), n1=Math.ceil((u+LW+60)/HD_BEAM.gap);
   if(!indoors&&day>0.02&&GFX.shafts>0) for(let i=n0;i<=n1;i++){ const sw=Math.sin(G.t/4200+i*1.7), x=-30+i*HD_BEAM.gap-u+sw*10, w=34+(((i*23)%3+3)%3)*16;
-    b.globalAlpha=Math.min(1,HD_SHAFTS*gfxK('shafts'))*k*day*(0.55+0.45*Math.sin(G.t/3100+i*2.3));
+    b.globalAlpha=Math.min(1,HD_SHAFTS*gfxK('shafts'))*k*day*wxSun()*(0.55+0.45*Math.sin(G.t/3100+i*2.3));
     b.save(); b.translate(x,T0-10); b.rotate(-0.42+sw*0.025); b.drawImage(im,-w/2,0,w,H*1.15); b.restore(); }
   b.restore();
   /* motes: dust in the light by day, fireflies at night */

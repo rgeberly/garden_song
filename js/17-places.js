@@ -362,7 +362,7 @@ function updateMountainPests(dt){
   const P=G.player;
   if(G.area==='mountain'&&PLACE_COL.mountain&&(!G.daily.spots||G.daily.gatherDay!==G.day)) gatherToday();   /* a new day, or the walls just loaded */
   G.mtnT=(G.mtnT===undefined?3000:G.mtnT)-dt;
-  if(G.mtnT<=0){ G.mtnT=rnd(9000,15000)/diff().spawn; if(roamList().length<ROAM_MAX[G.area]) spawnMtnPest(); }
+  if(G.mtnT<=0){ G.mtnT=rnd(9000,15000)/(diff().spawn*wxSpawn()); if(roamList().length<ROAM_MAX[G.area]) spawnMtnPest(); }
   for(const p of roamList()){
     const near=Math.hypot(p.x-P.x,p.y-(P.y+6));
     if(near<20){ enterBattle(p); return true; }
@@ -517,6 +517,7 @@ function drawPlace(){
   const pim=placeImg(G.area);
   b.imageSmoothingEnabled=true;
   if(pim) b.drawImage(pim,-cam.x,-cam.y,placeW(P),placeH(P));
+  if(!P.room){ b.save(); b.scale(1/WORLD_ZOOM,1/WORLD_ZOOM); drawRainGround(b,0,VIEW_H,cam.x*WORLD_ZOOM,cam.y*WORLD_ZOOM); b.restore(); }   /* (under everyone) */
   const ents=[];
   const ps=Math.max(1,peopleScale());
   placePeople(P).forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
@@ -548,7 +549,7 @@ function drawPlace(){
     b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,ny+7.5); b.textAlign='left';
     if(personMarked(p)) drawMarker(b,p.x-cam.x,ny-8); });
   b.restore();
-  if(!P.room) tintView(b);                    /* lamps are lit indoors */
+  if(!P.room){ tintView(b); drawWeather(b,0,VIEW_H,cam.x*WORLD_ZOOM,cam.y*WORLD_ZOOM); }   /* lamps are lit indoors */
   hdField(!!P.room,cam.x*WORLD_ZOOM,cam.y*WORLD_ZOOM);   /* the HD look (Settings > Graphics) */
   b.restore();
   drawClockBack(); drawBuffsBack();
