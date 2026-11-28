@@ -87,6 +87,16 @@ They're simple drawn stand-ins in town now; only their portraits are art. Use ea
 | Milo (the kid) | `people/milo.jpeg` |
 | Gus (the Tipsy Toad) | `people/Gus/` |
 
+## The town's notice board: AutoSprite (or Perchance)
+
+The request board on the town plaza is drawn in code for now. A picture saved as
+`shop items/Notice Board.png` replaces it on its own once the art is rebuilt (it stands about as tall
+as Kaitlyn, so a squarish picture a little taller than wide works best).
+
+| Save as | Description |
+|---|---|
+| `shop items/Notice Board.png` | a small wooden village notice board standing on two posts with a little shingled roof, a cork board with several paper notes and requests pinned to it with red pins, cozy painted style to match a pixel-art farming game, front view, isolated on a plain white background, no text |
+
 ## Optional: more
 
 - More garden wildlife (`creatures/<Name>-spritesheet.png`, like the bluebird, monarch, bumblebee and

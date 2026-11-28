@@ -321,7 +321,7 @@ function placeSolid(x,y){
   const C=placeCol(G.area);
   if(C){ const cx=Math.floor(x/PLACE_GRID), cy=Math.floor(y/PLACE_GRID);
     if(cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1) return true;
-    return placePeople(P).some(p=>Math.hypot(x-p.x,y-p.y)<10); }      /* and the townsfolk */
+    return boardSolid(x,y)||placePeople(P).some(p=>Math.hypot(x-p.x,y-p.y)<10); }      /* and the townsfolk, and the board */
   if(P.cliffs&&y<150) return true;
   if(P.room&&(y<P.wall+14||(P.furn||[]).some(([fx,fy,fw,fh])=>x>fx-8&&x<fx+fw+8&&y>fy-2&&y<fy+fh+8))) return true;
   if(P.fountain&&Math.hypot(x-P.fountain.x,y-P.fountain.y)<P.fountain.r+6) return true;
@@ -438,6 +438,7 @@ function placeInteract(){
   if(dr){ if(doorOpen(dr)){ goTo(dr.to); return; }
     say(dr.to==='bar'?PLACES.bar.name+" opens at 6 PM.":PLACES[dr.to].name+" is closed. Open 8 AM to 6 PM."); sfx('knock_on_door'); return; }
   if(nearTinyEgg()){ playStory(tinyEggFound()); return; }
+  if(nearBoard()){ openBoard(); return; }
   if(who){ const lines=personLines(who).map(t=>({say:'npc',who,text:t}));
     if(who.shop) lines.push({run:()=>openTownShop(who.shop,who)});
     playStory(lines); return; }
@@ -455,6 +456,7 @@ function placeLabel(){
   const fr=nearFriend(R); if(fr) return friendLabel(fr);
   const dr=nearTownDoor(R*1.6); if(dr) return doorOpen(dr)?PLACES[dr.to].name:"Closed";
   if(nearTinyEgg(R)) return "Check";
+  if(nearBoard(R)) return boardNew()?"Notice board (new!)":"Notice board";
   if(nearSummit(R)) return "Pick";
   if(nearGather(R)>=0) return "Gather";
   if(nearPond(R)) return season()==='winter'?"Frozen":G.rod?"Fish ("+FISH_MIN+" min)":"Fish (needs a rod)";
@@ -523,6 +525,7 @@ function drawPlace(){
   placePeople(P).forEach(p=>ents.push({y:p.y,f:()=>{ const x=p.x-cam.x, y=p.y-cam.y;
     b.save(); b.translate(x,y); b.scale(ps,ps); b.translate(-x,-y); drawPerson(b,{...p,x,y}); b.restore(); }}));
   ents.push(...friendPlaceEnts(cam));          /* Tituba by the Tipsy Toad */
+  if(G.area==='town') ents.push({y:BOARD.y,f:()=>drawBoard(b,BOARD.x-cam.x,BOARD.y-cam.y,G.t)});   /* the request board */
   if(nearTinyEgg(9)) ents.push({y:TINY_EGG.y,f:()=>drawTinyEgg(b,TINY_EGG.x-cam.x,TINY_EGG.y-cam.y)});   /* Tiny One's egg, under the pine */
   if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
   const sb=summitBloom();          /* the summit's rare flower, sparkling */
