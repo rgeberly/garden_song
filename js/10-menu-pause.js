@@ -202,11 +202,12 @@ function loreRows(){
   if(sys.lore==='beasts') return {h:40,rows:beastKeys().map(k=>({beast:k}))};
   if(sys.lore==='fish') return {h:40,rows:fishKeys().map(k=>({fish:k}))};
   if(sys.lore==='memories') return {h:40,rows:MEMORIES.map(M=>({mem:M}))};
-  if(sys.lore==='songs') return {h:40,rows:allSongs().map(s=>({song:s}))};
+  if(sys.lore==='songs') return {h:40,rows:[{share:true}].concat(allSongs().map(s=>({song:s})))};
   return {h:56,rows:LORE_KINDS.map(L=>({lore:L}))};
 }
 function loreActivate(R){
   if(R.lore){ sys.lore=R.lore.id; sys.idx=0; sys.top=0; sfx('menu_confirm'); return; }
+  if(R.share){ openShareCard(); return; }
   if(R.song) return;                                    /* (its score is all on its row) */
   if(R.mem){ if(!R.mem.seen()){ sfx('cant_do_that'); return; } playMemory(R.mem); return; }
   const k=R.beast||R.fish;
@@ -279,8 +280,9 @@ function loreRowPic(r,P,y,h){
 }
 function loreRowText(r,P,y,h,sel){
   if(r.lore){ TS(r.lore.name,P.x+40,y+24,21,'#f4f6ff',null,sel); TS(r.lore.about,P.x+40,y+42,15,'#aab6e8');
-    if(r.lore.id==='songs'){ TS(fluteMastery().toLocaleString(),P.x+P.w-14,y+26,20,'#ffe08a','right',true); TS("Flute Mastery",P.x+P.w-14,y+42,12,'#aab6e8','right'); }
+    if(r.lore.id==='songs'){ TS(fluteMastery().toLocaleString(),P.x+P.w-14,y+26,20,'#ffe08a','right',true); TS(masteryTitle().name,P.x+P.w-14,y+42,12,'#aab6e8','right'); }
     return; }
+  if(r.share){ TS("Share my Flute Mastery",P.x+20,y+h/2+6,18,'#ffe08a',null,sel); TS("▶",P.x+P.w-14,y+h/2+6,15,'#ffe08a','right'); return; }
   if(r.song){ const s=r.song, B=songBest(s.key), known=s.known||!!B;
     TS(known?s.name:"???",P.x+20,y+h/2+6,18,known?'#f4f6ff':'#7c84b0',null,sel);
     TS(s.kind,P.x+P.w-84,y+h/2+5,13,'#8a94c4','right');
@@ -300,6 +302,8 @@ function loreRowText(r,P,y,h,sel){
   else { TS("???",P.x+70,y+h/2+6,18,'#7c84b0',null,sel); TS(fishWhen(g),P.x+P.w-12,y+h/2+5,13,'#8a94c4','right'); }
 }
 function loreFoot(R){
+  if(R.share){ const T=masteryTitle();
+    return ["Share card","A picture of your Flute Mastery, title and best songs, to send to friends. "+(T.next?"Next title: "+T.next[1]+" at "+T.next[0].toLocaleString()+".":"You have the highest title!")]; }
   if(R.song){ const s=R.song, B=songBest(s.key);
     if(!s.known&&!B) return ["???",s.how];
     return [s.name+"  ("+s.kind+")",B?"Best "+Math.round(B.acc*100)+"% (rank "+accRank(B.acc)+")  ·  best combo "+B.combo+"  ·  played "+B.n+" time"+(B.n===1?"":"s")+".  Flute Mastery "+songMastery(s)+" of "+s.pts+"."
@@ -760,6 +764,7 @@ function sysStep(d){ const L=sysRows().rows, n=L.length; if(!n) return;
   for(let g=0;g<n;g++){ sys.idx=(sys.idx+d+n)%n; if(!L[sys.idx].head) break; }
   sysSee(sys.idx); }
 function sysKey(k){
+  if(sys.share){ shareKey(k); return; }
   const n=sysRows().rows.length, t=sysTab();
   if(sys.pick){ const P=G.party, m=P.length;
     if(isUp(k)) sys.pick.idx=(sys.pick.idx+m-1)%m;
@@ -819,6 +824,7 @@ function sysKey(k){
 }
 const PICK={x:40,y:150,w:280,row:40};
 function sysTouch(x,y){
+  if(sys.share){ shareTouch(x,y); return; }
   const T=SYSW.tab, P=SYSW.page, t=sysTab();
   if(sys.pick){ const j=Math.floor((y-PICK.y-40)/PICK.row);
     if(x>PICK.x&&x<PICK.x+PICK.w&&j>=0&&j<G.party.length){ if(sys.pick.idx===j) pickWho(G.party[j]); else sys.pick.idx=j; }
@@ -908,6 +914,7 @@ function drawSysInfoText(I){
   const c=G.coins+"c"; TS(c,I.x+I.w-9,I.y+I.h-12,fitSize(c,19,I.w-50,true),'#ffe08a','right',true);
 }
 function drawSys(){
+  if(sys.share){ drawShareCard(); return; }
   const P=SYSW.page, T=SYSW.tab, I=SYSW.info, t=sysTab(), home=onHome();
   /* deep blue backdrop over the whole screen */
   const g=b.createLinearGradient(0,BAND_TOP(),0,BAND_BOT()); g.addColorStop(0,'#141c4a'); g.addColorStop(1,'#070b22');
@@ -965,7 +972,7 @@ function drawSys(){
     if(sys.lore&&!sys.loreSel) TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right');
     if(sys.lore==='songs'&&!sys.loreSel){ TS("Flute Mastery",P.x+14,P.y+54,17,'#c8d4ff');
       TS(fluteMastery().toLocaleString(),P.x+14+TW("Flute Mastery ",17),P.y+54,20,'#ffe08a',null,true);
-      TS("of "+masteryMax().toLocaleString()+", longer songs worth more",P.x+P.w-12,P.y+54,13,'#8a94c4','right'); } }
+      const tn=masteryTitle().name; TS(tn,P.x+P.w-12,P.y+54,fitSize(tn,16,P.w-170,true),'#ffe08a','right',true); } }
   else if(t==='Settings'&&sys.gfx){ TS("Graphics",P.x+14,P.y+26,24,'#f4f6ff',null,true); TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right'); }
   else if(t==='Items'&&sys.cat){ TS(catNow().name,P.x+14,P.y+26,24,'#f4f6ff',null,true); TS("◀  ▶",P.x+P.w-14,P.y+26,20,'#c8d4ff','right',true); }
   else TS(t,P.x+14,P.y+26,24,'#f4f6ff',null,true);

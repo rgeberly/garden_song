@@ -120,7 +120,7 @@ function startPractice(song){
   startRhythm(null,{practice:true,notes:0,name:song.name,mp:0,song:key,cb:(acc,combo)=>{
     G.daily.practice=G.day; G.scene='world';
     const best=recordSong(key,acc,combo), xp=practiceXp(acc,song); addXp(xp); passTime(min);
-    say(song.name+" ("+Math.round(acc*100)+"%): "+xpEach(xp)+"!"+(best?" A new best!":"")); autoSave(); }});
+    say(song.name+" ("+Math.round(acc*100)+"%): "+xpEach(xp)+"!"+(best?" A new best!":"")+titleNews()); autoSave(); }});
 }
 /* Every song with a recording, in the order Lore lists them: the full songs (sheet music),
    the Pep Rallies, then the crops' songs; known: she can practice it. */
@@ -140,7 +140,7 @@ function playForPractice(s){
   startRhythm(null,{practice:true,free:true,notes:0,name:s.name,mp:0,song:s.key,cb:(acc,combo)=>{
     G.scene='world';
     const best=recordSong(s.key,acc,combo);
-    say(s.name+" ("+Math.round(acc*100)+"%)"+(best?": a new best!":". Best: "+Math.round(songBest(s.key).acc*100)+"%")); autoSave(); }});
+    say(s.name+" ("+Math.round(acc*100)+"%)"+(best?": a new best!":". Best: "+Math.round(songBest(s.key).acc*100)+"%")+titleNews()); autoSave(); }});
 }
 const songBest=key=>(G.lore.songs||{})[key];
 /* Flute Mastery, to compare with friends: each song's best is worth up to its kind's
@@ -149,12 +149,25 @@ const MASTERY_PTS={Song:500,'Pep Rally':200,Crop:100};
 const songMastery=s=>{ const B=songBest(s.key); return B?Math.round(B.acc*s.pts):0; };
 const fluteMastery=()=>allSongs().reduce((a,s)=>a+songMastery(s),0);
 const masteryMax=()=>allSongs().reduce((a,s)=>a+s.pts,0);
+/* titles along the way, by Flute Mastery (shown in Lore and on the share card) */
+const MASTERY_TITLES=[[0,"Humble Hummer"],[150,"Backyard Busker"],[400,"Porch Piper"],[800,"Garden Troubadour"],
+  [1300,"Meadow Minstrel"],[1900,"Garden Virtuoso"],[2600,"Harvest Maestro"],[3400,"Legend of the Grove"],
+  [4200,"Maestro of the Meadow"],[5000,"Songbird Supreme"]];
+function masteryTitle(m){
+  if(m===undefined) m=fluteMastery();
+  let i=0; while(i+1<MASTERY_TITLES.length&&m>=MASTERY_TITLES[i+1][0]) i++;
+  return {i,name:MASTERY_TITLES[i][1],next:MASTERY_TITLES[i+1]||null};
+}
 /* note a song's score; true when it's her best yet */
 function recordSong(id,acc,combo){
+  const was=masteryTitle().i;
   const L=G.lore.songs||(G.lore.songs={}), o=L[id]||(L[id]={acc:0,combo:0,n:0}), best=acc>o.acc;
   o.n++; o.acc=Math.max(o.acc,acc); o.combo=Math.max(o.combo,combo||0);
+  const T=masteryTitle(); if(T.i>was) G.titleUp=T.name;
   return best;
 }
+/* after a song's score: a new title, if it earned one */
+function titleNews(){ if(!G.titleUp) return ""; const t=G.titleUp; G.titleUp=null; sfx('level_up'); return "  New title: "+t+"!"; }
 /* a little wooden music stand with a page of music on it */
 function drawStand(x,y,k){
   const s=k*2.4;
@@ -225,4 +238,117 @@ function drawHouse(){
     :nearBed()?"Sleep":nearHouseDoor()?"Go outside":null;
   if(label&&G.scene==='world') drawPrompt(label,sx,sy-74*HOUSE_KAIT);
   drawHUD();
+}
+
+/* ---------- the share card (Lore > Song Scores > Share my Flute Mastery) ----------
+   A 1080 x 1350 picture: the logo, Kaitlyn, her Flute Mastery and title, a few numbers and
+   her three best songs. Made when asked (makeShareCard), then shared through the phone's
+   share sheet where there is one, or saved as a file. */
+const loadImg=src=>new Promise(r=>{ if(!src){ r(null); return; } const im=new Image(); im.onload=()=>r(im); im.onerror=()=>r(null); im.src=src; });
+function shareFace(){
+  const tier=masteryTitle().i, want=tier>=6?'kaitlyn-big-smile':tier>=3?'kaitlyn-grin':'kaitlyn-warm-smile';
+  return typeof PARTY_PORTRAITS!=='undefined'&&PARTY_PORTRAITS.includes(want)?'assets/sprites/portrait_'+want+'.png':IMG_PT.src;
+}
+async function makeShareCard(){
+  const W=1080, H=1350, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const c=cv.getContext('2d');
+  const [face,logo]=await Promise.all([loadImg(shareFace()),typeof TITLE_LOGO!=='undefined'&&TITLE_LOGO?loadImg('assets/sprites/logo.png'):null]);
+  const F=(sz,bold)=>(bold?'bold ':'')+sz+'px '+FONT;
+  const txt=(t,x,y,sz,col,align,bold,shadow)=>{ c.font=F(sz,bold); c.textAlign=align||'left'; c.fillStyle=col;
+    if(shadow){ c.save(); c.shadowColor='rgba(0,0,0,.55)'; c.shadowBlur=sz*0.18; c.shadowOffsetY=sz*0.06; c.fillText(t,x,y); c.restore(); } else c.fillText(t,x,y); };
+  const fit=(t,sz,w,bold)=>{ c.font=F(sz,bold); while(sz>14&&c.measureText(t).width>w){ sz--; c.font=F(sz,bold); } return sz; };
+  /* a night-blue card with a white rim, like the game's windows */
+  const g=c.createLinearGradient(0,0,0,H); g.addColorStop(0,'#2a3f8f'); g.addColorStop(0.55,'#16225c'); g.addColorStop(1,'#0a1030');
+  c.fillStyle=g; c.fillRect(0,0,W,H);
+  /* sparkles and music notes, the same every time */
+  let sd=7; const rn=()=>((sd=(sd*16807)%2147483647)/2147483647);
+  for(let i=0;i<70;i++){ const x=rn()*W, y=rn()*H*0.8, r=0.8+rn()*2.2; c.fillStyle='rgba(255,255,255,'+(0.15+rn()*0.5)+')'; c.beginPath(); c.arc(x,y,r,0,TAU); c.fill(); }
+  c.font=F(54,true); for(let i=0;i<12;i++){ c.fillStyle='rgba(200,215,255,'+(0.06+rn()*0.08)+')'; c.fillText(rn()<0.5?'♪':'♫',rn()*W,140+rn()*H*0.75); }
+  /* vines along the bottom, with leaves and a few flowers */
+  c.save(); c.strokeStyle='#3f8a3a'; c.lineWidth=7; c.lineCap='round';
+  for(const off of [0,1]){ c.beginPath(); for(let x=-20;x<=W+20;x+=10){ const y=H-38-off*18+Math.sin(x/90+off*2)*12; x<0?c.moveTo(x,y):c.lineTo(x,y); } c.stroke(); }
+  for(let x=30;x<W;x+=70){ const y=H-38+Math.sin(x/90)*12, a=Math.sin(x)*0.8; c.fillStyle=x%140?'#5fae4a':'#4a9a3c';
+    c.beginPath(); c.ellipse(x,y-12,20,9,a-0.6,0,TAU); c.fill(); }
+  [[120,'#f6a8c8'],[400,'#ffe08a'],[700,'#f6a8c8'],[960,'#bfe0ff']].forEach(([x,col])=>{ const y=H-58+Math.sin(x/90)*12;
+    c.fillStyle=col; for(let i=0;i<5;i++){ const a=i*TAU/5; c.beginPath(); c.arc(x+Math.cos(a)*10,y+Math.sin(a)*10,8,0,TAU); c.fill(); }
+    c.fillStyle='#ffd04a'; c.beginPath(); c.arc(x,y,6,0,TAU); c.fill(); });
+  c.restore();
+  c.strokeStyle='rgba(255,255,255,.85)'; c.lineWidth=8; c.beginPath(); c.roundRect(14,14,W-28,H-28,40); c.stroke();
+  /* the logo, or the name */
+  if(logo){ const lh=Math.min(230,logo.height*2), lw=lh*logo.width/logo.height; c.drawImage(logo,(W-lw)/2,36,lw,lh); }
+  else txt("Garden Song",W/2,150,92,'#ffe08a','center',true,true);
+  /* Kaitlyn, in a warm glow */
+  const cx=290, cy=690, gl=c.createRadialGradient(cx,cy,20,cx,cy,330); gl.addColorStop(0,'rgba(255,224,138,.35)'); gl.addColorStop(1,'rgba(255,224,138,0)');
+  c.fillStyle=gl; c.fillRect(cx-340,cy-340,680,680);
+  if(face){ const s=Math.min(480/face.width,610/face.height), fw=face.width*s, fh=face.height*s;
+    c.imageSmoothingEnabled=true; c.imageSmoothingQuality='high'; c.drawImage(face,cx-fw/2,985-fh,fw,fh); }
+  /* her Flute Mastery and title */
+  const m=fluteMastery(), T=masteryTitle(m), x0=560, x1=W-60;
+  txt("FLUTE MASTERY",(x0+x1)/2,330,38,'#aab6e8','center',true);
+  txt(m.toLocaleString(),(x0+x1)/2,460,fit(m.toLocaleString(),130,x1-x0,true),'#ffe08a','center',true,true);
+  txt("of "+masteryMax().toLocaleString(),(x0+x1)/2,515,34,'#c8d4ff','center');
+  const rg=c.createLinearGradient(0,560,0,650); rg.addColorStop(0,'#ffe9a8'); rg.addColorStop(1,'#e8a03a');
+  c.fillStyle=rg; c.beginPath(); c.roundRect(x0,560,x1-x0,90,45); c.fill();
+  txt(T.name,(x0+x1)/2,620,fit(T.name,44,x1-x0-40,true),'#3a2208','center',true);
+  txt(T.next?"Next: "+T.next[1]+" at "+T.next[0].toLocaleString():"The highest title of all!",(x0+x1)/2,700,fit(T.next?"Next: "+T.next[1]+" at "+T.next[0].toLocaleString():"x",28,x1-x0,false),'#c8d4ff','center');
+  /* a few numbers */
+  const L=allSongs(), played=L.filter(s=>songBest(s.key)), ranksS=played.filter(s=>songBest(s.key).acc>0.93).length,
+        combo=played.reduce((a,s)=>Math.max(a,songBest(s.key).combo),0);
+  [["Songs played",played.length+" / "+L.length],["S ranks",String(ranksS)],["Best combo",String(combo)]].forEach(([k,v],i)=>{
+    const y=790+i*62; c.fillStyle='rgba(10,15,42,.45)'; c.beginPath(); c.roundRect(x0,y-42,x1-x0,54,14); c.fill();
+    txt(k,x0+22,y-6,30,'#aab6e8'); txt(v,x1-22,y-4,34,'#f4f6ff','right',true); });
+  /* her three best songs */
+  txt("Best songs",70,1040,38,'#ffe08a','left',true,true);
+  const top=played.slice().sort((a,z)=>songBest(z.key).acc-songBest(a.key).acc||z.pts-a.pts).slice(0,3);
+  if(!top.length) txt("None yet: play at the music stand at home!",70,1100,30,'#c8d4ff');
+  top.forEach((s,i)=>{ const y=1100+i*62, B=songBest(s.key), r=accRank(B.acc);
+    c.fillStyle='rgba(10,15,42,.5)'; c.beginPath(); c.roundRect(60,y-44,W-120,56,14); c.fill();
+    txt(s.name,84,y-6,fit(s.name,32,W-460,true),'#f4f6ff','left',true);
+    txt(s.kind,W-330,y-8,24,'#8a94c4','right');
+    txt(Math.round(B.acc*100)+"%",W-170,y-6,34,'#ffe08a','right',true);
+    txt(r,W-96,y-4,40,r==='S'?'#ffe08a':'#c8d4ff','center',true,true); });
+  /* where to play */
+  const site=(location.host+location.pathname).replace(/index\.html$/,'').replace(/\/$/,'');
+  txt("Play Garden Song at "+site,W/2,1262,24,'rgba(220,228,255,.8)','center');
+  const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+  const file=blob&&typeof File!=='undefined'?new File([blob],'garden-song-flute-mastery.png',{type:'image/png'}):null;
+  return {cv,blob,file,text:"My Flute Mastery in Garden Song: "+m.toLocaleString()+" ("+T.name+")"};
+}
+const canShareCard=S=>!!(S&&S.file&&navigator.canShare&&navigator.canShare({files:[S.file]}));
+/* share it (the phone's share sheet), or save the picture where there's no sheet */
+function shareCard(){
+  const S=sys&&sys.share; if(!S||S.busy||!S.blob) return;
+  if(canShareCard(S)){
+    navigator.share({files:[S.file],title:"Garden Song",text:S.text}).then(()=>{ S.msg="Shared!"; })
+      .catch(e=>{ if(!e||e.name!=='AbortError'){ saveCard(S); } });
+    return; }
+  saveCard(S);
+}
+function saveCard(S){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(S.blob); a.download='garden-song-flute-mastery.png';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  S.msg="Saved as garden-song-flute-mastery.png"; sfx('menu_confirm');
+}
+function openShareCard(){
+  sys.share={busy:true}; sfx('menu_confirm');
+  makeShareCard().then(o=>{ if(sys&&sys.share) Object.assign(sys.share,o,{busy:false}); })
+    .catch(()=>{ if(sys&&sys.share) sys.share={busy:false,msg:"Couldn't make the picture."}; });
+}
+/* the card over the menu, with Share (or Save) and Close */
+const SHARE_BTN=()=>{ const y=BAND_BOT()-52; return {go:{x:LW/2-150,y,w:140,h:40},close:{x:LW/2+10,y,w:140,h:40}}; };
+function drawShareCard(){
+  const S=sys.share, T0=BAND_TOP(), T1=BAND_BOT(), Bt=SHARE_BTN();
+  b.fillStyle='rgba(4,6,20,.88)'; b.fillRect(0,T0,LW,T1-T0);
+  const ch=T1-T0-80, cw=ch*0.8, x=(LW-cw)/2, y=T0+14;
+  if(S.cv){ b.save(); b.imageSmoothingEnabled=true; b.imageSmoothingQuality='high'; b.drawImage(S.cv,x,y,cw,ch); b.restore(); }
+  menuRow(Bt.go.x,Bt.go.y,Bt.go.w,Bt.go.h,true); menuRow(Bt.close.x,Bt.close.y,Bt.close.w,Bt.close.h,false);
+  blit();
+  if(!S.cv) TS(S.msg||"Making the picture...",LW/2,y+ch/2,18,'#c8d4ff','center');
+  TS(canShareCard(S)?"Share":"Save picture",Bt.go.x+Bt.go.w/2,Bt.go.y+26,19,WIN_TXT.title,'center',true);
+  TS("Close",Bt.close.x+Bt.close.w/2,Bt.close.y+26,19,WIN_TXT.title,'center',true);
+  if(S.msg&&S.cv) TS(S.msg,LW/2,Bt.go.y-8,14,'#ffe08a','center');
+}
+function shareKey(k){ if(isOk(k)) shareCard(); else if(isBack(k)){ sys.share=null; sfx('menu_cancel'); } }
+function shareTouch(x,y){
+  const Bt=SHARE_BTN(), inB=R=>x>R.x&&x<R.x+R.w&&y>R.y&&y<R.y+R.h;
+  if(inB(Bt.go)) shareCard(); else if(inB(Bt.close)){ sys.share=null; sfx('menu_cancel'); }
 }
