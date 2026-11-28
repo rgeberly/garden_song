@@ -182,8 +182,9 @@ function startRhythm(plot,bc,waited){
 const COUNT_BEATS=4, COUNT_WORDS=['3','2','1','Go!'];
 /* which count word is showing (-1 before the count, COUNT_BEATS once it is over) */
 function countBeat(){
-  const c=R_.count;
-  return R_.time<c.start?-1:Math.min(COUNT_BEATS,Math.floor((R_.time-c.start)/c.beat));
+  /* (the count-in ticks play now, like the music: on the clock as it is, not as heard) */
+  const c=R_.count, t=R_.time+(R_.play&&AC?RHYTHM_LAG:0);
+  return t<c.start?-1:Math.min(COUNT_BEATS,Math.floor((t-c.start)/c.beat));
 }
 /* a hit: a flash and a ring of light on the lane at the hit line, and sparks (gold for a
    perfect, blue for a good), like the battles' */
@@ -201,9 +202,9 @@ function spawnFx(lane,kind){
 function laneDown(lane){
   if(!R_)return;
   R_.press[lane]=1; R_.flash[lane]=200;
-  let best=null,bd=1e9;
+  let best=null,bd=1e9; const now=R_.play&&AC?songNow():R_.time;   /* (the moment of the press, not the last frame) */
   for(const n of R_.chart.notes){ if(n.done||n.lane!==lane)continue;
-    const d=Math.abs(n.t-R_.time); if(d<bd){bd=d;best=n;} }
+    const d=Math.abs(n.t-now); if(d<bd){bd=d;best=n;} }
   if(best&&bd<170){
     if(best.type==='tap'){
       best.done=true; const perfect=bd<60;
@@ -261,7 +262,7 @@ function rhythmKey(k){
 }
 function updateRhythm(dt){
   if(!R_)return;
-  if(R_.play&&AC) R_.time=(AC.currentTime-R_.play.t0)*1000;
+  if(R_.play&&AC) R_.time=songNow();
   else R_.time+=dt;
   /* song test autoplay: press each note right on time (and hold the long ones) */
   if(songAuto&&R_.battle&&R_.battle.test&&!R_.done) for(const n of R_.chart.notes)
@@ -594,4 +595,112 @@ function drawRhythm(){
     if(R_.stamped&&rank==='S') TS("the frogs approve!",180,327,19,WIN_TXT.good,'center',true);
     else if(R_.stamped) TS("tap to continue",180,327,17,WIN_TXT.dim,'center');
   }
+}
+
+/* ---------- rhythm timing (Settings > Rhythm timing) ----------
+   Phones and Bluetooth headphones play sound a little after the game asks for it, so a
+   player who hits in time with what they hear hits late. RHYTHM_LAG (ms, this device's,
+   kept in localStorage like the volume) is taken off the song's clock: notes reach the
+   line, and are judged, when they're heard. The calibration plays steady clicks and
+   takes the middle of how late the taps land. */
+let RHYTHM_LAG=0;
+try{ const v=parseFloat(localStorage.getItem('kgs-lag')); if(isFinite(v)) RHYTHM_LAG=clamp(Math.round(v),-200,400); }catch(e){}
+function setLag(v){ RHYTHM_LAG=clamp(Math.round(v),-200,400); try{ localStorage.setItem('kgs-lag',String(RHYTHM_LAG)); }catch(e){} }
+const songNow=()=>(AC.currentTime-R_.play.t0)*1000-RHYTHM_LAG;
+const CAL_BEAT=0.6, CAL_LEAD=4, CAL_N=16;      /* 100 per minute; 4 to settle in, then 16 counted */
+let calib=null;
+function calibOpen(){
+  initAudio(); if(!AC){ say("Sound isn't available here."); return; }
+  if(AC.state==='suspended') AC.resume();
+  setMusic(null);
+  const t0=AC.currentTime+1.2, beats=[];
+  for(let i=0;i<CAL_LEAD+CAL_N;i++){ const t=t0+i*CAL_BEAT; beats.push(t); calibClick(t,i<CAL_LEAD); }
+  calib={beats,taps:[],flash:0,result:null,was:G.scene}; G.scene='calib';
+}
+/* a woodblock click on the songs' own volume (the lead-in ones softer) */
+function calibClick(t,soft){
+  const o=AC.createOscillator(), g=AC.createGain(), f=AC.createBiquadFilter();
+  o.type='triangle'; o.frequency.setValueAtTime(soft?900:1250,t); o.frequency.exponentialRampToValueAtTime(soft?600:800,t+0.05);
+  f.type='bandpass'; f.frequency.value=1100; f.Q.value=2;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(soft?0.5:0.9,t+0.003); g.gain.exponentialRampToValueAtTime(0.001,t+0.09);
+  o.connect(f); f.connect(g); g.connect(songGain||AC.destination); o.start(t); o.stop(t+0.12);
+  calibClick.all=(calibClick.all||[]).concat([o]);
+}
+function calibStopClicks(){ (calibClick.all||[]).forEach(o=>{ try{ o.stop(); }catch(e){} }); calibClick.all=[]; }
+function calibTap(){
+  const C=calib; if(!C||C.result) return;
+  const now=AC.currentTime; C.flash=1;
+  let best=-1,bd=1e9; C.beats.forEach((t,i)=>{ const d=Math.abs(now-t); if(d<bd){ bd=d; best=i; } });
+  if(best>=CAL_LEAD&&bd<0.35&&!C.taps.some(x=>x.i===best)) C.taps.push({i:best,d:(now-C.beats[best])*1000});
+}
+function calibFinish(){
+  const C=calib, L=C.taps.map(x=>x.d).sort((a,b)=>a-b);
+  if(L.length<8){ C.result={ok:false}; return; }
+  /* the middle half's average: steady against a stray early or late tap */
+  const q=L.slice(Math.floor(L.length/4),Math.ceil(L.length*3/4)), ms=q.reduce((a,b)=>a+b,0)/q.length;
+  const spread=Math.sqrt(q.reduce((a,b)=>a+(b-ms)**2,0)/q.length);
+  setLag(Math.round(ms/5)*5); C.result={ok:true,ms:RHYTHM_LAG,spread:Math.round(spread)}; sfx('menu_confirm');
+}
+function calibClose(){ calibStopClicks(); const C=calib; calib=null; G.scene=C?C.was:'sys'; }
+function updateCalib(dt){
+  const C=calib; if(!C) return;
+  if(C.flash>0) C.flash=Math.max(0,C.flash-dt/180);
+  if(!C.result&&AC.currentTime>C.beats[C.beats.length-1]+0.5) calibFinish();
+}
+function calibKey(k){
+  const C=calib; if(!C) return;
+  if(isBack(k)){ calibClose(); return; }
+  if(C.result){ if(isOk(k)) calibOpenAgain(); else if(isLeft(k)||isRight(k)){ setLag(RHYTHM_LAG+(isLeft(k)?-5:5)); C.result.ms=RHYTHM_LAG; C.result.ok=true; } return; }
+  calibTap();
+}
+function calibOpenAgain(){ const was=calib.was; calibStopClicks(); calibOpen(); calib.was=was; }
+const CAL_WIN={x:20,y:24,w:LW-40,h:430};
+const CAL_BTN={done:{x:LW/2-130,y:CAL_WIN.y+CAL_WIN.h-58,w:120,h:42},again:{x:LW/2+10,y:CAL_WIN.y+CAL_WIN.h-58,w:120,h:42}};
+function calibTouch(x,y){
+  const C=calib; if(!C) return;
+  const inB=B2=>x>B2.x&&x<B2.x+B2.w&&y>B2.y&&y<B2.y+B2.h;
+  if(inB(CAL_BTN.done)){ calibClose(); return; }
+  if(C.result){ if(inB(CAL_BTN.again)) calibOpenAgain(); return; }
+  calibTap();
+}
+function drawCalib(){
+  const C=calib; if(!C) return;
+  drawSys(); wipeBuf();
+  b.fillStyle='rgba(6,10,26,.72)'; b.fillRect(0,-20,LW,SCREEN_H+40);
+  const X=CAL_WIN.x,Y=CAL_WIN.y,W=CAL_WIN.w,H=CAL_WIN.h;
+  panel(X,Y,W,H);
+  const cx=LW/2, cy=Y+258, now=AC?AC.currentTime:0;
+  /* the beat dots: lit when a tap landed on that click */
+  const counted=C.beats.length-CAL_LEAD;
+  for(let i=0;i<counted;i++){ const bi=i+CAL_LEAD, dx=cx+(i-(counted-1)/2)*16, hit=C.taps.some(t=>t.i===bi), past=now>C.beats[bi];
+    b.fillStyle=hit?'#ffe08a':past?'rgba(255,140,140,.6)':'rgba(200,212,255,.25)'; b.beginPath(); b.arc(dx,Y+178,4.5,0,7); b.fill(); }
+  /* the ring that pulses on each tap */
+  const r=46+C.flash*10;
+  b.save(); b.globalCompositeOperation='lighter'; b.strokeStyle='rgba(255,224,138,'+(0.35+C.flash*0.6)+')'; b.lineWidth=4+C.flash*4;
+  b.beginPath(); b.arc(cx,cy,r,0,7); b.stroke(); b.restore();
+  b.fillStyle='rgba(255,224,138,'+(0.08+C.flash*0.25)+')'; b.beginPath(); b.arc(cx,cy,r-6,0,7); b.fill();
+  menuRow(CAL_BTN.done.x,CAL_BTN.done.y,CAL_BTN.done.w,CAL_BTN.done.h,false);
+  if(C.result) menuRow(CAL_BTN.again.x,CAL_BTN.again.y,CAL_BTN.again.w,CAL_BTN.again.h,true);
+  blit();
+  TS("Rhythm timing",cx,Y+34,28,WIN_TXT.title,'center',true);
+  if(!C.result){
+    const lead=now<C.beats[CAL_LEAD]-0.2;
+    TS("Tap along with the clicks.",cx,Y+70,20,WIN_TXT.body,'center');
+    TS("Listen rather than watch: tap when you hear each click.",cx,Y+94,15,WIN_TXT.note,'center');
+    TS(IS_TOUCH?"Tap anywhere.":"Any key (B to stop).",cx,Y+114,15,WIN_TXT.note,'center');
+    TS(lead?"Get ready...":C.taps.length+" / "+counted,cx,Y+146,18,WIN_TXT.mp,'center',true);
+    TS(IS_TOUCH?"TAP":"TAP",cx,cy+8,24,WIN_TXT.title,'center',true);
+  } else if(!C.result.ok){
+    TS("Not enough taps to tell.",cx,Y+76,20,WIN_TXT.bad,'center',true);
+    TS("Try again, tapping on every click.",cx,Y+100,16,WIN_TXT.note,'center');
+  } else {
+    const ms=C.result.ms;
+    TS("Saved: "+(ms>0?"+":"")+ms+" ms",cx,Y+76,24,WIN_TXT.good,'center',true);
+    TS(ms>=25?"Sound reaches you a little late here; notes now wait for it.":ms<=-25?"You tap a little early; notes now come sooner.":"Right on time.",cx,Y+102,15,WIN_TXT.body,'center');
+    TS("Steadiness: "+(C.result.spread<25?"very steady":C.result.spread<50?"steady":"a bit uneven (try again?)"),cx,Y+124,15,WIN_TXT.note,'center');
+    TS(IS_TOUCH?"":"◀ ▶ to nudge it by 5 ms",cx,Y+146,15,WIN_TXT.note,'center');
+    TS((ms>0?"+":"")+ms,cx,cy+9,26,WIN_TXT.title,'center',true);
+  }
+  TS("Done",CAL_BTN.done.x+CAL_BTN.done.w/2,CAL_BTN.done.y+26,19,WIN_TXT.title,'center',true);
+  if(C.result) TS(IS_TOUCH?"Again":"Again (A)",CAL_BTN.again.x+CAL_BTN.again.w/2,CAL_BTN.again.y+26,19,WIN_TXT.title,'center',true);
 }

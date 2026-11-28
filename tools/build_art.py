@@ -118,12 +118,23 @@ HATCH_H = 90            # an egg hatching: the egg's height in sheet px
 ENEMY_POCKETS = {'seagull': (0.58, 60), 'crow': (0.5, 200), 'goat': (0.0, 1500), 'boar': (0.5, 2000), 'bear': (0.5, 2000)}
 # Enemy pictures with a transparency checkerboard painted in (no real transparency)
 ENEMY_CHECKERED = set()
+# Enemy pictures on flat white whose own white parts touch the background (Tricky Woo's paw):
+# cleared only where they match the background exactly, so the fur stays
+ENEMY_FLAT = {'woo'}
+# White background caught inside a picture, cleared from these points (the picture's own px):
+# the white joined to each point (clear_holes). For gaps that are too like the picture's own
+# white to find by rule (between a goat's horns and head, an octopus's tentacles).
+ENEMY_HOLES = {'beetle': [(357, 638)], 'wasp': [(776, 608), (591, 1001)], 'crab': [(301, 486), (325, 485)],
+               'goat': [(172, 433), (290, 451)], 'boar': [(796, 923)], 'hoa': [(857, 585)]}
+SHOP_POINT_HOLES = {'octopus': [(141, 270), (111, 423), (254, 542), (517, 528), (614, 551), (469, 641)]}
+# Kaitlyn's expressions share one body: white slivers between her hair and her outline there
+PORTRAIT_HOLES = {'kaitlyn': [(100, 798), (881, 764)]}
 # Animated enemies (AutoSprite sheets, 256 px cells): enemies/<name>/<name>-<kind>-spritesheet.png
 # for these kinds (attack2: a second attack, played instead of the first half the time). Kept at their own size and enlarged in the game (hard-edged pixel art), all
 # kinds at the scale that makes the battle stance's first frame the enemy's battle height. They
 # face left like the still pictures; ENEMY_ANIM_FLIP lists sheets drawn facing right.
 ENEMY_ANIM_KINDS = ('stance', 'walk', 'attack', 'attack2')
-ENEMY_ANIM_FLIP = set()
+ENEMY_ANIM_FLIP = {('hoa', 'walk')}       # (the HOA President's walk was made facing right)
 # the town's shops and the bar, inside: maps/<room> (or a maps/<room>/ folder holding one
 # picture), painted like the house at 512 x 768, with maps/<room>_collision and
 # maps/<room>_transitions (the red patch: the doorway back to town)
@@ -238,7 +249,7 @@ def remove_white(a, hole=0, soft_holes=False):
     return np.clip(res, 0, 255).astype(np.uint8)
 
 
-def remove_edge_colour(a, tol=14):
+def remove_edge_colour(a, tol=14, flat=False):
     """Clear a plain background of any colour (black, grey...) that touches the edge:
     pixels within tol of the edge's typical colour, connected to the edge. White
     backgrounds go through remove_white, which keeps soft shadows."""
@@ -247,7 +258,7 @@ def remove_edge_colour(a, tol=14):
     c = a[..., :3].astype(np.float32)
     edge = np.concatenate([c[0], c[-1], c[:, 0], c[:, -1]])
     bgc = np.median(edge, axis=0)
-    if bgc.min() > 225:
+    if bgc.min() > 225 and not flat:
         return remove_white(a)
     near = (np.abs(c - bgc).max(axis=2) < tol).astype(np.uint8)
     n, lab = cv2.connectedComponents(near, connectivity=4)
@@ -295,6 +306,43 @@ def remove_checker(a):
         for i in range(1, n):
             if st[i, 4] < big * 0.01: out[lab == i, 3] = 0
     return out
+
+
+def clear_holes(im, src, points, tol=40, chroma=30):
+    """Clear the white (within tol of pure white, nearly colourless, in the source picture)
+    joined to each point, with a 1px soft rim: background caught inside a picture."""
+    c = src[..., :3].astype(np.float32)
+    light = (((255 - c.min(axis=2)) <= tol) & ((c.max(axis=2) - c.min(axis=2)) <= chroma) & (im[..., 3] > 0)).astype(np.uint8)
+    n, lab = cv2.connectedComponents(light, connectivity=4)
+    hole = np.zeros(light.shape, bool)
+    for x, y in points:
+        if 0 <= y < lab.shape[0] and 0 <= x < lab.shape[1] and lab[y, x] > 0:
+            m = lab == lab[y, x]
+            if m.sum() < 0.05 * m.size: hole |= m           # (never a big part of the picture)
+    out = im.copy(); out[hole, 3] = 0
+    rim = cv2.dilate(hole.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & ~hole
+    out[rim, 3] = np.minimum(out[rim, 3], 150)
+    return out
+
+
+def keep_undershirt(im, a):
+    """Kaitlyn's white undershirt reaches the bottom edge, so a cut-out of a white or
+    checkered background takes it too: put back the white joined, through white only, to
+    the middle of the bottom edge."""
+    im = im.copy()
+    c = a[..., :3].astype(np.float32); grey = c.mean(axis=2); chroma = c.max(axis=2) - c.min(axis=2)
+    H, W = grey.shape
+    white = ((grey > 215) & (chroma < 25)).astype(np.uint8)
+    bx = [x for x in range(int(W * 0.4), int(W * 0.6)) if white[H - 1, x]]
+    if bx:
+        n, lab = cv2.connectedComponents(white, connectivity=4)
+        keep = lab == lab[H - 1, bx[len(bx) // 2]]
+        if keep.sum() < 0.15 * H * W:
+            # and its rim, out to the drawn line around it
+            rim = cv2.dilate(keep.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool) & (im[..., 3] < 255) & (chroma < 45)
+            m = keep | rim
+            im[m, :3] = a[m, :3]; im[m, 3] = 255          # (its own colours: the cut may have tinted them)
+    return im
 
 
 def clear_low_pockets(a, below, least):
@@ -653,6 +701,7 @@ def main():
         elif name in SHOP_CUTOUT: im = cutout(src)
         elif name in SHOP_SOFT_HOLES: im = remove_white(src, SHOP_SOFT_HOLES[name], soft_holes=True)
         else: im = remove_white(src, SHOP_HOLES.get(name, 0))
+        if name in SHOP_POINT_HOLES: im = clear_holes(im, src, SHOP_POINT_HOLES[name], 70, 40)
         if name in SHOP_FLOOR:
             hsv = cv2.cvtColor(np.ascontiguousarray(im[..., :3]), cv2.COLOR_BGR2HSV)
             floor = (hsv[..., 2] > 140) & (hsv[..., 1] < 85); floor[:int(im.shape[0] * SHOP_FLOOR[name])] = False
@@ -768,7 +817,10 @@ def main():
             out = mid + '-' + re.sub(r'\s+', '-', mm.group(1).strip().lower())
             a = load(f)
             edge = np.concatenate([a[0, :, :3], a[-1, :, :3], a[:, 0, :3], a[:, -1, :3]])
-            im = trim(remove_checker(a) if np.median(edge, axis=0).min() < 235 else remove_white(a), 0)
+            im = remove_checker(a) if np.median(edge, axis=0).min() < 235 else remove_white(a)
+            if mid == 'kaitlyn': im = keep_undershirt(im, a)
+            if mid in PORTRAIT_HOLES: im = clear_holes(im, a, PORTRAIT_HOLES[mid], 90, 35)
+            im = trim(im, 0)
             cv2.imwrite(os.path.join(OUT, 'portrait_' + out + '.png'), shrink(im, PORTRAIT_H / im.shape[0]),
                         [cv2.IMWRITE_PNG_COMPRESSION, 9])
             pfaces.append(out)
@@ -791,8 +843,10 @@ def main():
     for name, f in named_pics('enemies'):
         if name not in ENEMIES: continue
         key, h = ENEMIES[name]
-        im = remove_checker(load(f)) if name in ENEMY_CHECKERED else remove_edge_colour(load(f))
+        src = load(f)
+        im = remove_checker(src) if name in ENEMY_CHECKERED else remove_edge_colour(src, 8 if key in ENEMY_FLAT else 14, key in ENEMY_FLAT)
         if key in ENEMY_POCKETS: im = clear_low_pockets(im, *ENEMY_POCKETS[key])
+        if key in ENEMY_HOLES: im = clear_holes(im, src, ENEMY_HOLES[key])
         im = trim(im, 0)
         s = h / im.shape[0]
         if s > 1:   # small pixel art: hard-edged enlargement

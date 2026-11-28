@@ -143,6 +143,11 @@ const SETTINGS=[{id:'diff',name:"Difficulty",opts:DIFF_ORDER,label:v=>DIFFICULTY
   {id:'gfx',name:"Graphics",opens:true,opts:['low','medium','high'],label:v=>GFX_PRESET_NAME[v],
    about:v=>"Depth blur, bloom, sunbeams and more. "+(IS_TOUCH?"Tap again to set each one.":"J to set each one."),
    get:()=>gfxPreset(),set:v=>gfxApplyPreset(v)},
+  /* how late this device plays sound (RHYTHM_LAG, 11-rhythm.js): left/right nudge it, A tap along to set it */
+  {id:'lag',name:"Rhythm timing",calib:true,level:true,opts:Array.from({length:61},(_,i)=>-100+i*5),
+   label:v=>(v>0?"+":"")+v+" ms",
+   about:v=>"For the rhythm game, if notes feel early or late. "+(IS_TOUCH?"Tap the name":"J")+" to tap along and set it.",
+   get:()=>clamp(Math.round(RHYTHM_LAG/5)*5,-100,200),set:v=>setLag(v)},
   /* act: A asks, then does it (no choices to step through) */
   {id:'home',name:"Return to Home",act:true,opts:[],label:()=>"",get:()=>null,set:()=>{},
    about:()=>"Warps you to Kaitlyn's house, in case you're ever stuck. It takes 1 hour of the day."}];
@@ -208,6 +213,15 @@ function loreActivate(R){
   if(!(R.beast?knowBeast(k):knowFish(k))){ sfx('cant_do_that'); return; }
   sys.loreSel={kind:R.beast?'beast':'fish',k}; sfx('menu_confirm');
 }
+/* left/right on a page: the next pest or fish she knows, round the list (the list's
+   pointer follows, so B lands on it) */
+function loreFlip(d){
+  const S=sys.loreSel, beast=S.kind==='beast', L=beast?beastKeys():fishKeys(), know=beast?knowBeast:knowFish;
+  let i=L.indexOf(S.k);
+  for(let n=0;n<L.length;n++){ i=(i+d+L.length)%L.length; if(know(L[i])) break; }
+  if(L[i]===S.k) return;
+  S.k=L[i]; sys.idx=i; sysSee(i);
+}
 /* B: from a page back to its list, from a list back to the two choices (false at the top) */
 function loreBack(){
   if(sys.loreSel){ sys.loreSel=null; return true; }
@@ -230,6 +244,7 @@ function loreLines(){
     add("Lv."+P.lv+(P.boss?"  ·  Boss":"")+(P.night?"  ·  comes out at night":"")+(P.fly?"  ·  flies":""),'#ffe08a',17,true);
     add("HP "+st.hp+"    Attack "+Math.round(st.atk)+"    Defense "+Math.round(st.def)+"    Agility "+Math.round(st.agi),'#f4f6ff');
     add(P.about);
+    if(P.acts>1) add("Acts "+(P.acts===2?"twice":P.acts+" times")+" each round",'#ffb0a8',17,true);
     add("Moves: "+P.skills.map(s=>s.name).join(", "),'#b8f0a0');
     const D=PEST_DROPS[S.k]; if(D) add("Drops: "+GOODS[D[0]].name+"  ·  rare: "+GOODS[D[1]].name,'#ffd0a0');
     add("Leaves behind "+P.xp+" EXP and "+P.coin+"c",'#c8d4ff');
@@ -252,7 +267,10 @@ function loreDetailBack(P){
 function loreDetailText(P){
   let y=P.y+LORE_PIC.y+LORE_PIC.h+26;
   loreLines().forEach(l=>{ wrapLines(l.t,l.size,P.w-36).forEach(ln=>{ TS(ln,P.x+18,y,l.size,l.col,null,l.bold); y+=l.size>16?19:17; }); y+=6; });
-  TS(IS_TOUCH?"tap to go back":"B: back",P.x+P.w/2,P.y+P.h-14,15,'#8a94c4','center');
+  TS(IS_TOUCH?"tap the sides for more  ·  tap to go back":"◀ ▶ more  ·  B: back",P.x+P.w/2,P.y+P.h-14,15,'#8a94c4','center');
+  /* arrows on the picture's sides */
+  const ay=P.y+LORE_PIC.y+LORE_PIC.h/2+7;
+  TS("◀",P.x+30,ay,22,'#c8d4ff','center',true); TS("▶",P.x+P.w-30,ay,22,'#c8d4ff','center',true);
 }
 function loreRowPic(r,P,y,h){
   if(r.beast&&knowBeast(r.beast)){ const a=typeof ENEMY_ART!=='undefined'&&ENEMY_ART[r.beast];
@@ -694,7 +712,7 @@ function sysActivate(i){
   else if(t==='Status'){ if(R.rename) renameMember(whoId()); }
   else if(t==='Skills') skillActivate(R.skill);
   else if(t==='Items') itemActivate(R);
-  else if(t==='Settings'){ if(R.set.act) sys.ask={home:true,idx:1}; else if(R.set.opens) gfxOpen(); else stepSetting(R.set,1); }
+  else if(t==='Settings'){ if(R.set.act) sys.ask={home:true,idx:1}; else if(R.set.opens) gfxOpen(); else if(R.set.calib) calibOpen(); else stepSetting(R.set,1); }
   else if(t==='Lore') loreActivate(R);
   else if(t==='Equip') openEquipPick(whoId(),R.slot);
   else if(t==='Save'){
@@ -762,6 +780,7 @@ function sysKey(k){
     else if(isOk(k)) eqWear();
     else if(isBack(k)) sys.eq=null;
     return; }
+  if(sys.loreSel&&(isLeft(k)||isRight(k))){ loreFlip(isLeft(k)?-1:1); return; }   /* the next pest or fish */
   if(sys.loreSel&&(isOk(k)||isBack(k))){ sys.loreSel=null; return; }      /* a Lore page closes */
   if(sys.focus==='tabs'){
     if(isUp(k)) sysSetTab(sys.tab-1);
@@ -824,6 +843,8 @@ function sysTouch(x,y){
   if(t==='Party'){ const i=partyAt(x,y); if(i<0){ sys.held=null; return; }
     sys.focus='list'; sys.idx=i; partyPick(i); return; }
   /* Lore: a tap on a page, or on a list's title, goes back a level */
+  /* (on a page, a tap on either side of the picture turns to the next one) */
+  if(t==='Lore'&&sys.loreSel&&y>P.y+LORE_PIC.y&&y<P.y+LORE_PIC.y+LORE_PIC.h&&Math.abs(x-P.x-P.w/2)>P.w*0.25){ loreFlip(x<P.x+P.w/2?-1:1); return; }
   if(t==='Lore'&&(sys.loreSel||(sys.lore&&y<P.y+pageRowsY()-6))){ loreBack(); return; }
   if(t==='Settings'&&sys.gfx&&y<P.y+pageRowsY()-6){ gfxBack(); return; }
   if(t==='Items'&&sys.cat&&y<P.y+pageRowsY()-6){ if(x>P.x+P.w-70) stepCat(x>P.x+P.w-35?1:-1); else itemBack(); return; }

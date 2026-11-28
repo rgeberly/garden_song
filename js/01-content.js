@@ -196,7 +196,7 @@ const PESTS={
     {name:"Boulder Toss",kind:'hit',pow:1.5,w:2,fx:'bash'},
     {name:"Ground Pound",kind:'all',pow:0.8,w:2,st:'weak',p:0.4,fx:'bash'},
     {name:"Camera Shy",kind:'hide',heal:0.15,w:1,fx:'fade'}]},
-  hoa    :{name:"HOA President",intro:"The HOA President demands a word!",noFlee:"The HOA President blocks the gate!",outro:"The HOA President retreats! ",hp:380,atk:26,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,size:1.4,lv:12,
+  hoa    :{name:"HOA President",intro:"The HOA President demands a word!",noFlee:"The HOA President blocks the gate!",outro:"The HOA President retreats! ",hp:760,acts:2,atk:26,def:6, agi:6,  xp:120,coin:60,min:5, col:'#c9b48a',boss:true,size:1.4,lv:12,
           about:"Clipboard in hand and a bylaw for everything. Even your gnomes.",skills:[
     {name:"Citation",kind:'hit',pow:1.2,w:3,fx:'paper'},
     {name:"Noise Complaint",kind:'all',pow:0.8,w:2,fx:'megaphone'},

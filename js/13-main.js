@@ -253,6 +253,7 @@ function loop(now){
   else if(G.scene==='menu') drawMenu();
   else if(G.scene==='shop') drawShop();
   else if(G.scene==='sys') drawSys();
+  else if(G.scene==='calib'){ updateCalib(dt); drawCalib(); }
   else if(G.scene==='rhythm') drawRhythm();
   else if(G.scene==='battle') drawBattle(dt);
   else if(G.scene==='sleep') drawSleep();

@@ -99,6 +99,7 @@ function touchAt(x,y,id,hy){
   if(G.scene==='menu'){ menuTouch(x,y,id); return; }
   if(G.scene==='shop'){ shopTouch(x,y); return; }
   if(G.scene==='sys'){ sysTouch(x,y); return; }
+  if(G.scene==='calib'){ calibTouch(x,y); return; }
   if(G.scene==='sleep'){ sleepTap(); return; }
   if(G.scene==='ask'){ askTouch(x,y); return; }
   if(G.scene==='story'){ storyTap(); return; }
@@ -134,6 +135,7 @@ function pressKey(k){
   else if(G.scene==='menu') menuKey(k);
   else if(G.scene==='shop') shopKey(k);
   else if(G.scene==='sys') sysKey(k);
+  else if(G.scene==='calib') calibKey(k);
   else if(G.scene==='battle') battleKey(k);
   else if(G.scene==='rhythm') rhythmKey(k);
   else if(G.scene==='sleep'&&(isOk(k)||k==='e')) sleepTap();

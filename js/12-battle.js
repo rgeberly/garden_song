@@ -766,6 +766,8 @@ function newRound(){
   const L=B.party.filter(standing).map(id=>({id,a:statOf(id,'agi')+rnd(0,4)}));
   B.foes.forEach((f,i)=>{ if(f.hp>0) L.push({id:i,a:f.agi+rnd(0,4)}); });
   B.order=L.sort((x,y)=>y.a-x.a).map(o=>o.id);
+  /* a pest with acts gets that many turns a round: the extra ones fall anywhere in it */
+  B.foes.forEach((f,i)=>{ if(f.hp>0) for(let k=1;k<(PESTS[f.sp].acts||1);k++) B.order.splice(ri(0,B.order.length),0,i); });
 }
 /* whoever is next acts: a party member does what they picked, a pest (by number) takes
    its turn; when everyone has, a new round */
