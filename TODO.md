@@ -91,9 +91,14 @@ sound each could share:
 - [ ] Pest voices in general: a squeak, a growl, a hiss... for when they're hit or beaten
 
 ## Battle effects (animated, made in Effekseer)
-Only Fury Swipes has one so far; every other move uses drawn-in-code light effects. Each goes in the art
-folder as `effects/<name>.png` (see `effects/instructions.txt`), then tell me how many hits the move has
-and where it plays (on a pest, on everyone, on a friend). The ones that would show off most:
+Only Fury Swipes has one so far; every other move uses drawn-in-code light effects. Any move can have one
+now: save it in the art folder named after the move, e.g. `effects/harvest hymn.png` (see
+`effects/instructions.txt`), and run `python tools/build_effects.py`. It plays by itself as the move lands,
+on whoever it lands on, in place of the drawn effect, and a multi-hit move plays a share on each hit.
+A pest's own version: `effects/<pest> <move>.png` (e.g. `effects/hermit crab shell up.png`). General ones:
+`effects/heal.png` (anyone healed) and a trouble's (`effects/poison.png`, `sleep.png`...). Tell me if one
+should play once over a whole group, or on whoever used it, or bigger or smaller. The ones that would show
+off most:
 
 **Kaitlyn**
 - [ ] Karate Kick: a big impact burst on the pest

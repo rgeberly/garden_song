@@ -433,7 +433,7 @@ const TROUBLE_MS={poison:1100,venom:1100,sleep:1400,weak:1000,scared:900,blind:1
 function troubleFx(who,kind){
   if(!B||!TROUBLE_MS[kind]) return;
   const r=typeof who==='object'?foeBox(who):(()=>{ const s=slotOf(who), top=headOf(who); return {x:s.x-18*s.s,y:top-4,w:36*s.s,h:s.y-top+4}; })();
-  (B.tfx||(B.tfx=[])).push({kind,r,t:0,seed:Math.random()*10});
+  if(!playMoveSheet(sheetFor('trouble '+kind)||sheetFor(kind),[who])) (B.tfx||(B.tfx=[])).push({kind,r,t:0,seed:Math.random()*10});
   if(!(sfx('trouble_'+kind)>0)) troubleSound(kind);
 }
 function troubleSound(kind){
@@ -654,6 +654,49 @@ function playSheet(key,x,y,size,from,to){ if(!haveSheet(key)) return; sheetImg(k
 function sheetHit(key,f,i,n){ if(!haveSheet(key)) return;
   const E=EFFECTS[key], r=foeBox(f), size=clamp(r.w*2.2,100,210);
   playSheet(key,r.x+r.w*0.5,r.y+r.h*0.55,size,Math.floor(i*E.n/n),Math.floor((i+1)*E.n/n)-1); }
+/* Every move can have a sheet of its own, found by its name: effects/<move name>.png,
+   keyed like the sounds ("Harvest Hymn" -> harvest_hymn). Kaitlyn's kicks and songs, a
+   friend's attack or skill, a Pep Rally, a pest's move (a pest's own "<pest> <move>" first,
+   e.g. effects/hermit crab shell up.png, then just the move's). It plays as the move lands,
+   on whoever it lands on, and stands in for the move's drawn effect (B.anim.noFx).
+   SHEET_AT: 'group' plays it once over all of them, bigger; 'self' on whoever used it.
+   SHEET_SIZE: bigger or smaller than usual. A multi-hit move plays a share on each hit.
+   General ones: heal (anyone healed), and a trouble's (poison, sleep... or trouble_<kind>). */
+const SHEET_AT={}, SHEET_SIZE={};
+function sheetFor(name,sp){
+  if(!FX2||!name||typeof EFFECTS==='undefined') return null;
+  const L=sp?[soundKey(sp+' '+name),soundKey(PESTS[sp].name+' '+name)]:[];
+  L.push(soundKey(name));
+  return L.find(haveSheet)||null;
+}
+/* where a sheet plays over someone: a pest, or a member (by id); its middle and size */
+function sheetSpot(t){
+  if(typeof t==='object'){ const r=foeBox(t); return {x:r.x+r.w*0.5,y:r.y+r.h*0.55,size:clamp(r.w*2.2,100,210)}; }
+  const s=slotOf(t), top=headOf(t); return {x:s.x,y:(s.y+top)/2,size:clamp((s.y-top)*2.4,90,200)};
+}
+function playMoveSheet(key,targets,user){
+  if(!key||!haveSheet(key)) return false;
+  const E=EFFECTS[key], at=SHEET_AT[key]||'each', k=SHEET_SIZE[key]||1;
+  let T=at==='self'&&user!=null?[user]:[...new Set(targets||[])];
+  if(!T.length&&user!=null) T=[user];
+  if(at==='group'&&T.length>1){ const P=T.map(sheetSpot), x=P.reduce((a,q)=>a+q.x,0)/P.length, y=P.reduce((a,q)=>a+q.y,0)/P.length;
+    const spread=Math.max(...P.map(q=>Math.hypot(q.x-x,q.y-y)));
+    playSheet(key,x,y,clamp(spread*2+140,140,340)*k,0,E.n-1); return true; }
+  T.forEach(t=>{ const q=sheetSpot(t); playSheet(key,q.x,q.y,q.size*k,0,E.n-1); });
+  return true;
+}
+/* hit i of n lands on t (a pest or a member): its share of the frames */
+function sheetHitOn(key,t,i,n){ if(!haveSheet(key)) return;
+  const E=EFFECTS[key], q=sheetSpot(t), k=SHEET_SIZE[key]||1;
+  playSheet(key,q.x,q.y,q.size*k,Math.floor(i*E.n/n),Math.floor((i+1)*E.n/n)-1); }
+/* who a friend's skill lands on, for its sheet */
+function skillTargets(sk,f,to,id){
+  if(sk.mendAll||sk.cureAll||sk.guardAll||sk.coverAll||sk.regen||sk.heal) return B.party.filter(standing);
+  if(sk.mend||sk.cover||sk.clear||sk.revive) return [to];
+  if(sk.shell||sk.graze) return [id];
+  if(sk.all) return liveFoes();
+  return f?[f]:[id];
+}
 const sheetFrame=S=>S.from+Math.floor(S.t*SHEET_FPS/1000);
 function drawSheets(dt){
   const L=B.sheets; if(!L||!L.length) return;
@@ -666,6 +709,7 @@ function drawSheets(dt){
 }
 /* FX2: HP coming back: a ring of light at their feet and a column of rising motes */
 function healFx(id){
+  if(playMoveSheet(sheetFor('heal'),[id])) return;             /* (effects/heal.png, when there is one) */
   const s=slotOf(id), top=headOf(id);
   glow({x:s.x,y:s.y-2,ring:true,r0:8*s.s,r1:30*s.s,w:2.5,life:500,col:'#8fe07a'});
   for(let i=0;i<10;i++) glow({x:s.x+rnd(-14,14)*s.s,y:s.y-rnd(0,s.y-top),vy:-rnd(0.03,0.07),size:rnd(2.4,3.8),life:rnd(600,900),col:i%2?'#8fe07a':'#e8ffd8',fin:true});
@@ -673,7 +717,7 @@ function healFx(id){
 /* hold (ms): a recorded voice that runs longer than the move; its animation loops until
    the voice is done. The move lands at its usual time, or with atEnd (Kaitlyn's songs)
    its effect plays last, landing as the song ends (it runs a little past the hold) */
-function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:kind==='enemy'?null:actor(),...extra};
+function anim(kind,dur,onHit,extra){ B.anim={kind,t:0,dur,hit:false,onHit,who:kind==='enemy'?null:actor(),noFx:!!B.sheetMove,...extra}; B.sheetMove=false;
   const A=B.anim;
   if(A.hold>dur){ A.loopMs=dur;
     if(A.atEnd){ A.fxFrom=A.hold-dur*0.55; A.dur=A.fxFrom+dur; }
@@ -1070,9 +1114,10 @@ const KICK_SHOUT=0.25;               /* how often a kick comes with a shout */
 function kick(f,pow,name,row,shouts,shout,dur){
   if(Math.random()<(shout===undefined?1:shout)) B.shout={txt:shouts[ri(0,shouts.length-1)],t:1500};
   B.kickVar=row; playOne('kick',0.55);
+  const sheet=sheetFor(name); B.sheetMove=!!sheet;
   anim('kick',dur||1100,()=>{
     if(missed('kaitlyn')) return;
-    focus(f); const cm=useCharge('kaitlyn'), dmg=soften(kickPower(pow)*rnd(0.85,1.15)*cm,foeDef(f));
+    focus(f); if(sheet) playMoveSheet(sheet,[f],'kaitlyn'); const cm=useCharge('kaitlyn'), dmg=soften(kickPower(pow)*rnd(0.85,1.15)*cm,foeDef(f));
     if(FX2) markFoe(row==='karate'?'karate':'kick',f); else { burst(EX-20,EY+16,'#ffe6a0',16,0.19); burst(EX-30,EY+34,'#d8c49a',12,0.13); }
     B.hitSnd=hitSound('kick_hit'); hitFoe(f,dmg,name+" lands for "+dmg+"!"+(cm>1?"  A focused blow!":""));
   },{tgt:f});
@@ -1084,9 +1129,10 @@ function doAttack(f){
   /* the others' free hit, from Strength. Ivy's is a weak bite, but the venom always takes,
      and now and then it's too much */
   hitSound('whoosh',0.6);
+  const sheet=sheetFor(I.attack); B.sheetMove=!!sheet;
   anim('lunge',900,()=>{
     if(missed(id)) return;
-    focus(f); const cm=useCharge(id), power=statOf(id,'str')*1.5*I.pow*weakMul(id)*cm*(wears(id,'fangpolish')?1.5:1);
+    focus(f); if(sheet) playMoveSheet(sheet,[f],id); const cm=useCharge(id), power=statOf(id,'str')*1.5*I.pow*weakMul(id)*cm*(wears(id,'fangpolish')?1.5:1);
     const dmg=soften(power*rnd(0.85,1.15),foeDef(f));
     if(FX2&&ATTACK_MARK[id]) markFoe(ATTACK_MARK[id],f); else burst(EX-20,EY+20,'#ffe6a0',14,0.17);
     B.hitSnd=!!ATTACK_SOUND[id]&&hitSound(ATTACK_SOUND[id]);
@@ -1118,17 +1164,19 @@ function useSong(mv,f){
   const acc=SONG_ACC, len=sfx(soundKey(mv.name));
   if(len) duckMusic(len); else playOne('flute',0.5);
   B.log=mv.name;
+  const sheet=sheetFor(mv.name); B.sheetMove=!!sheet;
   {
     anim(mv.fx,1500,()=>{
+      if(sheet&&!(mv.pow>0&&mv.hits)) playMoveSheet(sheet,mv.pow>0?(mv.all?liveFoes():f?[f]:[]):B.party.filter(standing),'kaitlyn');
       /* healing songs reach the whole party: a share of each one's max HP */
       if(mv.heal) B.party.filter(standing).forEach(id=>mendMember(id,member(id).maxhp*mv.heal*songMul()));
       const pc="", healed=mv.heal?"  Everyone heals!":"";
       const songHit=(t,cm)=>soften(songPower()*mv.pow*(0.35+acc*1.1)*cm,foeDef(t),true);
       if(mv.pow>0&&mv.hits){
         /* hits at whoever's still there, a moment apart (every one lands: see flurry) */
-        const cm=useCharge('kaitlyn'), got=[];
+        const cm=useCharge('kaitlyn'), got=[]; let hitN=0;
         flurry(mv.hits,(t,up)=>{ const dmg=songHit(t,cm);
-          if(FX2&&mv.fx==='thorn') thornBurst(t);
+          if(sheet) sheetHitOn(sheet,t,hitN++,mv.hits); else if(FX2&&mv.fx==='thorn') thornBurst(t);
           hitFoe(t,dmg,""); got.push(up&&t.hp<=0?dmg+" (it runs off)":String(dmg));
           B.log=total(got)+" damage in all!"; });
       } else if(mv.pow>0&&f){
@@ -1316,6 +1364,7 @@ function rallyLands(s,acc){
   /* (a song may do more than one of these: Tangleroot Reel hits and binds, Clean Slate
      cures and heals) */
   const said=[];
+  playMoveSheet(sheetFor(s.name),s.pow||s.bindAll?liveFoes():up,'kaitlyn');
   if(s.pow){ const T=liveFoes(), sp=spreadMul(T.length); T.forEach(t=>hitFoe(t,soften(songPower()*s.pow*sp*(0.35+acc*1.1),foeDef(t),true),"")); }
   if(s.bindAll){ const got=liveFoes().filter(t=>Math.random()<0.4+0.6*acc); got.forEach(t=>{ foeStatus(t,'bound'); focus(t); burst(EX,EY+10,'#8a6a3a',10,0.1); });
     if(!got.length) said.push("The pests wriggle free."); }
@@ -1374,10 +1423,11 @@ function useSkill(sk,f,to){
   /* their recorded voice: from the start, or (pecks) with the hits */
   const voice=SKILL_SOUND[sk.id]||(id==='tiny'&&sk.song?'tiny_songs':null)||skillVoice(sk), atHit=voice&&sk.pecks;
   B.hitSnd=!!voice;                            /* (its voice does for the sound of its first hit) */
-  const sheet=FX2&&haveSheet(SKILL_SHEET[sk.id])&&SKILL_SHEET[sk.id]; if(sheet) sheetImg(sheet);     /* (start loading it) */
+  const sheet=sheetFor(sk.name)||(FX2&&haveSheet(SKILL_SHEET[sk.id])&&SKILL_SHEET[sk.id])||null; B.sheetMove=!!sheet&&!sk.pecks;
   const len=voice&&!atHit?sfx(voice):0;
   anim(kind,spell?1400:sk.song?1300:1000,()=>{
     if(atHit) sfx(voice);
+    if(sheet&&!sk.pecks) playMoveSheet(sheet,skillTargets(sk,f,to,id),id);
     /* Tiny One's songs */
     if(sk.mend){ const h=mendMember(to,member(to).maxhp*sk.mend*healMul(id));
       B.log=""; return; }
@@ -1566,7 +1616,8 @@ function foeTurn(f){
   const go=()=>{ if(!B||B.over) return; B.prep=null;
     if(sk===P.skills[0]&&!charged) B.log="";
     if(targets.length&&sk.kind!=='all') hitSound('whoosh',0.6);
-    anim('enemy',sk.kind==='multi'?1300:900,()=>foeHits(f,sk,targets,charged,cover),{fx:sk.fx,targets,self:!targets.length,foe:f}); };
+    const sheet=sheetFor(sk.name,f.sp); B.sheetMove=!!sheet;
+    anim('enemy',sk.kind==='multi'?1300:900,()=>{ if(sheet) playMoveSheet(sheet,targets,f); foeHits(f,sk,targets,charged,cover); },{fx:sk.fx,targets,self:!targets.length,foe:f}); };
   if(sk!==P.skills[0]||charged){
     B.prep={f,t:0};
     B.log=sk.name;
@@ -2066,6 +2117,7 @@ const hasBackdrop=()=>typeof BACKDROPS!=='undefined'&&BACKDROPS.includes(backdro
    backdrops (hdPrebake). The first fight used to freeze for a quarter of a second. */
 function prebakeBattle(){
   hdPrebake(); partyImg();
+  if(typeof EFFECTS!=='undefined') Object.keys(EFFECTS).forEach(sheetImg);          /* (every effect sheet) */
   if(typeof PARTY_PORTRAITS!=='undefined') PARTY_PORTRAITS.forEach(portraitImg);        /* (every portrait, expressions too, for talk) */
   fishArtReady(); fishImg(); rhythmArt(); rhythmPic('vine'); rhythmPic('flute'); rhythmPic('rail'); rhythmPic('stamp');   /* (fishing's and the rhythm game's pictures, loading early too) */
   const sheets=[IMG_PARTY,IMG_EN,IMG_BATL,IMG_POSE,IMG_PT].filter(Boolean);
@@ -2346,7 +2398,7 @@ function drawBattleScene(dt){
   placed.forEach(p=>{ const g=memberLine(p.id); castShadow(c=>drawMember(c,p.id,0,0,k),p.x,p.y,0,0.32,g); });
   /* Meditate's and Focus's rings and motes go behind the party */
   const behind=B.anim&&who&&(B.anim.kind==='meditate'||B.anim.kind==='focus');
-  if(behind&&fxOn) drawSpellFx(B.anim.kind,k,who.x,who.y);
+  if(behind&&fxOn&&!B.anim.noFx) drawSpellFx(B.anim.kind,k,who.x,who.y);
   placed.forEach(p=>{
     if(B.turn==='player'&&!B.over&&actor()===p.id){        /* a warm glow under whoever's turn it is */
       b.globalAlpha=.35+Math.sin(G.t/260)*.12; b.fillStyle='#ffe08a';
@@ -2358,8 +2410,8 @@ function drawBattleScene(dt){
   drawWeather(b,BAND_TOP(),BAND_BOT());
   if(HD()) hdLight(dt,1-ultA);
   if(B.ult&&ultA>0) drawUltFront(dt,ultA);
-  if(A){ focus(A.foe); drawFoeFx(A.fx,k,A.targets); }
-  else if(B.anim&&who&&!behind&&fxOn){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
+  if(A){ focus(A.foe); if(!A.noFx) drawFoeFx(A.fx,k,A.targets); }
+  else if(B.anim&&who&&!behind&&fxOn&&!B.anim.noFx){ if(B.anim.tgt) focus(B.anim.tgt); drawSpellFx(B.anim.kind,k,who.x,who.y); }
   drawStatusTags();
   /* picking a target: a bouncing pointer over whoever is picked */
   const picking=B.turn==='player'&&B.menu==='target'&&B.tgt, tg=picking&&!B.tgt.all?B.tgt.list[B.tgt.i]:null;
