@@ -273,7 +273,7 @@ function standChoices(){
   if(ask.mode==='free') return practiceSongs().map(s=>({id:'free',name:s.name,s})).concat([{id:'back',name:"Back"}]);
   return knownSongs().map(s=>({id:'song',name:s.name,song:s})).concat([{id:'back',name:"Back"}]);
 }
-const askChoices=()=>ask&&ask.kind==='stand'?standChoices():ask&&ask.kind==='board'?boardChoices():sleepChoices();
+const askChoices=()=>ask&&ask.kind==='stand'?standChoices():ask&&ask.kind==='board'?boardChoices():ask&&ask.kind==='fest'?festChoices():sleepChoices();
 function sleepChoices(){
   const L=[{id:'night',name:"Sleep till morning"}];
   if(G.clock<12*60-30) L.push({id:'nap',name:"Nap till noon",to:12*60});
@@ -282,7 +282,7 @@ function sleepChoices(){
   return L;
 }
 const ASK={x:40,y:70,w:280,top:92,row:40};
-const askRow=()=>ask&&(ask.kind==='stand'||ask.kind==='board')?52:ASK.row;   /* songs get room for their EXP line */
+const askRow=()=>ask&&(ask.kind==='stand'||ask.kind==='board'||ask.kind==='fest')?52:ASK.row;   /* songs get room for their EXP line */
 /* at most ASK_FIT rows show at once; a longer list scrolls */
 const ASK_FIT=6, askVis=()=>Math.min(ASK_FIT,askChoices().length);
 const askH=()=>ASK.top+askVis()*askRow()+10;
@@ -313,6 +313,7 @@ function askTouch(x,y){
 function askAnswer(c){
   if(c&&c.id==='auto'){ songAuto=!songAuto; return; }       /* song test: stays open */
   if(ask&&ask.kind==='board'&&c&&c.id==='req'){ if(handIn(c.r)) ask=null; return; }   /* (not enough yet: it stays open) */
+  if(ask&&ask.kind==='fest'&&c&&c.id==='enter'){ ask=null; G.scene='world'; festEnter(c.e); return; }
   /* the music stand: how she'll play, then which song; B or Back from the songs goes back */
   if(ask&&ask.kind==='stand'&&c&&c.id==='mode'){
     if(c.mode==='exp'&&G.daily.practice===G.day){ sfx('cant_do_that'); return; }
@@ -337,6 +338,7 @@ function drawAsk(){
     menuRow(x,y,w,h,on); });
   blit();
   if(ask.kind==='board'){ drawBoardAsk(V,top); b.restore(); m.restore(); return; }
+  if(ask.kind==='fest'){ drawFestAsk(V); b.restore(); m.restore(); return; }
   if(stand){
     if(top>0) TS("▲",LW/2,ASK.y+ASK.top-6,18,WIN_TXT.note,'center');
     if(top+ASK_FIT<L.length) TS("▼",LW/2,ASK.y+askH()+4,18,WIN_TXT.note,'center');
@@ -415,6 +417,7 @@ function wakeUp(){
   if(back.length) sleep.say+="  "+back.join(" and ")+" is feeling better!";
   wxMorning(); sleep.say+="  "+wxSay();
   boardMorning();                                  /* (a new request on the town board) */
+  const fm=festMorning(); if(fm) sleep.say+="  "+fm;
 }
 /* a nap: the clock moves on, and everyone gets back half of what they're missing */
 function napDone(){

@@ -563,7 +563,8 @@ function drawHomeBack(P){
       b.strokeStyle='rgba(230,234,246,.85)'; b.lineWidth=1; } }
   /* the week's weather, under each day (Sunday's always sunny, Waterday's always wet) */
   const first=G.day-today+1;
-  for(let d=0;d<DAYS_PER_SEASON;d++) weatherIcon(b,wxOf(first+d),cx0+d*cw+cw/2,cy+HOME.calH+9,6,false);
+  for(let d=0;d<DAYS_PER_SEASON;d++){ const F=festOf(first+d);       /* (a festival day: its flag) */
+    if(F) festFlag(b,cx0+d*cw+cw/2,cy+HOME.calH+9,6,F.icon); else weatherIcon(b,wxOf(first+d),cx0+d*cw+cw/2,cy+HOME.calH+9,6,false); }
   /* where she is, and the season */
   const sy=P.y+HOME.loc, sx=P.x+P.w-64;
   b.fillStyle='rgba(10,15,42,.35)'; b.beginPath(); b.roundRect(sx-6,sy-14,64,28,6); b.fill();
@@ -598,7 +599,7 @@ function drawHomeText(P){
   for(let d=0;d<DAYS_PER_SEASON;d++) TS(String(d+1),cx0+d*cw+cw/2,cy+HOME.calH/2+7,21,d+1<today?'#8a94c4':'#f4f6ff','center',true);
   const sy=P.y+HOME.loc, pl=placeName();
   TS(pl,P.x+14,sy+2,fitSize(pl,24,P.w-100,true),'#f4f6ff',null,true);
-  TS(weekday()+", "+SEASON_NAME[season()]+" "+dayOfSeason()+"  ·  "+wx().name+(songday()?"  ·  songs +"+Math.round((SONGDAY_MUL-1)*100)+"%":""),P.x+14,sy+22,15,'#c8d4ff');
+  TS(weekday()+", "+SEASON_NAME[season()]+" "+dayOfSeason()+"  ·  "+(festNow()?festNow().name:wx().name)+(songday()?"  ·  songs +"+Math.round((SONGDAY_MUL-1)*100)+"%":""),P.x+14,sy+22,15,'#c8d4ff');
   TS(SEASON_NAME[season()],P.x+P.w-34,sy+6,16,'#f4f6ff','right',true);
   const t=sysTab(), hint=sys.focus==='who'?(IS_TOUCH?"Tap whose "+t+" to see":"Whose "+t+"?  J: pick · H: back")
     :IS_TOUCH?"Tap "+t+" again to open it":"J: open "+t+" · H: close";

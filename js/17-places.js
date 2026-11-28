@@ -321,7 +321,7 @@ function placeSolid(x,y){
   const C=placeCol(G.area);
   if(C){ const cx=Math.floor(x/PLACE_GRID), cy=Math.floor(y/PLACE_GRID);
     if(cx<0||cy<0||cx>=C.w||cy>=C.h||C.M[cy*C.w+cx]===1) return true;
-    return boardSolid(x,y)||placePeople(P).some(p=>Math.hypot(x-p.x,y-p.y)<10); }      /* and the townsfolk, and the board */
+    return boardSolid(x,y)||boothSolid(x,y)||placePeople(P).some(p=>Math.hypot(x-p.x,y-p.y)<10); }      /* and the townsfolk, and the board */
   if(P.cliffs&&y<150) return true;
   if(P.room&&(y<P.wall+14||(P.furn||[]).some(([fx,fy,fw,fh])=>x>fx-8&&x<fx+fw+8&&y>fy-2&&y<fy+fh+8))) return true;
   if(P.fountain&&Math.hypot(x-P.fountain.x,y-P.fountain.y)<P.fountain.r+6) return true;
@@ -439,6 +439,7 @@ function placeInteract(){
     say(dr.to==='bar'?PLACES.bar.name+" opens at 6 PM.":PLACES[dr.to].name+" is closed. Open 8 AM to 6 PM."); sfx('knock_on_door'); return; }
   if(nearTinyEgg()){ playStory(tinyEggFound()); return; }
   if(nearBoard()){ openBoard(); return; }
+  if(nearBooth()){ boothTalk(); return; }
   if(who){ const lines=personLines(who).map(t=>({say:'npc',who,text:t}));
     if(who.shop) lines.push({run:()=>openTownShop(who.shop,who)});
     playStory(lines); return; }
@@ -457,6 +458,7 @@ function placeLabel(){
   const dr=nearTownDoor(R*1.6); if(dr) return doorOpen(dr)?PLACES[dr.to].name:"Closed";
   if(nearTinyEgg(R)) return "Check";
   if(nearBoard(R)) return boardNew()?"Notice board (new!)":"Notice board";
+  if(nearBooth(R)) return festNow().contest;
   if(nearSummit(R)) return "Pick";
   if(nearGather(R)>=0) return "Gather";
   if(nearPond(R)) return season()==='winter'?"Frozen":G.rod?"Fish ("+FISH_MIN+" min)":"Fish (needs a rod)";
@@ -526,6 +528,7 @@ function drawPlace(){
     b.save(); b.translate(x,y); b.scale(ps,ps); b.translate(-x,-y); drawPerson(b,{...p,x,y}); b.restore(); }}));
   ents.push(...friendPlaceEnts(cam));          /* Tituba by the Tipsy Toad */
   if(G.area==='town') ents.push({y:BOARD.y,f:()=>drawBoard(b,BOARD.x-cam.x,BOARD.y-cam.y,G.t)});   /* the request board */
+  if(G.area==='town'&&festNow()) ents.push({y:FEST_BOOTH.y,f:()=>drawBooth(b,FEST_BOOTH.x-cam.x,FEST_BOOTH.y-cam.y,G.t)});   /* a festival's booth */
   if(nearTinyEgg(9)) ents.push({y:TINY_EGG.y,f:()=>drawTinyEgg(b,TINY_EGG.x-cam.x,TINY_EGG.y-cam.y)});   /* Tiny One's egg, under the pine */
   if(gatherSpots()) gatherSpots().forEach(([x,y],i)=>{ const k=gatherAt(i); if(k) ents.push({y,f:()=>drawGatherSpot(b,x-cam.x,y-cam.y,k)}); });
   const sb=summitBloom();          /* the summit's rare flower, sparkling */
@@ -547,6 +550,7 @@ function drawPlace(){
   ents.sort((a,z)=>a.y-z.y).forEach(e=>e.f());
   /* what she walks behind (maps/<place>_<season>_front: tree tops and the like) goes over everyone */
   const fr=frontImg(placeMapKey(G.area)||G.area+'_'+season());       /* (the painting's own: it may be another season's) */ if(fr){ b.imageSmoothingEnabled=true; b.drawImage(fr,-cam.x,-cam.y,placeW(P),placeH(P)); }
+  drawFestDecor(cam);                            /* a festival's bunting over the plaza */
   placePeople(P).forEach(p=>{ b.font='bold 7px '+FONT; b.textAlign='center'; b.fillStyle='rgba(20,12,4,.55)';
     const w=b.measureText(p.name).width+6, ny=p.y-cam.y-36*ps-10; b.fillRect(p.x-cam.x-w/2,ny,w,10);
     b.fillStyle='#fff6d8'; b.fillText(p.name,p.x-cam.x,ny+7.5); b.textAlign='left';

@@ -32,6 +32,7 @@ const G={
   play:0,                                /* play time (ms), shown in the menu */
   wxSeed:0,                              /* picks each day's weather (22-weather.js) */
   req:null,                              /* the town's request board (23-requests.js) */
+  fest:null,                             /* how she placed at each festival (24-festivals.js) */
 };
 /* Difficulty: spawn scales how often pests turn up on the map, hp and atk their HP and
    attack in battle. */
@@ -179,7 +180,7 @@ function saveObj(){
     Math.round(G.player.x),Math.round(G.player.y)],
     c:G.coins,g:[G.gardenLv,G.gardenXp,G.gardenNext,G.harvests],
     s:G.seeds,u:G.unlocked,ge:G.gear,y:G.yard,fl:G.flute,cr:G.crops,t:[G.day,Math.floor(G.clock),G.indoors?1:0,G.area],gd:G.goods,
-    pa:G.party,ps:partySlots(),pp:G.pep,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,pt:Math.round((G.play||0)/1000),wx:G.wxSeed,rq:G.req,
+    pa:G.party,ps:partySlots(),pp:G.pep,al:G.allies,st:G.story,dl:G.daily,gf:G.gearOff,df:G.diff,lr:G.lore,rd:G.rod,jm:G.runMode,nm:G.names,sh:G.sheets,pw:G.pawn,eq:G.equip,pt:Math.round((G.play||0)/1000),wx:G.wxSeed,rq:G.req,fs:G.fest,
     /* a plot: species index, -1 empty; ruined: -10-index of what it was (-2 if unknown) */
     pl:plots.map(p=>[p.dead?(p.deadSp?-10-SPECIES_ORDER.indexOf(p.deadSp):-2):p.sp?SPECIES_ORDER.indexOf(p.sp):-1,p.stage,Math.round(p.growth),Math.round(p.health),p.sungDay||0,p.fullDay||0,p.deadDay||0])};
 }
@@ -204,6 +205,7 @@ function applySave(o){
   P.maxhp=statOf('kaitlyn','hp');
   G.wxSeed=o.wx||0;                                  /* (the weather's seed: a new one for older saves) */
   G.req=o.rq||null;                                  /* (the request board, 23-requests.js) */
+  G.fest=o.fs||null;                                 /* (festival placings, 24-festivals.js) */
   G.story=o.st||{}; G.daily=o.dl||{}; G.gearOff=o.gf||{}; G.diff=DIFFICULTY[o.df]?o.df:'normal';
   if(o.t){ [G.day,G.clock]=o.t; G.indoors=!!o.t[2]; G.area=PLACES[o.t[3]]?o.t[3]:'garden'; preloadSeasonMaps(); }
   G.goods=o.gd||{};
