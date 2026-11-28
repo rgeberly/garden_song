@@ -128,7 +128,7 @@ const SYSW={page:{x:8,y:8,w:256,h:464}, tab:{x:270,y:8,w:84,h:35,step:39}, info:
 const sysTab=()=>SYSTABS[sys.tab];
 const onHome=()=>sys.focus==='tabs'||sys.focus==='who';
 /* rows start this far down the page (Status, Skills and Equip have a portrait above them) */
-const pageRowsY=()=>pagesWho()?92:sysTab()==='Party'?44:48;
+const pageRowsY=()=>pagesWho()?92:sysTab()==='Party'?44:sysTab()==='Lore'&&sys.lore==='songs'&&!sys.loreSel?68:48;   /* (Song Scores: room for Flute Mastery) */
 function openSys(){ if(G.cast) return; G.code=exportCode();
   sys={tab:0,idx:0,focus:'tabs',who:Math.max(0,memberOrder().indexOf('kaitlyn')),top:0}; G.scene='sys'; }
 /* the Settings page: each row a choice that A (or left/right) steps through */
@@ -186,6 +186,7 @@ const playText=()=>{ const s=Math.floor((G.play||0)/1000), h=Math.floor(s/3600),
    'fish'): the ones she's beaten or caught by name, the rest as ???. A known one opens
    its page (sys.loreSel); B steps back a level at a time. */
 const LORE_KINDS=[{id:'beasts',name:"Bestiary",about:"The pests you've beaten"},{id:'fish',name:"Fish",about:"Every fish in the mountain pond"},
+  {id:'songs',name:"Song Scores",about:"Your best at the music stand"},
   {id:'memories',name:"Memories",about:"Moments with your friends, to see again"}];
 const beastKeys=()=>Object.keys(PESTS), fishKeys=()=>Object.keys(GOODS).filter(k=>GOODS[k].kind==='fish');
 const knowBeast=k=>(G.lore.beat[k]||0)>0, knowFish=k=>!!G.lore.fish[k];
@@ -196,10 +197,12 @@ function loreRows(){
   if(sys.lore==='beasts') return {h:40,rows:beastKeys().map(k=>({beast:k}))};
   if(sys.lore==='fish') return {h:40,rows:fishKeys().map(k=>({fish:k}))};
   if(sys.lore==='memories') return {h:40,rows:MEMORIES.map(M=>({mem:M}))};
+  if(sys.lore==='songs') return {h:40,rows:allSongs().map(s=>({song:s}))};
   return {h:56,rows:LORE_KINDS.map(L=>({lore:L}))};
 }
 function loreActivate(R){
   if(R.lore){ sys.lore=R.lore.id; sys.idx=0; sys.top=0; sfx('menu_confirm'); return; }
+  if(R.song) return;                                    /* (its score is all on its row) */
   if(R.mem){ if(!R.mem.seen()){ sfx('cant_do_that'); return; } playMemory(R.mem); return; }
   const k=R.beast||R.fish;
   if(!(R.beast?knowBeast(k):knowFish(k))){ sfx('cant_do_that'); return; }
@@ -216,6 +219,7 @@ function loreTitle(){
   if(S) return S.kind==='beast'?PESTS[S.k].name:GOODS[S.k].name;
   if(sys.lore==='beasts') return "Bestiary  "+beastKeys().filter(knowBeast).length+"/"+beastKeys().length;
   if(sys.lore==='fish') return "Fish  "+fishKeys().filter(knowFish).length+"/"+fishKeys().length;
+  if(sys.lore==='songs'){ const L=allSongs(); return "Song Scores  "+L.filter(s=>songBest(s.key)).length+"/"+L.length; }
   if(sys.lore==='memories') return "Memories  "+MEMORIES.filter(M=>M.seen()).length+"/"+MEMORIES.length;
   return "Lore";
 }
@@ -256,7 +260,16 @@ function loreRowPic(r,P,y,h){
   if(r.fish&&knowFish(r.fish)) drawGoodIcon(b,r.fish,P.x+46,y+h/2-1,24);
 }
 function loreRowText(r,P,y,h,sel){
-  if(r.lore){ TS(r.lore.name,P.x+40,y+24,21,'#f4f6ff',null,sel); TS(r.lore.about,P.x+40,y+42,15,'#aab6e8'); return; }
+  if(r.lore){ TS(r.lore.name,P.x+40,y+24,21,'#f4f6ff',null,sel); TS(r.lore.about,P.x+40,y+42,15,'#aab6e8');
+    if(r.lore.id==='songs'){ TS(fluteMastery().toLocaleString(),P.x+P.w-14,y+26,20,'#ffe08a','right',true); TS("Flute Mastery",P.x+P.w-14,y+42,12,'#aab6e8','right'); }
+    return; }
+  if(r.song){ const s=r.song, B=songBest(s.key), known=s.known||!!B;
+    TS(known?s.name:"???",P.x+20,y+h/2+6,18,known?'#f4f6ff':'#7c84b0',null,sel);
+    TS(s.kind,P.x+P.w-84,y+h/2+5,13,'#8a94c4','right');
+    if(B){ TS(accRank(B.acc),P.x+P.w-12,y+h/2+6,18,B.acc>0.93?'#ffe08a':'#c8d4ff','right',true);
+      TS(Math.round(B.acc*100)+"%",P.x+P.w-40,y+h/2+6,17,'#ffe08a','right',true); }
+    else if(known) TS("not played",P.x+P.w-12,y+h/2+5,14,'#8a94c4','right');
+    return; }
   if(r.mem){ const seen=r.mem.seen();
     TS(seen?r.mem.name:"???",P.x+44,y+h/2+6,18,seen?'#f4f6ff':'#7c84b0',null,sel);
     if(seen) TS("▶",P.x+P.w-14,y+h/2+6,15,'#ffe08a','right'); return; }
@@ -269,6 +282,10 @@ function loreRowText(r,P,y,h,sel){
   else { TS("???",P.x+70,y+h/2+6,18,'#7c84b0',null,sel); TS(fishWhen(g),P.x+P.w-12,y+h/2+5,13,'#8a94c4','right'); }
 }
 function loreFoot(R){
+  if(R.song){ const s=R.song, B=songBest(s.key);
+    if(!s.known&&!B) return ["???",s.how];
+    return [s.name+"  ("+s.kind+")",B?"Best "+Math.round(B.acc*100)+"% (rank "+accRank(B.acc)+")  ·  best combo "+B.combo+"  ·  played "+B.n+" time"+(B.n===1?"":"s")+".  Flute Mastery "+songMastery(s)+" of "+s.pts+"."
+                    :"Not played yet. Play it at the music stand at home. Worth up to "+s.pts+" Flute Mastery."]; }
   if(R.mem) return R.mem.seen()?[R.mem.name,R.mem.about+".  (A to watch)"]:["???","A moment still to come."];
   if(R.beast){ const k=R.beast; return knowBeast(k)?[PESTS[k].name,PESTS[k].about+"  (A for more)"]:["???","Not beaten yet."]; }
   if(R.fish){ const g=GOODS[R.fish]; return knowFish(R.fish)?[g.name,g.flavor+" Sells for "+goodsPrice(R.fish)+"c.  (A for more)"]
@@ -921,7 +938,10 @@ function drawSys(){
     wrapLines(PARTY_INFO[id].role,13,P.w-100).slice(0,2).forEach((ln,i)=>TS(ln,P.x+88,P.y+66+i*12,13,'#aab6e8')); }
   else if(t==='Party') TS("Active team  "+G.party.length+"/"+PARTY_MAX,P.x+14,P.y+26,24,'#f4f6ff',null,true);
   else if(t==='Lore'){ TS(loreTitle(),P.x+14,P.y+26,sys.loreSel?22:24,'#f4f6ff',null,true);
-    if(sys.lore&&!sys.loreSel) TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right'); }
+    if(sys.lore&&!sys.loreSel) TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right');
+    if(sys.lore==='songs'&&!sys.loreSel){ TS("Flute Mastery",P.x+14,P.y+54,17,'#c8d4ff');
+      TS(fluteMastery().toLocaleString(),P.x+14+TW("Flute Mastery ",17),P.y+54,20,'#ffe08a',null,true);
+      TS("of "+masteryMax().toLocaleString()+", longer songs worth more",P.x+P.w-12,P.y+54,13,'#8a94c4','right'); } }
   else if(t==='Settings'&&sys.gfx){ TS("Graphics",P.x+14,P.y+26,24,'#f4f6ff',null,true); TS("◀ back",P.x+P.w-12,P.y+26,15,'#8a94c4','right'); }
   else if(t==='Items'&&sys.cat){ TS(catNow().name,P.x+14,P.y+26,24,'#f4f6ff',null,true); TS("◀  ▶",P.x+P.w-14,P.y+26,20,'#c8d4ff','right',true); }
   else TS(t,P.x+14,P.y+26,24,'#f4f6ff',null,true);

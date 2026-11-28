@@ -262,12 +262,14 @@ function askSleep(){
 }
 /* the same window at the music stand: the songs she knows, and what each is worth */
 function askStand(){
-  ask={idx:0,top:0,kind:'stand'}; padVec={x:0,y:0}; padId=null; btnHeld=false; G.scene='ask';
+  ask={idx:0,top:0,kind:'stand',mode:SONG_TEST?'test':null}; padVec={x:0,y:0}; padId=null; btnHeld=false; G.scene='ask';
 }
 function standChoices(){
   if(SONG_TEST) return [{id:'auto',name:"Autoplay: "+(songAuto?"ON":"off")}]
     .concat(Object.keys(SONG_DATA).map(k=>({id:'test',name:songTitle(k),key:k}))).concat([{id:'no',name:"Not now"}]);
-  return knownSongs().map(s=>({id:'song',name:s.name,song:s})).concat([{id:'no',name:"Not now"}]);
+  if(!ask.mode) return [{id:'mode',mode:'exp',name:"Play for EXP"},{id:'mode',mode:'free',name:"Play for Practice"},{id:'no',name:"Not now"}];
+  if(ask.mode==='free') return practiceSongs().map(s=>({id:'free',name:s.name,s})).concat([{id:'back',name:"Back"}]);
+  return knownSongs().map(s=>({id:'song',name:s.name,song:s})).concat([{id:'back',name:"Back"}]);
 }
 const askChoices=()=>ask&&ask.kind==='stand'?standChoices():sleepChoices();
 function sleepChoices(){
@@ -308,9 +310,16 @@ function askTouch(x,y){
 }
 function askAnswer(c){
   if(c&&c.id==='auto'){ songAuto=!songAuto; return; }       /* song test: stays open */
+  /* the music stand: how she'll play, then which song; B or Back from the songs goes back */
+  if(ask&&ask.kind==='stand'&&c&&c.id==='mode'){
+    if(c.mode==='exp'&&G.daily.practice===G.day){ sfx('cant_do_that'); return; }
+    ask.mode=c.mode; ask.idx=0; ask.top=0; return; }
+  if(ask&&ask.kind==='stand'&&ask.mode&&ask.mode!=='test'&&(!c||c.id==='back')){
+    ask.idx=ask.mode==='exp'?0:1; ask.mode=null; ask.top=0; return; }
   ask=null; G.scene='world';
   if(c&&c.id==='test') testSong(c.key);
   else if(c&&c.id==='song') startPractice(c.song);
+  else if(c&&c.id==='free') playForPractice(c.s);
   else if(c&&c.id==='night') goToSleep(false);
   else if(c&&c.id==='nap') goToSleep(false,c.to); }
 function drawAsk(){
@@ -338,13 +347,29 @@ function drawAsk(){
         TS(D.n.length+" notes · "+D.len.toFixed(1)+" s",ASK.x+50,y+18,17,WIN_TXT.mp,'left'); });
       b.restore(); m.restore(); return;
     }
-    TS("Practice which song?",LW/2,ASK.y+32,30,WIN_TXT.title,'center',true);
-    TS(tired?"You've practiced today. Come back tomorrow!":"Practice once a day for EXP.",LW/2,ASK.y+54,19,tired?WIN_TXT.bad:WIN_TXT.body,'center');
-    TS(PRACTICE_SONGS.some(s=>!songKnown(s))?"Rosa's store in town sells sheet music.":"More songs to come as sheet music in town.",LW/2,ASK.y+73,16,WIN_TXT.note,'center');
+    if(!ask.mode){                                      /* how she'll play */
+      TS("The music stand",LW/2,ASK.y+32,30,WIN_TXT.title,'center',true);
+      TS("Play once a day for EXP, or practice any time.",LW/2,ASK.y+54,17,WIN_TXT.body,'center');
+      TS("Your best scores are kept in Lore.",LW/2,ASK.y+73,16,WIN_TXT.note,'center');
+      V.forEach((c,j)=>{ const y=ASK.y+ASK.top+j*askRow()+20;
+        if(c.id!=='mode'){ TS(c.name,LW/2+12,y+9,22,WIN_TXT.title,'center',true); return; }
+        const off=c.mode==='exp'&&tired;
+        TS(c.name,ASK.x+50,y,21,off?WIN_TXT.dim:WIN_TXT.title,'left',true);
+        TS(c.mode==='exp'?(tired?"Done for today. Come back tomorrow!":"Once a day · takes time · earns EXP"):"Any time · no time passes · no rewards",
+          ASK.x+50,y+18,16,off?WIN_TXT.bad:WIN_TXT.mp,'left'); });
+      b.restore(); m.restore(); return;
+    }
+    const free=ask.mode==='free';
+    TS(free?"Practice which song?":"Play which song for EXP?",LW/2,ASK.y+32,free?30:27,WIN_TXT.title,'center',true);
+    TS(free?"Any song you know. No time passes, no rewards.":"Once a day: the better you play, the more EXP.",LW/2,ASK.y+54,17,WIN_TXT.body,'center');
+    TS(free?"Crops' songs, Pep Rallies and sheet music.":PRACTICE_SONGS.some(s=>!songKnown(s))?"Rosa's store in town sells sheet music.":"More songs to come as sheet music in town.",LW/2,ASK.y+73,16,WIN_TXT.note,'center');
     V.forEach((c,j)=>{ const y=ASK.y+ASK.top+j*askRow()+20;
+      if(c.id==='free'){ const B=songBest(c.s.key);
+        TS(c.name,ASK.x+50,y,21,WIN_TXT.title,'left',true);
+        TS(c.s.kind+" · "+(B?"best "+Math.round(B.acc*100)+"% ("+accRank(B.acc)+")":"no score yet"),ASK.x+50,y+18,16,B?WIN_TXT.mp:WIN_TXT.off,'left'); return; }
       if(c.id!=='song'){ TS(c.name,LW/2+12,y+9,22,WIN_TXT.title,'center',true); return; }
-      TS(c.name,ASK.x+50,y,21,tired?WIN_TXT.dim:WIN_TXT.title,'left',true);
-      TS("up to "+practiceXp(1,c.song)+" EXP · "+(c.song.min||60)+" min",ASK.x+50,y+18,17,tired?WIN_TXT.off:WIN_TXT.mp,'left'); });
+      TS(c.name,ASK.x+50,y,21,WIN_TXT.title,'left',true);
+      TS("up to "+practiceXp(1,c.song)+" EXP · "+(c.song.min||60)+" min",ASK.x+50,y+18,17,WIN_TXT.mp,'left'); });
     b.restore(); m.restore(); return;
   }
   const early=G.clock<=EARLY_BED, t=clockText();

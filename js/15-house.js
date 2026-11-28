@@ -109,14 +109,51 @@ function testSong(key){
   startRhythm(null,{practice:true,test:true,notes:0,name:songTitle(key),mp:0,song:key,
     cb:acc=>{ G.scene='world'; say(songTitle(key)+": "+Math.round(acc*100)+"%"); }});
 }
-/* the music stand opens a list of the songs she knows (askStand, in the bed's window) */
+/* The music stand (askStand, in the bed's window) asks first how she'll play:
+   for EXP (once a day, a full song from her sheet music; it takes its minutes of the
+   day) or for practice (any song she knows, any number of times; no time passes, no
+   rewards). Either way her best for each song is kept (G.lore.songs, by song key: best
+   accuracy, best combo, times played), shown in Lore > Song Scores. */
 function startPractice(song){
-  if(G.daily.practice===G.day){ say("You've already practiced today. Your fingers need a rest!"); return; }
-  const min=song.min||60;
-  startRhythm(null,{practice:true,notes:0,name:song.name,mp:0,song:'practice_'+song.file,cb:(acc)=>{
+  if(G.daily.practice===G.day){ say("You've already played for EXP today. Your fingers need a rest!"); return; }
+  const min=song.min||60, key='practice_'+song.file;
+  startRhythm(null,{practice:true,notes:0,name:song.name,mp:0,song:key,cb:(acc,combo)=>{
     G.daily.practice=G.day; G.scene='world';
-    const xp=practiceXp(acc,song); addXp(xp); passTime(min);
-    say(song.name+" ("+Math.round(acc*100)+"%): "+xpEach(xp)+"!"); autoSave(); }});
+    const best=recordSong(key,acc,combo), xp=practiceXp(acc,song); addXp(xp); passTime(min);
+    say(song.name+" ("+Math.round(acc*100)+"%): "+xpEach(xp)+"!"+(best?" A new best!":"")); autoSave(); }});
+}
+/* Every song with a recording, in the order Lore lists them: the full songs (sheet music),
+   the Pep Rallies, then the crops' songs; known: she can practice it. */
+function allSongs(){
+  const L=[], has=k=>typeof SONG_DATA!=='undefined'&&!!SONG_DATA[k];
+  PRACTICE_SONGS.forEach(s=>L.push({key:'practice_'+s.file,name:s.name,kind:"Song",pts:MASTERY_PTS.Song,known:songKnown(s),
+    how:"Its sheet music is sold at Rosa's store in town."}));
+  PEP_SONGS.forEach(s=>L.push({key:s.song,name:s.name,kind:"Pep Rally",pts:MASTERY_PTS['Pep Rally'],known:pepKnown()&&s.learn(),
+    how:"A Pep Rally song still to learn."}));
+  Object.keys(SPECIES).forEach(k=>L.push({key:k,name:SPECIES[k].name,kind:"Crop",pts:MASTERY_PTS.Crop,known:G.unlocked.includes(k),
+    how:"A crop's song, learned along with its seeds."}));
+  return L.filter(s=>has(s.key));
+}
+const practiceSongs=()=>allSongs().filter(s=>s.known);
+/* practice: any song she knows, as often as she likes; just her score */
+function playForPractice(s){
+  startRhythm(null,{practice:true,free:true,notes:0,name:s.name,mp:0,song:s.key,cb:(acc,combo)=>{
+    G.scene='world';
+    const best=recordSong(s.key,acc,combo);
+    say(s.name+" ("+Math.round(acc*100)+"%)"+(best?": a new best!":". Best: "+Math.round(songBest(s.key).acc*100)+"%")); autoSave(); }});
+}
+const songBest=key=>(G.lore.songs||{})[key];
+/* Flute Mastery, to compare with friends: each song's best is worth up to its kind's
+   points (the longer the song, the more), all added up */
+const MASTERY_PTS={Song:500,'Pep Rally':200,Crop:100};
+const songMastery=s=>{ const B=songBest(s.key); return B?Math.round(B.acc*s.pts):0; };
+const fluteMastery=()=>allSongs().reduce((a,s)=>a+songMastery(s),0);
+const masteryMax=()=>allSongs().reduce((a,s)=>a+s.pts,0);
+/* note a song's score; true when it's her best yet */
+function recordSong(id,acc,combo){
+  const L=G.lore.songs||(G.lore.songs={}), o=L[id]||(L[id]={acc:0,combo:0,n:0}), best=acc>o.acc;
+  o.n++; o.acc=Math.max(o.acc,acc); o.combo=Math.max(o.combo,combo||0);
+  return best;
 }
 /* a little wooden music stand with a page of music on it */
 function drawStand(x,y,k){
@@ -184,7 +221,7 @@ function drawHouse(){
   blit();
   drawClockText(); drawBuffsText();
   const pal=nearFriend(PROMPT_REACH);
-  const label=nearIvy(PROMPT_REACH)?ivyLabel():nearTinyNest(PROMPT_REACH*1.4)?tinyLabel():pal?friendLabel(pal):nearStand()?(G.daily.practice===G.day?"Practiced today":"Practice flute")
+  const label=nearIvy(PROMPT_REACH)?ivyLabel():nearTinyNest(PROMPT_REACH*1.4)?tinyLabel():pal?friendLabel(pal):nearStand()?"Play flute"
     :nearBed()?"Sleep":nearHouseDoor()?"Go outside":null;
   if(label&&G.scene==='world') drawPrompt(label,sx,sy-74*HOUSE_KAIT);
   drawHUD();

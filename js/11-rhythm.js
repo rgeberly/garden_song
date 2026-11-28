@@ -223,7 +223,7 @@ function cancelRhythm(){
   stopStemPlayback();
   const bc=R_.battle;
   if(musicGain) musicGain.gain.value=0.34;
-  if(bc&&bc.practice){ R_=null; G.scene='world'; setMusic(areaMusic()); say("You put the flute down. (Practice again any time today.)"); return; }
+  if(bc&&bc.practice){ R_=null; G.scene='world'; setMusic(areaMusic()); say(bc.free||bc.test?"You put the flute down.":"You put the flute down. (Play for EXP again any time today.)"); return; }
   R_=null;
   if(bc&&bc.pep){                           /* a Pep Rally stopped: the meter stays full, and the round goes on */
     G.pep=PEP_MAX; G.scene='battle'; setMusic(B&&B.boss?'boss':'battle');
@@ -327,13 +327,14 @@ function stampThump(){
     const nz=AC.createBufferSource(), f=AC.createBiquadFilter(), ng=AC.createGain(); nz.buffer=noiseBuf; f.type='lowpass'; f.frequency.value=900;
     ng.gain.setValueAtTime(0.25,t); ng.gain.exponentialRampToValueAtTime(0.001,t+0.08); nz.connect(f); f.connect(ng); ng.connect(sfxGain); nz.start(t); nz.stop(t+0.1); })();
 }
+const accRank=acc=>acc>0.93?'S':acc>0.8?'A':acc>0.62?'B':acc>0.4?'C':'D';
 const rhythmAcc=()=>{ const tot=R_.perfect+R_.good+R_.miss||1;
   return (R_.perfect+R_.good*0.55)/tot; };
 function finishRhythm(){
   stopStemPlayback();
   const acc=rhythmAcc();
   setMusic(B?(B.boss?'boss':'battle'):areaMusic());
-  if(R_.battle){ const cb=R_.battle.cb; R_=null; cb(acc); return; }
+  if(R_.battle){ const cb=R_.battle.cb, combo=R_.maxcombo; R_=null; cb(acc,combo); return; }
   const plot=R_.plot,S=SPECIES[plot.sp];
   plot.sungDay=G.day;
   const h=harmony(), mul=(gearOn('can')?1.25:1)*(yardOn('bath')?1.1:1)*(plot.raised?1.3:1);
@@ -557,7 +558,7 @@ function drawRhythm(){
       drawFrog(b,74,292-bo,G.t,2);                        /* (to the side of the stamp) */
       for(let i=0;i<3;i++){ const a=G.t/300+i*2.1;
         noteGlyph(b,Math.round(84+Math.cos(a)*28),Math.round(292-bo-6+Math.sin(a)*14),'#ffe08a',1); } }
-    const acc=rhythmAcc(); drawStamp(acc>0.93?'S':acc>0.8?'A':acc>0.62?'B':acc>0.4?'C':'D',180,284);
+    const acc=rhythmAcc(); drawStamp(accRank(acc),180,284);
     drawSceneGlow(16);
   }
   blit();
@@ -586,7 +587,7 @@ function drawRhythm(){
   }
   if(R_.done){
     const acc=rhythmAcc();
-    const rank=acc>0.93?'S':acc>0.8?'A':acc>0.62?'B':acc>0.4?'C':'D';
+    const rank=accRank(acc);
     TS("Song Complete",180,183,28,WIN_TXT.title,'center',true);
     TS("Accuracy   "+Math.round(acc*100)+"%",180,213,21,WIN_TXT.body,'center');
     TS("Max combo   "+R_.maxcombo,180,236,21,WIN_TXT.body,'center');

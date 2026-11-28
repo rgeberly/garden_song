@@ -70,7 +70,7 @@ function menuState(){
   else if(s==='shop'){ tab=J(shop.tab); cur=J([shop.idx,shop.page,shop.cIdx]); depth=shop.confirm?1:0; }
   else if(s==='menu') cur=J(menu.idx);
   else if(s==='title'){ cur=J(TM.idx); depth=(TM.mode==='main'?0:1)+!!TM.ask; }
-  else if(s==='ask'&&ask) cur=J(ask.idx);
+  else if(s==='ask'&&ask){ cur=J(ask.idx); depth=ask.mode?1:0; }
   else if(s==='battle'&&B){ cur=J([B.idx,B.sub,B.tgt&&B.tgt.i]); depth=(B.menu==='cmd'?0:1)+!!B.tgt+!!B.inspect; step=B.inputAt+(B.turn==='player'?0:99); }
   return {scene:s,tab,cur,depth,step};
 }
